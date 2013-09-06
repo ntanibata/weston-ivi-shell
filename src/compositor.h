@@ -524,6 +524,9 @@ struct weston_renderer {
 			       pixman_format_code_t format, void *pixels,
 			       uint32_t x, uint32_t y,
 			       uint32_t width, uint32_t height);
+	int (*read_surface_pixels)(struct weston_surface *es,
+				   pixman_format_code_t format, void *pixels,
+				   int x, int y, int width, int height);
 	void (*repaint_output)(struct weston_output *output,
 			       pixman_region32_t *output_damage);
 	void (*flush_damage)(struct weston_surface *surface);
