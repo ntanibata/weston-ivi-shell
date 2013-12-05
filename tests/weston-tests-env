@@ -1,0 +1,43 @@
+#!/bin/bash
+
+TESTNAME=$1
+
+if test -z "$TESTNAME"; then
+	echo "usage: $(basename $0) <test name>"
+	exit 1;
+fi
+
+WESTON=$abs_builddir/../src/weston
+LOGDIR=$abs_builddir/logs
+
+mkdir -p "$LOGDIR"
+
+SERVERLOG="$LOGDIR/$1-serverlog.txt"
+OUTLOG="$LOGDIR/$1-log.txt"
+
+rm -f "$SERVERLOG"
+
+if test x$WAYLAND_DISPLAY != x; then
+	BACKEND=$abs_builddir/../src/.libs/wayland-backend.so
+elif test x$DISPLAY != x; then
+	BACKEND=$abs_builddir/../src/.libs/x11-backend.so
+else
+	BACKEND=$abs_builddir/../src/.libs/wayland-backend.so
+fi
+
+case $TESTNAME in
+	*.la|*.so)
+		$WESTON --backend=$BACKEND \
+			--socket=test-$(basename $TESTNAME) \
+			--modules=$abs_builddir/.libs/${TESTNAME/.la/.so},xwayland.so \
+			--log="$SERVERLOG" \
+			&> "$OUTLOG"
+		;;
+	*)
+		WESTON_TEST_CLIENT_PATH=$abs_builddir/$TESTNAME $WESTON \
+			--socket=test-$(basename $TESTNAME) \
+			--backend=$BACKEND \
+			--log="$SERVERLOG" \
+			--modules=$abs_builddir/.libs/weston-test.so,xwayland.so \
+			&> "$OUTLOG"
+esac
