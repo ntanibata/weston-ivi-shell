@@ -2,6 +2,7 @@ EXTRA_DIST =					\
 	desktop-shell.xml			\
 	screenshooter.xml			\
 	tablet-shell.xml			\
+	ivi-application.xml			\
 	xserver.xml				\
 	text.xml				\
 	input-method.xml			\
