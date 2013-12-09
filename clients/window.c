@@ -71,6 +71,13 @@ typedef void *EGLContext;
 
 #include "window.h"
 
+#define ENABLE_IVI_SHELL 1
+#if ENABLE_IVI_SHELL
+#include <sys/types.h>
+#include "../src/ivi-application-client-protocol.h"
+#define IVI_SURFACE_ID 9000
+#endif
+
 struct shm_pool;
 
 struct global {
@@ -131,6 +138,9 @@ struct display {
 
 	int has_rgb565;
 	int seat_version;
+#if ENABLE_IVI_SHELL
+    struct ivi_application *ivi_application;
+#endif
 };
 
 enum {
@@ -252,6 +262,9 @@ struct window {
 
 	struct surface *main_surface;
 	struct wl_shell_surface *shell_surface;
+#if ENABLE_IVI_SHELL
+    struct ivi_surface *ivi_surface;
+#endif
 
 	struct frame *frame;
 
@@ -1421,6 +1434,18 @@ surface_create_surface(struct surface *surface, int dx, int dy, uint32_t flags)
 	struct display *display = surface->window->display;
 	struct rectangle allocation = surface->allocation;
 
+#if ENABLE_IVI_SHELL
+	if (!surface->toysurface) {
+        uint32_t id_ivisurf = IVI_SURFACE_ID + (uint32_t)getpid();
+        surface->window->ivi_surface = ivi_application_surface_create(display->ivi_application,
+                                                 id_ivisurf, surface->surface);
+        if (surface->window->ivi_surface == NULL) {
+            fprintf(stderr, "Failed to create ivi_client_surface\n");
+            abort();
+        }
+    }
+#endif
+
 	if (!surface->toysurface && display->dpy &&
 	    surface->buffer_type == WINDOW_BUFFER_TYPE_EGL_WINDOW) {
 		surface->toysurface =
@@ -1434,6 +1459,7 @@ surface_create_surface(struct surface *surface, int dx, int dy, uint32_t flags)
 		surface->toysurface = shm_surface_create(display,
 							 surface->surface,
 							 flags, &allocation);
+
 
 	surface->cairo_surface = surface->toysurface->prepare(
 		surface->toysurface, dx, dy,
@@ -1536,6 +1562,11 @@ surface_destroy(struct surface *surface)
 	if (surface->toysurface)
 		surface->toysurface->destroy(surface->toysurface);
 
+#if ENABLE_IVI_SHELL
+    ivi_surface_destroy(surface->window->ivi_surface);
+    ivi_application_destroy(surface->window->display->ivi_application);
+#endif
+
 	wl_list_remove(&surface->link);
 	free(surface);
 }
@@ -1550,7 +1581,7 @@ window_destroy(struct window *window)
 
 	wl_list_remove(&window->redraw_task.link);
 
-	wl_list_for_each(input, &display->input_list, link) {	  
+	wl_list_for_each(input, &display->input_list, link) {
 		if (input->touch_focus == window)
 			input->touch_focus = NULL;
 		if (input->pointer_focus == window)
@@ -2692,14 +2723,14 @@ frame_button_handler(struct widget *widget,
 	}
 }
 
-static void 
+static void
 frame_touch_down_handler(struct widget *widget, struct input *input,
 			 uint32_t serial, uint32_t time, int32_t id,
 			 float x, float y, void *data)
 {
 	struct window *window = widget->window;
 	struct display *display = window->display;
-	
+
 	wl_shell_surface_move(window->shell_surface,
 			      input_get_seat(input),
 			      display->serial);
@@ -3239,7 +3270,7 @@ touch_handle_down(void *data, struct wl_touch *wl_touch,
 			wl_list_insert(&input->touch_point_list, &tp->link);
 
 			if (widget->touch_down_handler)
-				(*widget->touch_down_handler)(widget, input, 
+				(*widget->touch_down_handler)(widget, input,
 							      serial, time, id,
 							      sx, sy,
 							      widget->user_data);
@@ -3318,7 +3349,7 @@ touch_handle_frame(void *data, struct wl_touch *wl_touch)
 
 	wl_list_for_each_safe(tp, tmp, &input->touch_point_list, link) {
 		if (tp->widget->touch_frame_handler)
-			(*tp->widget->touch_frame_handler)(tp->widget, input, 
+			(*tp->widget->touch_frame_handler)(tp->widget, input,
 							   tp->widget->user_data);
 
 		wl_list_remove(&tp->link);
@@ -3850,7 +3881,7 @@ window_touch_move(struct window *window, struct input *input, uint32_t serial)
 	if (!window->shell_surface)
 		return;
 
-	wl_shell_surface_move(window->shell_surface, input->seat, 
+	wl_shell_surface_move(window->shell_surface, input->seat,
 			      window->display->serial);
 }
 
@@ -4631,7 +4662,7 @@ menu_button_handler(struct widget *widget,
 	    (menu->release_count > 0 || time - menu->time > 500)) {
 		/* Either relase after press-drag-release or
 		 * click-motion-click. */
-		menu->func(menu->window->parent, 
+		menu->func(menu->window->parent,
 			   menu->current, menu->window->parent->user_data);
 		input_ungrab(input);
 		menu_destroy(menu);
@@ -5098,6 +5129,11 @@ registry_handle_global(void *data, struct wl_registry *registry, uint32_t id,
 			wl_registry_bind(registry, id,
 					 &wl_subcompositor_interface, 1);
 	}
+#if ENABLE_IVI_SHELL
+    else if (strcmp(interface, "ivi_application") == 0) {
+        d->ivi_application = wl_registry_bind(registry, id, &ivi_application_interface, 1);
+    }
+#endif
 
 	if (d->global_handler)
 		d->global_handler(d, id, interface, version, d->user_data);
@@ -5401,6 +5437,9 @@ display_destroy(struct display *display)
 
 	close(display->epoll_fd);
 
+#if ENABLE_IVI_SHELL
+	wl_display_roundtrip(display->display);
+#endif
 	if (!(display->display_fd_events & EPOLLERR) &&
 	    !(display->display_fd_events & EPOLLHUP))
 		wl_display_flush(display->display);

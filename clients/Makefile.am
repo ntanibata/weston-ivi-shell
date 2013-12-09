@@ -37,7 +37,9 @@ simple_clients_programs =			\
 
 weston_simple_shm_SOURCES = simple-shm.c 	\
 	../shared/os-compatibility.c		\
-	../shared/os-compatibility.h
+	../shared/os-compatibility.h		\
+	../src/ivi-application-protocol.c			\
+	../src/ivi-application-client-protocol.h
 weston_simple_shm_CPPFLAGS = $(SIMPLE_CLIENT_CFLAGS)
 weston_simple_shm_LDADD = $(SIMPLE_CLIENT_LIBS)
 
@@ -58,7 +60,9 @@ if BUILD_SIMPLE_EGL_CLIENTS
 simple_egl_clients_programs =			\
 	weston-simple-egl
 
-weston_simple_egl_SOURCES = simple-egl.c
+weston_simple_egl_SOURCES = simple-egl.c \
+	../src/ivi-application-protocol.c			\
+	../src/ivi-application-client-protocol.h
 weston_simple_egl_CPPFLAGS = $(SIMPLE_EGL_CLIENT_CFLAGS)
 weston_simple_egl_LDADD = $(SIMPLE_EGL_CLIENT_LIBS) -lm
 endif
@@ -100,7 +104,9 @@ libtoytoolkit_la_SOURCES =			\
 	subsurface-protocol.c			\
 	subsurface-client-protocol.h		\
 	workspaces-protocol.c			\
-	workspaces-client-protocol.h
+	workspaces-client-protocol.h	\
+	../src/ivi-application-protocol.c			\
+	../src/ivi-application-client-protocol.h
 
 libtoytoolkit_la_LIBADD =			\
 	$(CLIENT_LIBS)				\
