@@ -35,6 +35,13 @@
 #include <wayland-client.h>
 #include "../shared/os-compatibility.h"
 
+#define ENABLE_IVI_SHELL 1
+#if ENABLE_IVI_SHELL
+#include <sys/types.h>
+#include "../src/ivi-application-client-protocol.h"
+#define IVI_SURFACE_ID 9000
+#endif
+
 struct display {
 	struct wl_display *display;
 	struct wl_registry *registry;
@@ -42,6 +49,9 @@ struct display {
 	struct wl_shell *shell;
 	struct wl_shm *shm;
 	uint32_t formats;
+#if ENABLE_IVI_SHELL
+    struct ivi_application *ivi_application;
+#endif
 };
 
 struct buffer {
@@ -138,6 +148,9 @@ static struct window *
 create_window(struct display *display, int width, int height)
 {
 	struct window *window;
+#if ENABLE_IVI_SHELL
+    struct ivi_surface *ivisurf = NULL;
+#endif
 
 	window = calloc(1, sizeof *window);
 	if (!window)
@@ -155,6 +168,15 @@ create_window(struct display *display, int width, int height)
 		wl_shell_surface_add_listener(window->shell_surface,
 					      &shell_surface_listener, window);
 
+#if ENABLE_IVI_SHELL
+    uint32_t id_ivisurf = IVI_SURFACE_ID + (uint32_t)getpid();
+    ivisurf = ivi_application_surface_create(display->ivi_application,
+                                             id_ivisurf, window->surface);
+    if (ivisurf == NULL) {
+        fprintf(stderr, "Failed to create ivi_client_surface\n");
+        abort();
+    }
+#endif
 	wl_shell_surface_set_title(window->shell_surface, "simple-shm");
 
 	wl_shell_surface_set_toplevel(window->shell_surface);
@@ -318,6 +340,11 @@ registry_handle_global(void *data, struct wl_registry *registry,
 					  id, &wl_shm_interface, 1);
 		wl_shm_add_listener(d->shm, &shm_listener, d);
 	}
+#if ENABLE_IVI_SHELL
+    else if (strcmp(interface, "ivi_application") == 0) {
+        d->ivi_application = wl_registry_bind(registry, id, &ivi_application_interface, 1);
+    }
+#endif
 }
 
 static void
@@ -362,7 +389,7 @@ create_display(void)
 	}
 
 	wl_display_get_fd(display->display);
-	
+
 	return display;
 }
 

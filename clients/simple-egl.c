@@ -38,6 +38,14 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
+#define ENABLE_IVI_SHELL 1
+#if ENABLE_IVI_SHELL
+#include <sys/types.h>
+#include <unistd.h>
+#include "../src/ivi-application-client-protocol.h"
+#define IVI_SURFACE_ID 9000
+#endif
+
 #ifndef EGL_EXT_swap_buffers_with_damage
 #define EGL_EXT_swap_buffers_with_damage 1
 typedef EGLBoolean (EGLAPIENTRYP PFNEGLSWAPBUFFERSWITHDAMAGEEXTPROC)(EGLDisplay dpy, EGLSurface surface, EGLint *rects, EGLint n_rects);
@@ -70,6 +78,9 @@ struct display {
 		EGLConfig conf;
 	} egl;
 	struct window *window;
+#if ENABLE_IVI_SHELL
+    struct ivi_application *ivi_application;
+#endif
 
 	PFNEGLSWAPBUFFERSWITHDAMAGEEXTPROC swap_buffers_with_damage;
 };
@@ -228,7 +239,7 @@ init_gl(struct window *window)
 	}
 
 	glUseProgram(program);
-	
+
 	window->gl.pos = 0;
 	window->gl.col = 1;
 
@@ -323,7 +334,10 @@ create_surface(struct window *window)
 {
 	struct display *display = window->display;
 	EGLBoolean ret;
-	
+#if ENABLE_IVI_SHELL
+    struct ivi_surface *ivisurf = NULL;
+#endif
+
 	window->surface = wl_compositor_create_surface(display->compositor);
 	window->shell_surface = wl_shell_get_shell_surface(display->shell,
 							   window->surface);
@@ -339,7 +353,15 @@ create_surface(struct window *window)
 		eglCreateWindowSurface(display->egl.dpy,
 				       display->egl.conf,
 				       window->native, NULL);
-
+#if ENABLE_IVI_SHELL
+    uint32_t id_ivisurf = IVI_SURFACE_ID + (uint32_t)getpid();
+    ivisurf = ivi_application_surface_create(display->ivi_application,
+                                             id_ivisurf, window->surface);
+    if (ivisurf == NULL) {
+        fprintf(stderr, "Failed to create ivi_client_surface\n");
+        abort();
+    }
+#endif
 	wl_shell_surface_set_title(window->shell_surface, "simple-egl");
 
 	ret = eglMakeCurrent(window->display->egl.dpy, window->egl_surface,
@@ -680,6 +702,11 @@ registry_handle_global(void *data, struct wl_registry *registry,
 		d->default_cursor =
 			wl_cursor_theme_get_cursor(d->cursor_theme, "left_ptr");
 	}
+#if ENABLE_IVI_SHELL
+    else if (strcmp(interface, "ivi_application") == 0) {
+        d->ivi_application = wl_registry_bind(registry, name, &ivi_application_interface, 1);
+    }
+#endif
 }
 
 static void
