@@ -14,6 +14,23 @@ ivi-shell proposes two features
   starts to move, the wl_surface drawn by Car navigation is expected to
   move top of surfaces.
 
+HowTo build:
+the same as weston way.
+
+Weston.ini:
+Following mandatory values to be defined.
+- shell=ivi-shell.so
+- modules=hmi-controller.so
+
+Image files for hmi-client, drawing UI:
+Following files to be prepared in /opt/weston_ivi_shell
+- background.bmp : image of background
+- eight.bmp : image of switch for triggering tiling layout
+- once.bmp: image of switch for triggering full screen layout
+- random.bmp: image of switch for triggering random layout
+- twin.bmp: image of switch for triggering side by side layout
+- panel: image of panel to show switches.
+
 -----------------------------
 Weston
 
