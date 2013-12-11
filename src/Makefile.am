@@ -111,6 +111,7 @@ module_LTLIBRARIES =				\
 	$(libweston_layout)			\
 	$(libivi_client)			\
 	$(ivi_shell)				\
+	$(hmi_controller)			\
 	$(x11_backend)				\
 	$(drm_backend)				\
 	$(wayland_backend)			\
@@ -328,6 +329,18 @@ ivi_shell_la_SOURCES =				\
 	ivi-application-protocol.c			\
 	ivi-application-server-protocol.h
 
+hmi_controller = hmi-controller.la
+hmi_controller_la_LDFLAGS = -module -avoid-version
+hmi_controller_la_LIBADD = $(IVI_SHELL_LIBS) -lweston-layout
+hmi_controller_la_CFLAGS = $(GCC_CFLAGS) $(IVI_SHELL_CFLAGS)
+hmi_controller_la_SOURCES =		\
+	hmi-controller.c			\
+	hmi-controller.h			\
+	hmi-client.c				\
+	hmi-bmpaccessor.c			\
+	hmi-bmpaccessor.h			\
+	ivi-application-protocol.c			\
+	ivi-application-client-protocol.h
 endif
 
 BUILT_SOURCES =					\
