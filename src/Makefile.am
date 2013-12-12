@@ -98,12 +98,19 @@ westoninclude_HEADERS =				\
 	../shared/config-parser.h		\
 	../shared/zalloc.h
 
+if ENABLE_IVI_SHELL
+westoninclude_HEADERS += ivi-application-client-protocol.h
+endif # ENABLE_IVI_SHELL
+
 moduledir = $(libdir)/weston
 module_LTLIBRARIES =				\
 	$(desktop_shell)			\
 	$(tablet_shell)				\
 	$(cms_static)				\
 	$(cms_colord)				\
+	$(libweston_layout)			\
+	$(libivi_client)			\
+	$(ivi_shell)				\
 	$(x11_backend)				\
 	$(drm_backend)				\
 	$(wayland_backend)			\
@@ -301,11 +308,36 @@ spring_tool_SOURCES =				\
 	../shared/matrix.h			\
 	compositor.h
 
+if ENABLE_IVI_SHELL
+libweston_layout = libweston-layout.la
+libweston_layout_la_LDFLAGS = -avoid-version
+libweston_layout_la_LIBADD = $(IVI_SHELL_LIBS)
+libweston_layout_la_CFLAGS = $(GCC_CFLAGS) $(IVI_SHELL_CFLAGS)
+libweston_layout_la_SOURCES =			\
+	weston-layout.c				\
+	weston-layout.h
+
+ivi_shell = ivi-shell.la
+ivi_shell_la_LDFLAGS = -module -avoid-version
+ivi_shell_la_LIBADD = $(COMPOSITOR_LIBS) $(IVI_SHELL_LIBS) -lweston-layout
+ivi_shell_la_CFLAGS = $(GCC_CFLAGS) \
+		$(COMPOSITOR_CFLAGS) $(IVI_SHELL_CFLAGS)
+ivi_shell_la_SOURCES =				\
+	ivi-shell.c						\
+	weston-layout.h					\
+	ivi-application-protocol.c			\
+	ivi-application-server-protocol.h
+
+endif
+
 BUILT_SOURCES =					\
 	screenshooter-server-protocol.h		\
 	screenshooter-protocol.c		\
 	text-cursor-position-server-protocol.h	\
 	text-cursor-position-protocol.c		\
+	ivi-application-protocol.c			\
+	ivi-application-server-protocol.h		\
+	ivi-application-client-protocol.h		\
 	tablet-shell-protocol.c			\
 	tablet-shell-server-protocol.h		\
 	desktop-shell-protocol.c		\
