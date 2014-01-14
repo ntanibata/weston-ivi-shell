@@ -2,7 +2,8 @@ moduledir = $(libdir)/weston
 
 module_LTLIBRARIES = 				\
 	$(libweston_layout)			\
-	$(ivi_shell)
+	$(ivi_shell)				\
+	$(hmi_controller)
 
 AM_CPPFLAGS =					\
 	-I$(top_srcdir)/shared			\
@@ -38,6 +39,19 @@ ivi_shell_la_SOURCES =				\
 	weston-layout.h				\
 	ivi-application-protocol.c		\
 	ivi-application-server-protocol.h
+
+hmi_controller = hmi-controller.la
+hmi_controller_la_LDFLAGS = -module -avoid-version
+hmi_controller_la_LIBADD = $(IVI_SHELL_LIBS) -lweston-layout ../shared/libshared.la
+hmi_controller_la_CFLAGS = $(GCC_CFLAGS) $(IVI_SHELL_CFLAGS)
+hmi_controller_la_SOURCES =			\
+	hmi-controller.c			\
+	hmi-controller.h			\
+	hmi-controller-homescreen.c		\
+	hmi-bmpaccessor.c			\
+	hmi-bmpaccessor.h			\
+	ivi-application-protocol.c		\
+	ivi-application-client-protocol.h
 endif
 
 BUILT_SOURCES =					\
