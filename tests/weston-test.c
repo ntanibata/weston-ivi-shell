@@ -20,6 +20,8 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "config.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -27,6 +29,11 @@
 #include <unistd.h>
 #include "../src/compositor.h"
 #include "wayland-test-server-protocol.h"
+
+#ifdef ENABLE_EGL
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
+#endif /* ENABLE_EGL */
 
 struct weston_test {
 	struct weston_compositor *compositor;
@@ -36,6 +43,7 @@ struct weston_test {
 
 struct weston_test_surface {
 	struct weston_surface *surface;
+	struct weston_view *view;
 	int32_t x, y;
 	struct weston_test *test;
 };
@@ -74,20 +82,19 @@ notify_pointer_position(struct weston_test *test, struct wl_resource *resource)
 }
 
 static void
-test_surface_configure(struct weston_surface *surface, int32_t sx, int32_t sy, int32_t width, int32_t height)
+test_surface_configure(struct weston_surface *surface, int32_t sx, int32_t sy)
 {
 	struct weston_test_surface *test_surface = surface->configure_private;
 	struct weston_test *test = test_surface->test;
 
-	if (wl_list_empty(&surface->layer_link))
-		wl_list_insert(&test->layer.surface_list,
-			       &surface->layer_link);
+	if (wl_list_empty(&test_surface->view->layer_link))
+		wl_list_insert(&test->layer.view_list,
+			       &test_surface->view->layer_link);
 
-	weston_surface_configure(surface, test_surface->x, test_surface->y,
-				 width, height);
+	weston_view_set_position(test_surface->view,
+				 test_surface->x, test_surface->y);
 
-	if (!weston_surface_is_mapped(surface))
-		weston_surface_update_transform(surface);
+	weston_view_update_transform(test_surface->view);
 }
 
 static void
@@ -99,13 +106,23 @@ move_surface(struct wl_client *client, struct wl_resource *resource,
 		wl_resource_get_user_data(surface_resource);
 	struct weston_test_surface *test_surface;
 
-	surface->configure = test_surface_configure;
-	if (surface->configure_private == NULL)
-		surface->configure_private = malloc(sizeof *test_surface);
 	test_surface = surface->configure_private;
-	if (test_surface == NULL) {
-		wl_resource_post_no_memory(resource);
-		return;
+	if (!test_surface) {
+		test_surface = malloc(sizeof *test_surface);
+		if (!test_surface) {
+			wl_resource_post_no_memory(resource);
+			return;
+		}
+
+		test_surface->view = weston_view_create(surface);
+		if (!test_surface->view) {
+			wl_resource_post_no_memory(resource);
+			free(test_surface);
+			return;
+		}
+
+		surface->configure_private = test_surface;
+		surface->configure = test_surface_configure;
 	}
 
 	test_surface->surface = surface;
@@ -122,8 +139,6 @@ move_pointer(struct wl_client *client, struct wl_resource *resource,
 	struct weston_seat *seat = get_seat(test);
 	struct weston_pointer *pointer = seat->pointer;
 
-	test->compositor->focus = 1;
-
 	notify_motion(seat, 100,
 		      wl_fixed_from_int(x) - pointer->x,
 		      wl_fixed_from_int(y) - pointer->y);
@@ -137,8 +152,6 @@ send_button(struct wl_client *client, struct wl_resource *resource,
 {
 	struct weston_test *test = wl_resource_get_user_data(resource);
 	struct weston_seat *seat = get_seat(test);
-
-	test->compositor->focus = 1;
 
 	notify_button(seat, 100, button, state);
 }
@@ -172,9 +185,48 @@ send_key(struct wl_client *client, struct wl_resource *resource,
 	struct weston_test *test = wl_resource_get_user_data(resource);
 	struct weston_seat *seat = get_seat(test);
 
-	test->compositor->focus = 1;
-
 	notify_key(seat, 100, key, state, STATE_UPDATE_AUTOMATIC);
+}
+
+#ifdef ENABLE_EGL
+static int
+is_egl_buffer(struct wl_resource *resource)
+{
+	PFNEGLQUERYWAYLANDBUFFERWL query_buffer =
+		(void *) eglGetProcAddress("eglQueryWaylandBufferWL");
+	EGLint format;
+
+	if (query_buffer(eglGetCurrentDisplay(),
+			 resource,
+			 EGL_TEXTURE_FORMAT,
+			 &format))
+		return 1;
+
+	return 0;
+}
+#endif /* ENABLE_EGL */
+
+static void
+get_n_buffers(struct wl_client *client, struct wl_resource *resource)
+{
+	int n_buffers = 0;
+
+#ifdef ENABLE_EGL
+	struct wl_resource *buffer_resource;
+	int i;
+
+	for (i = 0; i < 1000; i++) {
+		buffer_resource = wl_client_get_object(client, i);
+
+		if (buffer_resource == NULL)
+			continue;
+
+		if (is_egl_buffer(buffer_resource))
+			n_buffers++;
+	}
+#endif /* ENABLE_EGL */
+
+	wl_test_send_n_egl_buffers(resource, n_buffers);
 }
 
 static const struct wl_test_interface test_implementation = {
@@ -182,7 +234,8 @@ static const struct wl_test_interface test_implementation = {
 	move_pointer,
 	send_button,
 	activate_surface,
-	send_key
+	send_key,
+	get_n_buffers,
 };
 
 static void
@@ -208,7 +261,7 @@ idle_launch_client(void *data)
 
 	path = getenv("WESTON_TEST_CLIENT_PATH");
 	if (path == NULL)
-		exit(EXIT_FAILURE);
+		return;
 	pid = fork();
 	if (pid == -1)
 		exit(EXIT_FAILURE);

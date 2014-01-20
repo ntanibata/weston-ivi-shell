@@ -41,14 +41,6 @@ enum evdev_event_type {
 	EVDEV_RELATIVE_MOTION,
 };
 
-enum evdev_device_capability {
-	EVDEV_KEYBOARD = (1 << 0),
-	EVDEV_BUTTON = (1 << 1),
-	EVDEV_MOTION_ABS = (1 << 2),
-	EVDEV_MOTION_REL = (1 << 3),
-	EVDEV_TOUCH = (1 << 4),
-};
-
 enum evdev_device_seat_capability {
 	EVDEV_SEAT_POINTER = (1 << 0),
 	EVDEV_SEAT_KEYBOARD = (1 << 1),
@@ -63,9 +55,11 @@ struct evdev_device {
 	struct evdev_dispatch *dispatch;
 	char *devnode;
 	char *devname;
+	char *output_name;
 	int fd;
 	struct {
 		int min_x, max_x, min_y, max_y;
+		uint32_t seat_slot;
 		int32_t x, y;
 
 		int apply_calibration;
@@ -76,6 +70,7 @@ struct evdev_device {
 		int slot;
 		struct {
 			int32_t x, y;
+			uint32_t seat_slot;
 		} slots[MAX_SLOTS];
 	} mt;
 	struct mtdev *mtdev;
@@ -85,7 +80,6 @@ struct evdev_device {
 	} rel;
 
 	enum evdev_event_type pending_event;
-	enum evdev_device_capability caps;
 	enum evdev_device_seat_capability seat_caps;
 
 	int is_mt;

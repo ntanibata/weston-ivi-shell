@@ -168,7 +168,7 @@ fullscreen_handler(struct window *window, void *data)
 }
 
 static void
-close_handler(struct window *window, void *data)
+close_handler(void *data)
 {
 	struct view *view = data;
 
@@ -251,7 +251,7 @@ view_create(struct display *display,
         }
 
 	view->window = window_create(display);
-	view->widget = frame_create(view->window, view);
+	view->widget = window_frame_create(view->window, view);
 	window_set_title(view->window, title);
 	g_free(title);
 	view->display = display;

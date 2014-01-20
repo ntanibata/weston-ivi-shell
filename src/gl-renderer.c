@@ -50,9 +50,18 @@ struct gl_shader {
 
 #define BUFFER_DAMAGE_COUNT 2
 
+struct gl_border_image {
+	GLuint tex;
+	int32_t width, height;
+	int32_t tex_width;
+	int dirty;
+	void *data;
+};
+
 struct gl_output_state {
 	EGLSurface egl_surface;
 	pixman_region32_t buffer_damage[BUFFER_DAMAGE_COUNT];
+	struct gl_border_image borders[4];
 };
 
 enum buffer_type {
@@ -79,25 +88,25 @@ struct gl_surface_state {
 	int pitch; /* in pixels */
 	int height; /* in pixels */
 	int y_inverted;
+
+	struct weston_surface *surface;
+
+	struct wl_listener surface_destroy_listener;
+	struct wl_listener renderer_destroy_listener;
 };
 
 struct gl_renderer {
 	struct weston_renderer base;
 	int fragment_shader_debug;
 	int fan_debug;
+	struct weston_binding *fragment_binding;
+	struct weston_binding *fan_binding;
 
 	EGLDisplay egl_display;
 	EGLContext egl_context;
 	EGLConfig egl_config;
 
-	struct {
-		int32_t top, bottom, left, right;
-		GLuint texture;
-		int32_t width, height;
-	} border;
-
 	struct wl_array vertices;
-	struct wl_array indices; /* only used in compositor-wayland */
 	struct wl_array vtxcnt;
 
 	PFNGLEGLIMAGETARGETTEXTURE2DOESPROC image_target_texture_2d;
@@ -124,6 +133,8 @@ struct gl_renderer {
 	struct gl_shader invert_color_shader;
 	struct gl_shader solid_shader;
 	struct gl_shader *current_shader;
+
+	struct wl_signal destroy_signal;
 };
 
 static inline struct gl_output_state *
@@ -132,9 +143,15 @@ get_output_state(struct weston_output *output)
 	return (struct gl_output_state *)output->renderer_state;
 }
 
+static int
+gl_renderer_create_surface(struct weston_surface *surface);
+
 static inline struct gl_surface_state *
 get_surface_state(struct weston_surface *surface)
 {
+	if (!surface->renderer_state)
+		gl_renderer_create_surface(surface);
+
 	return (struct gl_surface_state *)surface->renderer_state;
 }
 
@@ -170,7 +187,7 @@ egl_error_string(EGLint code)
 #undef MYERRCODE
 }
 
-WL_EXPORT void
+static void
 gl_renderer_print_egl_error_state(void)
 {
 	EGLint code;
@@ -193,7 +210,7 @@ gl_renderer_print_egl_error_state(void)
  * polygon area.
  */
 static int
-calculate_edges(struct weston_surface *es, pixman_box32_t *rect,
+calculate_edges(struct weston_view *ev, pixman_box32_t *rect,
 		pixman_box32_t *surf_rect, GLfloat *ex, GLfloat *ey)
 {
 
@@ -213,8 +230,8 @@ calculate_edges(struct weston_surface *es, pixman_box32_t *rect,
 
 	/* transform surface to screen space: */
 	for (i = 0; i < surf.n; i++)
-		weston_surface_to_global_float(es, surf.x[i], surf.y[i],
-					       &surf.x[i], &surf.y[i]);
+		weston_view_to_global_float(ev, surf.x[i], surf.y[i],
+					    &surf.x[i], &surf.y[i]);
 
 	/* find bounding box: */
 	min_x = max_x = surf.x[0];
@@ -238,9 +255,8 @@ calculate_edges(struct weston_surface *es, pixman_box32_t *rect,
 	 * there will be only four edges.  We just need to clip the surface
 	 * vertices to the clip rect bounds:
 	 */
-	if (!es->transform.enabled) {
+	if (!ev->transform.enabled)
 		return clip_simple(&ctx, &surf, ex, ey);
-	}
 
 	/* Transformed case: use a general polygon clipping algorithm to
 	 * clip the surface rectangle with each side of 'rect'.
@@ -257,11 +273,11 @@ calculate_edges(struct weston_surface *es, pixman_box32_t *rect,
 }
 
 static int
-texture_region(struct weston_surface *es, pixman_region32_t *region,
+texture_region(struct weston_view *ev, pixman_region32_t *region,
 		pixman_region32_t *surf_region)
 {
-	struct gl_surface_state *gs = get_surface_state(es);
-	struct weston_compositor *ec = es->compositor;
+	struct gl_surface_state *gs = get_surface_state(ev->surface);
+	struct weston_compositor *ec = ev->surface->compositor;
 	struct gl_renderer *gr = get_renderer(ec);
 	GLfloat *v, inv_width, inv_height;
 	unsigned int *vtxcnt, nvtx = 0;
@@ -302,18 +318,20 @@ texture_region(struct weston_surface *es, pixman_region32_t *region,
 			 * form the intersection of the clip rect and the transformed
 			 * surface.
 			 */
-			n = calculate_edges(es, rect, surf_rect, ex, ey);
+			n = calculate_edges(ev, rect, surf_rect, ex, ey);
 			if (n < 3)
 				continue;
 
 			/* emit edge points: */
 			for (k = 0; k < n; k++) {
-				weston_surface_from_global_float(es, ex[k], ey[k], &sx, &sy);
+				weston_view_from_global_float(ev, ex[k], ey[k],
+							      &sx, &sy);
 				/* position: */
 				*(v++) = ex[k];
 				*(v++) = ey[k];
 				/* texcoord: */
-				weston_surface_to_buffer_float(es, sx, sy,
+				weston_surface_to_buffer_float(ev->surface,
+							       sx, sy,
 							       &bx, &by);
 				*(v++) = bx * inv_width;
 				if (gs->y_inverted) {
@@ -331,9 +349,9 @@ texture_region(struct weston_surface *es, pixman_region32_t *region,
 }
 
 static void
-triangle_fan_debug(struct weston_surface *surface, int first, int count)
+triangle_fan_debug(struct weston_view *view, int first, int count)
 {
-	struct weston_compositor *compositor = surface->compositor;
+	struct weston_compositor *compositor = view->surface->compositor;
 	struct gl_renderer *gr = get_renderer(compositor);
 	int i;
 	GLushort *buffer;
@@ -371,10 +389,10 @@ triangle_fan_debug(struct weston_surface *surface, int first, int count)
 }
 
 static void
-repaint_region(struct weston_surface *es, pixman_region32_t *region,
+repaint_region(struct weston_view *ev, pixman_region32_t *region,
 		pixman_region32_t *surf_region)
 {
-	struct weston_compositor *ec = es->compositor;
+	struct weston_compositor *ec = ev->surface->compositor;
 	struct gl_renderer *gr = get_renderer(ec);
 	GLfloat *v;
 	unsigned int *vtxcnt;
@@ -388,7 +406,7 @@ repaint_region(struct weston_surface *es, pixman_region32_t *region,
 	 * polygon for each pair, and store it as a triangle fan if
 	 * it has a non-zero area (at least 3 vertices1, actually).
 	 */
-	nfans = texture_region(es, region, surf_region);
+	nfans = texture_region(ev, region, surf_region);
 
 	v = gr->vertices.data;
 	vtxcnt = gr->vtxcnt.data;
@@ -404,7 +422,7 @@ repaint_region(struct weston_surface *es, pixman_region32_t *region,
 	for (i = 0, first = 0; i < nfans; i++) {
 		glDrawArrays(GL_TRIANGLE_FAN, first, vtxcnt[i]);
 		if (gr->fan_debug)
-			triangle_fan_debug(es, first, vtxcnt[i]);
+			triangle_fan_debug(ev, first, vtxcnt[i]);
 		first += vtxcnt[i];
 	}
 
@@ -464,28 +482,28 @@ use_shader(struct gl_renderer *gr, struct gl_shader *shader)
 
 static void
 shader_uniforms(struct gl_shader *shader,
-		       struct weston_surface *surface,
-		       struct weston_output *output)
+		struct weston_view *view,
+		struct weston_output *output)
 {
 	int i;
-	struct gl_surface_state *gs = get_surface_state(surface);
+	struct gl_surface_state *gs = get_surface_state(view->surface);
 
 	glUniformMatrix4fv(shader->proj_uniform,
 			   1, GL_FALSE, output->matrix.d);
 	glUniform4fv(shader->color_uniform, 1, gs->color);
-	glUniform1f(shader->alpha_uniform, surface->alpha);
+	glUniform1f(shader->alpha_uniform, view->alpha);
 
 	for (i = 0; i < gs->num_textures; i++)
 		glUniform1i(shader->tex_uniforms[i], i);
 }
 
 static void
-draw_surface(struct weston_surface *es, struct weston_output *output,
-	     pixman_region32_t *damage) /* in global coordinates */
+draw_view(struct weston_view *ev, struct weston_output *output,
+	  pixman_region32_t *damage) /* in global coordinates */
 {
-	struct weston_compositor *ec = es->compositor;
+	struct weston_compositor *ec = ev->surface->compositor;
 	struct gl_renderer *gr = get_renderer(ec);
-	struct gl_surface_state *gs = get_surface_state(es);
+	struct gl_surface_state *gs = get_surface_state(ev->surface);
 	/* repaint bounding region in global coordinates: */
 	pixman_region32_t repaint;
 	/* non-opaque region in surface coordinates: */
@@ -493,10 +511,16 @@ draw_surface(struct weston_surface *es, struct weston_output *output,
 	GLint filter;
 	int i;
 
+	/* In case of a runtime switch of renderers, we may not have received
+	 * an attach for this surface since the switch. In that case we don't
+	 * have a valid buffer or a proper shader set up so skip rendering. */
+	if (!gs->shader)
+		return;
+
 	pixman_region32_init(&repaint);
 	pixman_region32_intersect(&repaint,
-				  &es->transform.boundingbox, damage);
-	pixman_region32_subtract(&repaint, &repaint, &es->clip);
+				  &ev->transform.boundingbox, damage);
+	pixman_region32_subtract(&repaint, &repaint, &ev->clip);
 
 	if (!pixman_region32_not_empty(&repaint))
 		goto out;
@@ -505,13 +529,14 @@ draw_surface(struct weston_surface *es, struct weston_output *output,
 
 	if (gr->fan_debug) {
 		use_shader(gr, &gr->solid_shader);
-		shader_uniforms(&gr->solid_shader, es, output);
+		shader_uniforms(&gr->solid_shader, ev, output);
 	}
 
 	use_shader(gr, gs->shader);
-	shader_uniforms(gs->shader, es, output);
+	shader_uniforms(gs->shader, ev, output);
 
-	if (es->transform.enabled || output->zoom.active || output->current_scale != es->buffer_scale)
+	if (ev->transform.enabled || output->zoom.active ||
+	    output->current_scale != ev->surface->buffer_viewport.scale)
 		filter = GL_LINEAR;
 	else
 		filter = GL_NEAREST;
@@ -525,10 +550,11 @@ draw_surface(struct weston_surface *es, struct weston_output *output,
 
 	/* blended region is whole surface minus opaque region: */
 	pixman_region32_init_rect(&surface_blend, 0, 0,
-				  es->geometry.width, es->geometry.height);
-	pixman_region32_subtract(&surface_blend, &surface_blend, &es->opaque);
+				  ev->surface->width, ev->surface->height);
+	pixman_region32_subtract(&surface_blend, &surface_blend, &ev->surface->opaque);
 
-	if (pixman_region32_not_empty(&es->opaque)) {
+	/* XXX: Should we be using ev->transform.opaque here? */
+	if (pixman_region32_not_empty(&ev->surface->opaque)) {
 		if (gs->shader == &gr->texture_shader_rgba) {
 			/* Special case for RGBA textures with possibly
 			 * bad data in alpha channel: use the shader
@@ -536,21 +562,21 @@ draw_surface(struct weston_surface *es, struct weston_output *output,
 			 * Xwayland surfaces need this.
 			 */
 			use_shader(gr, &gr->texture_shader_rgbx);
-			shader_uniforms(&gr->texture_shader_rgbx, es, output);
+			shader_uniforms(&gr->texture_shader_rgbx, ev, output);
 		}
 
-		if (es->alpha < 1.0)
+		if (ev->alpha < 1.0)
 			glEnable(GL_BLEND);
 		else
 			glDisable(GL_BLEND);
 
-		repaint_region(es, &repaint, &es->opaque);
+		repaint_region(ev, &repaint, &ev->surface->opaque);
 	}
 
 	if (pixman_region32_not_empty(&surface_blend)) {
 		use_shader(gr, gs->shader);
 		glEnable(GL_BLEND);
-		repaint_region(es, &repaint, &surface_blend);
+		repaint_region(ev, &repaint, &surface_blend);
 	}
 
 	pixman_region32_fini(&surface_blend);
@@ -560,130 +586,128 @@ out:
 }
 
 static void
-repaint_surfaces(struct weston_output *output, pixman_region32_t *damage)
+repaint_views(struct weston_output *output, pixman_region32_t *damage)
 {
 	struct weston_compositor *compositor = output->compositor;
-	struct weston_surface *surface;
+	struct weston_view *view;
 
-	wl_list_for_each_reverse(surface, &compositor->surface_list, link)
-		if (surface->plane == &compositor->primary_plane)
-			draw_surface(surface, output, damage);
-}
-
-
-static int
-texture_border(struct weston_output *output)
-{
-	struct weston_compositor *ec = output->compositor;
-	struct gl_renderer *gr = get_renderer(ec);
-	GLfloat *d;
-	unsigned short *p;
-	int i, j, k, n;
-	GLfloat x[4], y[4], u[4], v[4];
-
-	x[0] = -gr->border.left;
-	x[1] = 0;
-	x[2] = output->current_mode->width;
-	x[3] = output->current_mode->width + gr->border.right;
-
-	y[0] = -gr->border.top;
-	y[1] = 0;
-	y[2] = output->current_mode->height;
-	y[3] = output->current_mode->height + gr->border.bottom;
-
-	u[0] = 0.0;
-	u[1] = (GLfloat) gr->border.left / gr->border.width;
-	u[2] = (GLfloat) (gr->border.width - gr->border.right) / gr->border.width;
-	u[3] = 1.0;
-
-	v[0] = 0.0;
-	v[1] = (GLfloat) gr->border.top / gr->border.height;
-	v[2] = (GLfloat) (gr->border.height - gr->border.bottom) / gr->border.height;
-	v[3] = 1.0;
-
-	n = 8;
-	d = wl_array_add(&gr->vertices, n * 16 * sizeof *d);
-	p = wl_array_add(&gr->indices, n * 6 * sizeof *p);
-
-	k = 0;
-	for (i = 0; i < 3; i++)
-		for (j = 0; j < 3; j++) {
-
-			if (i == 1 && j == 1)
-				continue;
-
-			d[ 0] = x[i];
-			d[ 1] = y[j];
-			d[ 2] = u[i];
-			d[ 3] = v[j];
-
-			d[ 4] = x[i];
-			d[ 5] = y[j + 1];
-			d[ 6] = u[i];
-			d[ 7] = v[j + 1];
-
-			d[ 8] = x[i + 1];
-			d[ 9] = y[j];
-			d[10] = u[i + 1];
-			d[11] = v[j];
-
-			d[12] = x[i + 1];
-			d[13] = y[j + 1];
-			d[14] = u[i + 1];
-			d[15] = v[j + 1];
-
-			p[0] = k + 0;
-			p[1] = k + 1;
-			p[2] = k + 2;
-			p[3] = k + 2;
-			p[4] = k + 1;
-			p[5] = k + 3;
-
-			d += 16;
-			p += 6;
-			k += 4;
-		}
-
-	return k / 4;
+	wl_list_for_each_reverse(view, &compositor->view_list, link)
+		if (view->plane == &compositor->primary_plane)
+			draw_view(view, output, damage);
 }
 
 static void
-draw_border(struct weston_output *output)
+draw_output_border_texture(struct gl_border_image *img, int32_t x, int32_t y,
+			   int32_t width, int32_t height)
 {
-	struct weston_compositor *ec = output->compositor;
-	struct gl_renderer *gr = get_renderer(ec);
+	static GLushort indices [] = { 0, 1, 3, 3, 1, 2 };
+
+	if (!img->data) {
+		if (img->tex) {
+			glDeleteTextures(1, &img->tex);
+			img->tex = 0;
+		}
+
+		return;
+	}
+
+	if (!img->tex) {
+		glGenTextures(1, &img->tex);
+		glBindTexture(GL_TEXTURE_2D, img->tex);
+
+		glTexParameteri(GL_TEXTURE_2D,
+				GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D,
+				GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D,
+				GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D,
+				GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	} else {
+		glBindTexture(GL_TEXTURE_2D, img->tex);
+	}
+
+	if (img->dirty) {
+#ifdef GL_EXT_unpack_subimage
+		glPixelStorei(GL_UNPACK_ROW_LENGTH_EXT, 0);
+		glPixelStorei(GL_UNPACK_SKIP_PIXELS_EXT, 0);
+		glPixelStorei(GL_UNPACK_SKIP_ROWS_EXT, 0);
+#endif
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_BGRA_EXT,
+			     img->tex_width, img->height, 0,
+			     GL_BGRA_EXT, GL_UNSIGNED_BYTE, img->data);
+		img->dirty = 0;
+	}
+
+	GLfloat texcoord[] = {
+		0.0f, 0.0f,
+		(GLfloat)img->width / (GLfloat)img->tex_width, 0.0f,
+		(GLfloat)img->width / (GLfloat)img->tex_width, 1.0f,
+		0.0f, 1.0f,
+	};
+
+	GLfloat verts[] = {
+		x, y,
+		x + width, y,
+		x + width, y + height,
+		x, y + height
+	};
+
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, verts);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, texcoord);
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);
+
+	glDisableVertexAttribArray(1);
+	glDisableVertexAttribArray(0);
+}
+
+static void
+draw_output_border(struct weston_output *output)
+{
+	struct gl_output_state *go = get_output_state(output);
+	struct gl_renderer *gr = get_renderer(output->compositor);
 	struct gl_shader *shader = &gr->texture_shader_rgba;
-	GLfloat *v;
-	int n;
+	struct gl_border_image *top, *bottom, *left, *right;
+	struct weston_matrix matrix;
+	int full_width, full_height;
+
+	top = &go->borders[GL_RENDERER_BORDER_TOP];
+	bottom = &go->borders[GL_RENDERER_BORDER_BOTTOM];
+	left = &go->borders[GL_RENDERER_BORDER_LEFT];
+	right = &go->borders[GL_RENDERER_BORDER_RIGHT];
+
+	full_width = output->current_mode->width + left->width + right->width;
+	full_height = output->current_mode->height + top->height + bottom->height;
 
 	glDisable(GL_BLEND);
 	use_shader(gr, shader);
 
-	glUniformMatrix4fv(shader->proj_uniform,
-			   1, GL_FALSE, output->matrix.d);
+	glViewport(0, 0, full_width, full_height);
+
+	weston_matrix_init(&matrix);
+	weston_matrix_translate(&matrix, -full_width/2.0, -full_height/2.0, 0);
+	weston_matrix_scale(&matrix, 2.0/full_width, -2.0/full_height, 1);
+	glUniformMatrix4fv(shader->proj_uniform, 1, GL_FALSE, matrix.d);
 
 	glUniform1i(shader->tex_uniforms[0], 0);
 	glUniform1f(shader->alpha_uniform, 1);
-
-	n = texture_border(output);
-
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, gr->border.texture);
 
-	v = gr->vertices.data;
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof *v, &v[0]);
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof *v, &v[2]);
-	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
-
-	glDrawElements(GL_TRIANGLES, n * 6,
-		       GL_UNSIGNED_SHORT, gr->indices.data);
-
-	glDisableVertexAttribArray(1);
-	glDisableVertexAttribArray(0);
-
-	gr->vertices.size = 0;
-	gr->indices.size = 0;
+	draw_output_border_texture(top,
+				   0, 0,
+				   full_width, top->height);
+	draw_output_border_texture(left,
+				   0, top->height,
+				   left->width, output->current_mode->height);
+	draw_output_border_texture(right,
+				   full_width - right->width, top->height,
+				   right->width, output->current_mode->height);
+	draw_output_border_texture(bottom,
+				   0, full_height - bottom->height,
+				   full_width, bottom->height);
 }
 
 static void
@@ -740,15 +764,13 @@ gl_renderer_repaint_output(struct weston_output *output,
 	struct gl_renderer *gr = get_renderer(compositor);
 	EGLBoolean ret;
 	static int errored;
-	int32_t width, height;
 	pixman_region32_t buffer_damage, total_damage;
 
-	width = output->current_mode->width +
-		output->border.left + output->border.right;
-	height = output->current_mode->height +
-		output->border.top + output->border.bottom;
-
-	glViewport(0, 0, width, height);
+	/* Calculate the viewport */
+	glViewport(go->borders[GL_RENDERER_BORDER_LEFT].width,
+		   go->borders[GL_RENDERER_BORDER_BOTTOM].height,
+		   output->current_mode->width,
+		   output->current_mode->height);
 
 	if (use_output(output) < 0)
 		return;
@@ -762,7 +784,7 @@ gl_renderer_repaint_output(struct weston_output *output,
 		pixman_region32_subtract(&undamaged, &output->region,
 					 output_damage);
 		gr->fan_debug = 0;
-		repaint_surfaces(output, &undamaged);
+		repaint_views(output, &undamaged);
 		gr->fan_debug = 1;
 		pixman_region32_fini(&undamaged);
 	}
@@ -775,13 +797,12 @@ gl_renderer_repaint_output(struct weston_output *output,
 
 	pixman_region32_union(&total_damage, &buffer_damage, output_damage);
 
-	repaint_surfaces(output, &total_damage);
+	repaint_views(output, &total_damage);
 
 	pixman_region32_fini(&total_damage);
 	pixman_region32_fini(&buffer_damage);
 
-	if (gr->border.texture)
-		draw_border(output);
+	draw_output_border(output);
 
 	pixman_region32_copy(&output->previous_damage, output_damage);
 	wl_signal_emit(&output->frame_signal, output);
@@ -830,6 +851,8 @@ gl_renderer_flush_damage(struct weston_surface *surface)
 	struct gl_renderer *gr = get_renderer(surface->compositor);
 	struct gl_surface_state *gs = get_surface_state(surface);
 	struct weston_buffer *buffer = gs->buffer_ref.buffer;
+	struct weston_view *view;
+	int texture_used;
 	GLenum format;
 	int pixel_type;
 
@@ -850,10 +873,18 @@ gl_renderer_flush_damage(struct weston_surface *surface)
 	 * hold the reference to the buffer, in case the surface
 	 * migrates back to the primary plane.
 	 */
-	if (surface->plane != &surface->compositor->primary_plane)
+	texture_used = 0;
+	wl_list_for_each(view, &surface->views, surface_link) {
+		if (view->plane == &surface->compositor->primary_plane) {
+			texture_used = 1;
+			break;
+		}
+	}
+	if (!texture_used)
 		return;
 
-	if (!pixman_region32_not_empty(&gs->texture_damage))
+	if (!pixman_region32_not_empty(&gs->texture_damage) &&
+	    !gs->needs_full_upload)
 		goto done;
 
 	switch (wl_shm_buffer_get_format(buffer->shm_buffer)) {
@@ -875,10 +906,12 @@ gl_renderer_flush_damage(struct weston_surface *surface)
 	glBindTexture(GL_TEXTURE_2D, gs->textures[0]);
 
 	if (!gr->has_unpack_subimage) {
+		wl_shm_buffer_begin_access(buffer->shm_buffer);
 		glTexImage2D(GL_TEXTURE_2D, 0, format,
 			     gs->pitch, buffer->height, 0,
 			     format, pixel_type,
 			     wl_shm_buffer_get_data(buffer->shm_buffer));
+		wl_shm_buffer_end_access(buffer->shm_buffer);
 
 		goto done;
 	}
@@ -890,13 +923,16 @@ gl_renderer_flush_damage(struct weston_surface *surface)
 	if (gs->needs_full_upload) {
 		glPixelStorei(GL_UNPACK_SKIP_PIXELS_EXT, 0);
 		glPixelStorei(GL_UNPACK_SKIP_ROWS_EXT, 0);
+		wl_shm_buffer_begin_access(buffer->shm_buffer);
 		glTexSubImage2D(GL_TEXTURE_2D, 0,
 				0, 0, gs->pitch, buffer->height,
 				format, pixel_type, data);
+		wl_shm_buffer_end_access(buffer->shm_buffer);
 		goto done;
 	}
 
 	rectangles = pixman_region32_rectangles(&gs->texture_damage, &n);
+	wl_shm_buffer_begin_access(buffer->shm_buffer);
 	for (i = 0; i < n; i++) {
 		pixman_box32_t r;
 
@@ -908,6 +944,7 @@ gl_renderer_flush_damage(struct weston_surface *surface)
 				r.x2 - r.x1, r.y2 - r.y1,
 				format, pixel_type, data);
 	}
+	wl_shm_buffer_end_access(buffer->shm_buffer);
 #endif
 
 done:
@@ -982,6 +1019,8 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer,
 		gs->buffer_type = BUFFER_TYPE_SHM;
 		gs->needs_full_upload = 1;
 		gs->y_inverted = 1;
+
+		gs->surface = es;
 
 		ensure_textures(gs, 1);
 		glBindTexture(GL_TEXTURE_2D, gs->textures[0]);
@@ -1122,10 +1161,59 @@ gl_renderer_surface_set_color(struct weston_surface *surface,
 	gs->shader = &gr->solid_shader;
 }
 
+static void
+surface_state_destroy(struct gl_surface_state *gs, struct gl_renderer *gr)
+{
+	int i;
+
+	wl_list_remove(&gs->surface_destroy_listener.link);
+	wl_list_remove(&gs->renderer_destroy_listener.link);
+
+	gs->surface->renderer_state = NULL;
+
+	glDeleteTextures(gs->num_textures, gs->textures);
+
+	for (i = 0; i < gs->num_images; i++)
+		gr->destroy_image(gr->egl_display, gs->images[i]);
+
+	weston_buffer_reference(&gs->buffer_ref, NULL);
+	pixman_region32_fini(&gs->texture_damage);
+	free(gs);
+}
+
+static void
+surface_state_handle_surface_destroy(struct wl_listener *listener, void *data)
+{
+	struct gl_surface_state *gs;
+	struct gl_renderer *gr;
+
+	gs = container_of(listener, struct gl_surface_state,
+			  surface_destroy_listener);
+
+	gr = get_renderer(gs->surface->compositor);
+
+	surface_state_destroy(gs, gr);
+}
+
+static void
+surface_state_handle_renderer_destroy(struct wl_listener *listener, void *data)
+{
+	struct gl_surface_state *gs;
+	struct gl_renderer *gr;
+
+	gr = data;
+
+	gs = container_of(listener, struct gl_surface_state,
+			  renderer_destroy_listener);
+
+	surface_state_destroy(gs, gr);
+}
+
 static int
 gl_renderer_create_surface(struct weston_surface *surface)
 {
 	struct gl_surface_state *gs;
+	struct gl_renderer *gr = get_renderer(surface->compositor);
 
 	gs = calloc(1, sizeof *gs);
 	if (!gs)
@@ -1138,27 +1226,27 @@ gl_renderer_create_surface(struct weston_surface *surface)
 	gs->pitch = 1;
 	gs->y_inverted = 1;
 
+	gs->surface = surface;
+
 	pixman_region32_init(&gs->texture_damage);
 	surface->renderer_state = gs;
 
+	gs->surface_destroy_listener.notify =
+		surface_state_handle_surface_destroy;
+	wl_signal_add(&surface->destroy_signal,
+		      &gs->surface_destroy_listener);
+
+	gs->renderer_destroy_listener.notify =
+		surface_state_handle_renderer_destroy;
+	wl_signal_add(&gr->destroy_signal,
+		      &gs->renderer_destroy_listener);
+
+	if (surface->buffer_ref.buffer) {
+		gl_renderer_attach(surface, surface->buffer_ref.buffer);
+		gl_renderer_flush_damage(surface);
+	}
+
 	return 0;
-}
-
-static void
-gl_renderer_destroy_surface(struct weston_surface *surface)
-{
-	struct gl_surface_state *gs = get_surface_state(surface);
-	struct gl_renderer *gr = get_renderer(surface->compositor);
-	int i;
-
-	glDeleteTextures(gs->num_textures, gs->textures);
-
-	for (i = 0; i < gs->num_images; i++)
-		gr->destroy_image(gr->egl_display, gs->images[i]);
-
-	weston_buffer_reference(&gs->buffer_ref, NULL);
-	pixman_region32_fini(&gs->texture_damage);
-	free(gs);
 }
 
 static const char vertex_shader[] =
@@ -1432,50 +1520,24 @@ log_egl_config_info(EGLDisplay egldpy, EGLConfig eglconfig)
 }
 
 static void
-output_apply_border(struct weston_output *output, struct gl_renderer *gr)
+gl_renderer_output_set_border(struct weston_output *output,
+			      enum gl_renderer_border_side side,
+			      int32_t width, int32_t height,
+			      int32_t tex_width, unsigned char *data)
 {
-	output->border.top = gr->border.top;
-	output->border.bottom = gr->border.bottom;
-	output->border.left = gr->border.left;
-	output->border.right = gr->border.right;
-}
+	struct gl_output_state *go = get_output_state(output);
 
-WL_EXPORT void
-gl_renderer_set_border(struct weston_compositor *ec, int32_t width, int32_t height, void *data,
-			  int32_t *edges)
-{
-	struct gl_renderer *gr = get_renderer(ec);
-	struct weston_output *output;
-
-	gr->border.left = edges[0];
-	gr->border.right = edges[1];
-	gr->border.top = edges[2];
-	gr->border.bottom = edges[3];
-
-	gr->border.width = width;
-	gr->border.height = height;
-
-	glGenTextures(1, &gr->border.texture);
-	glBindTexture(GL_TEXTURE_2D, gr->border.texture);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_BGRA_EXT,
-		     width,
-		     height,
-		     0, GL_BGRA_EXT, GL_UNSIGNED_BYTE,
-		     data);
-
-	wl_list_for_each(output, &ec->output_list, link)
-		output_apply_border(output, gr);
+	go->borders[side].width = width;
+	go->borders[side].height = height;
+	go->borders[side].tex_width = tex_width;
+	go->borders[side].data = data;
+	go->borders[side].dirty = 1;
 }
 
 static int
 gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface);
 
-WL_EXPORT int
+static int
 gl_renderer_output_create(struct weston_output *output,
 				    EGLNativeWindowType window)
 {
@@ -1509,12 +1571,10 @@ gl_renderer_output_create(struct weston_output *output,
 
 	output->renderer_state = go;
 
-	output_apply_border(output, gr);
-
 	return 0;
 }
 
-WL_EXPORT void
+static void
 gl_renderer_output_destroy(struct weston_output *output)
 {
 	struct gl_renderer *gr = get_renderer(output->compositor);
@@ -1529,7 +1589,7 @@ gl_renderer_output_destroy(struct weston_output *output)
 	free(go);
 }
 
-WL_EXPORT EGLSurface
+static EGLSurface
 gl_renderer_output_surface(struct weston_output *output)
 {
 	return get_output_state(output)->egl_surface;
@@ -1539,6 +1599,8 @@ static void
 gl_renderer_destroy(struct weston_compositor *ec)
 {
 	struct gl_renderer *gr = get_renderer(ec);
+
+	wl_signal_emit(&gr->destroy_signal, gr);
 
 	if (gr->has_bind_display)
 		gr->unbind_display(gr->egl_display, ec->wl_display);
@@ -1552,8 +1614,10 @@ gl_renderer_destroy(struct weston_compositor *ec)
 	eglReleaseThread();
 
 	wl_array_release(&gr->vertices);
-	wl_array_release(&gr->indices);
 	wl_array_release(&gr->vtxcnt);
+
+	weston_binding_destroy(gr->fragment_binding);
+	weston_binding_destroy(gr->fan_binding);
 
 	free(gr);
 }
@@ -1602,7 +1666,7 @@ out:
 	return -1;
 }
 
-WL_EXPORT const EGLint gl_renderer_opaque_attribs[] = {
+static const EGLint gl_renderer_opaque_attribs[] = {
 	EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
 	EGL_RED_SIZE, 1,
 	EGL_GREEN_SIZE, 1,
@@ -1612,7 +1676,7 @@ WL_EXPORT const EGLint gl_renderer_opaque_attribs[] = {
 	EGL_NONE
 };
 
-WL_EXPORT const EGLint gl_renderer_alpha_attribs[] = {
+static const EGLint gl_renderer_alpha_attribs[] = {
 	EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
 	EGL_RED_SIZE, 1,
 	EGL_GREEN_SIZE, 1,
@@ -1622,7 +1686,7 @@ WL_EXPORT const EGLint gl_renderer_alpha_attribs[] = {
 	EGL_NONE
 };
 
-WL_EXPORT int
+static int
 gl_renderer_create(struct weston_compositor *ec, EGLNativeDisplayType display,
 	const EGLint *attribs, const EGLint *visual_id)
 {
@@ -1638,9 +1702,7 @@ gl_renderer_create(struct weston_compositor *ec, EGLNativeDisplayType display,
 	gr->base.repaint_output = gl_renderer_repaint_output;
 	gr->base.flush_damage = gl_renderer_flush_damage;
 	gr->base.attach = gl_renderer_attach;
-	gr->base.create_surface = gl_renderer_create_surface;
 	gr->base.surface_set_color = gl_renderer_surface_set_color;
-	gr->base.destroy_surface = gl_renderer_destroy_surface;
 	gr->base.destroy = gl_renderer_destroy;
 
 	gr->egl_display = eglGetDisplay(display);
@@ -1665,6 +1727,8 @@ gl_renderer_create(struct weston_compositor *ec, EGLNativeDisplayType display,
 
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_RGB565);
 
+	wl_signal_init(&gr->destroy_signal);
+
 	return 0;
 
 err_egl:
@@ -1673,7 +1737,7 @@ err_egl:
 	return -1;
 }
 
-WL_EXPORT EGLDisplay
+static EGLDisplay
 gl_renderer_display(struct weston_compositor *ec)
 {
 	return get_renderer(ec)->egl_display;
@@ -1701,7 +1765,7 @@ compile_shaders(struct weston_compositor *ec)
 	gr->texture_shader_y_u_v.fragment_source =
 		texture_fragment_shader_y_u_v;
 
-	gr->texture_shader_y_u_v.vertex_source = vertex_shader;
+	gr->texture_shader_y_xuxv.vertex_source = vertex_shader;
 	gr->texture_shader_y_xuxv.fragment_source =
 		texture_fragment_shader_y_xuxv;
 
@@ -1847,10 +1911,14 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 	if (compile_shaders(ec))
 		return -1;
 
-	weston_compositor_add_debug_binding(ec, KEY_S,
-					    fragment_debug_binding, ec);
-	weston_compositor_add_debug_binding(ec, KEY_F,
-					    fan_debug_repaint_binding, ec);
+	gr->fragment_binding =
+		weston_compositor_add_debug_binding(ec, KEY_S,
+						    fragment_debug_binding,
+						    ec);
+	gr->fan_binding =
+		weston_compositor_add_debug_binding(ec, KEY_F,
+						    fan_debug_repaint_binding,
+						    ec);
 
 	weston_log("GL ES 2 renderer features:\n");
 	weston_log_continue(STAMP_SPACE "read-back format: %s\n",
@@ -1863,3 +1931,16 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 
 	return 0;
 }
+
+WL_EXPORT struct gl_renderer_interface gl_renderer_interface = {
+	.opaque_attribs = gl_renderer_opaque_attribs,
+	.alpha_attribs = gl_renderer_alpha_attribs,
+
+	.create = gl_renderer_create,
+	.display = gl_renderer_display,
+	.output_create = gl_renderer_output_create,
+	.output_destroy = gl_renderer_output_destroy,
+	.output_surface = gl_renderer_output_surface,
+	.output_set_border = gl_renderer_output_set_border,
+	.print_egl_error_state = gl_renderer_print_egl_error_state
+};

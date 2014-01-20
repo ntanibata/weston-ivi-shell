@@ -117,6 +117,7 @@ struct display {
 
 	display_output_handler_t output_configure_handler;
 	display_global_handler_t global_handler;
+	display_global_handler_t global_handler_remove;
 
 	void *user_data;
 
@@ -220,7 +221,6 @@ struct surface {
 
 struct window {
 	struct display *display;
-	struct window *parent;
 	struct wl_list window_output_list;
 	char *title;
 	struct rectangle saved_allocation;
@@ -253,7 +253,7 @@ struct window {
 	struct surface *main_surface;
 	struct wl_shell_surface *shell_surface;
 
-	struct frame *frame;
+	struct window_frame *frame;
 
 	/* struct surface::link, contains also main_surface */
 	struct wl_list subsurface_list;
@@ -285,10 +285,16 @@ struct widget {
 	int opaque;
 	int tooltip_count;
 	int default_cursor;
+	/* If this is set to false then no cairo surface will be
+	 * created before redrawing the surface. This is useful if the
+	 * redraw handler is going to do completely custom rendering
+	 * such as using EGL directly */
+	int use_cairo;
 };
 
 struct touch_point {
 	int32_t id;
+	float x, y;
 	struct widget *widget;
 	struct wl_list link;
 };
@@ -320,6 +326,11 @@ struct input {
 	struct wl_data_device *data_device;
 	struct data_offer *drag_offer;
 	struct data_offer *selection_offer;
+	uint32_t touch_grab;
+	int32_t touch_grab_id;
+	float drag_x, drag_y;
+	struct window *drag_focus;
+	uint32_t drag_enter_serial;
 
 	struct {
 		struct xkb_keymap *keymap;
@@ -339,6 +350,7 @@ struct input {
 struct output {
 	struct display *display;
 	struct wl_output *output;
+	uint32_t server_output_id;
 	struct rectangle allocation;
 	struct wl_list link;
 	int transform;
@@ -348,51 +360,18 @@ struct output {
 	void *user_data;
 };
 
-enum frame_button_action {
-	FRAME_BUTTON_NULL = 0,
-	FRAME_BUTTON_ICON = 1,
-	FRAME_BUTTON_CLOSE = 2,
-	FRAME_BUTTON_MINIMIZE = 3,
-	FRAME_BUTTON_MAXIMIZE = 4,
-};
-
-enum frame_button_pointer {
-	FRAME_BUTTON_DEFAULT = 0,
-	FRAME_BUTTON_OVER = 1,
-	FRAME_BUTTON_ACTIVE = 2,
-};
-
-enum frame_button_align {
-	FRAME_BUTTON_RIGHT = 0,
-	FRAME_BUTTON_LEFT = 1,
-};
-
-enum frame_button_decoration {
-	FRAME_BUTTON_NONE = 0,
-	FRAME_BUTTON_FANCY = 1,
-};
-
-struct frame_button {
-	struct widget *widget;
-	struct frame *frame;
-	cairo_surface_t *icon;
-	enum frame_button_action type;
-	enum frame_button_pointer state;
-	struct wl_list link;	/* buttons_list */
-	enum frame_button_align align;
-	enum frame_button_decoration decoration;
-};
-
-struct frame {
+struct window_frame {
 	struct widget *widget;
 	struct widget *child;
-	struct wl_list buttons_list;
+	struct frame *frame;
 };
 
 struct menu {
 	struct window *window;
+	struct window *parent;
 	struct widget *widget;
 	struct input *input;
+	struct frame *frame;
 	const char **entries;
 	uint32_t time;
 	int current;
@@ -1110,6 +1089,9 @@ shm_surface_prepare(struct toysurface *base, int dx, int dy,
 					   surface->flags,
 					   leaf->resize_pool,
 					   &leaf->data);
+	if (!leaf->cairo_surface)
+		return NULL;
+
 	wl_buffer_add_listener(leaf->data->buffer,
 			       &shm_surface_buffer_listener, surface);
 
@@ -1514,7 +1496,7 @@ window_get_output_scale(struct window *window)
 	return scale;
 }
 
-static void frame_destroy(struct frame *frame);
+static void window_frame_destroy(struct window_frame *frame);
 
 static void
 surface_destroy(struct surface *surface)
@@ -1568,7 +1550,7 @@ window_destroy(struct window *window)
 	}
 
 	if (window->frame)
-		frame_destroy(window->frame);
+		window_frame_destroy(window->frame);
 
 	if (window->shell_surface)
 		wl_shell_surface_destroy(window->shell_surface);
@@ -1632,6 +1614,7 @@ widget_create(struct window *window, struct surface *surface, void *data)
 	widget->tooltip = NULL;
 	widget->tooltip_count = 0;
 	widget->default_cursor = CURSOR_LEFT_PTR;
+	widget->use_cairo = 1;
 
 	return widget;
 }
@@ -1670,10 +1653,8 @@ widget_destroy(struct widget *widget)
 	if (surface->widget == widget && surface->subsurface)
 		surface_destroy(widget->surface);
 
-	if (widget->tooltip) {
-		free(widget->tooltip);
-		widget->tooltip = NULL;
-	}
+	if (widget->tooltip)
+		widget_destroy_tooltip(widget);
 
 	wl_list_for_each(input, &display->input_list, link) {
 		if (input->focus_widget == widget)
@@ -1729,6 +1710,8 @@ widget_get_cairo_surface(struct widget *widget)
 {
 	struct surface *surface = widget->surface;
 	struct window *window = widget->window;
+
+	assert(widget->use_cairo);
 
 	if (!surface->cairo_surface) {
 		if (surface == window->main_surface)
@@ -1840,6 +1823,12 @@ struct wl_surface *
 widget_get_wl_surface(struct widget *widget)
 {
 	return widget->surface->surface;
+}
+
+struct wl_subsurface *
+widget_get_wl_subsurface(struct widget *widget)
+{
+	return widget->surface->subsurface;
 }
 
 uint32_t
@@ -1956,6 +1945,13 @@ widget_schedule_redraw(struct widget *widget)
 	window_schedule_redraw_task(widget->window);
 }
 
+void
+widget_set_use_cairo(struct widget *widget,
+		     int use_cairo)
+{
+	widget->use_cairo = use_cairo;
+}
+
 cairo_surface_t *
 window_get_surface(struct window *window)
 {
@@ -1970,12 +1966,6 @@ struct wl_surface *
 window_get_wl_surface(struct window *window)
 {
 	return window->main_surface->surface;
-}
-
-struct wl_shell_surface *
-window_get_wl_shell_surface(struct window *window)
-{
-	return window->shell_surface;
 }
 
 static void
@@ -2166,375 +2156,112 @@ static void
 frame_resize_handler(struct widget *widget,
 		     int32_t width, int32_t height, void *data)
 {
-	struct frame *frame = data;
+	struct window_frame *frame = data;
 	struct widget *child = frame->child;
-	struct rectangle allocation;
-	struct display *display = widget->window->display;
-	struct surface *surface = widget->surface;
-	struct frame_button * button;
-	struct theme *t = display->theme;
-	int x_l, x_r, y, w, h;
-	int decoration_width, decoration_height;
-	int opaque_margin, shadow_margin;
+	struct rectangle interior;
+	struct rectangle input;
+	struct rectangle opaque;
 
-	switch (widget->window->type) {
-	case TYPE_FULLSCREEN:
-		decoration_width = 0;
-		decoration_height = 0;
+	if (widget->window->type == TYPE_FULLSCREEN) {
+		interior.x = 0;
+		interior.y = 0;
+		interior.width = width;
+		interior.height = height;
+	} else {
+		if (widget->window->type == TYPE_MAXIMIZED) {
+			frame_set_flag(frame->frame, FRAME_FLAG_MAXIMIZED);
+		} else {
+			frame_unset_flag(frame->frame, FRAME_FLAG_MAXIMIZED);
+		}
 
-		allocation.x = 0;
-		allocation.y = 0;
-		allocation.width = width;
-		allocation.height = height;
-		opaque_margin = 0;
-
-		wl_list_for_each(button, &frame->buttons_list, link)
-			button->widget->opaque = 1;
-		break;
-	case TYPE_MAXIMIZED:
-		decoration_width = t->width * 2;
-		decoration_height = t->width + t->titlebar_height;
-
-		allocation.x = t->width;
-		allocation.y = t->titlebar_height;
-		allocation.width = width - decoration_width;
-		allocation.height = height - decoration_height;
-
-		opaque_margin = 0;
-
-		wl_list_for_each(button, &frame->buttons_list, link)
-			button->widget->opaque = 0;
-		break;
-	default:
-		decoration_width = (t->width + t->margin) * 2;
-		decoration_height = t->width +
-			t->titlebar_height + t->margin * 2;
-
-		allocation.x = t->width + t->margin;
-		allocation.y = t->titlebar_height + t->margin;
-		allocation.width = width - decoration_width;
-		allocation.height = height - decoration_height;
-
-		opaque_margin = t->margin + t->frame_radius;
-
-		wl_list_for_each(button, &frame->buttons_list, link)
-			button->widget->opaque = 0;
-		break;
+		frame_resize(frame->frame, width, height);
+		frame_interior(frame->frame, &interior.x, &interior.y,
+			       &interior.width, &interior.height);
 	}
 
-	widget_set_allocation(child, allocation.x, allocation.y,
-			      allocation.width, allocation.height);
+	widget_set_allocation(child, interior.x, interior.y,
+			      interior.width, interior.height);
 
-	if (child->resize_handler)
-		child->resize_handler(child,
-				      allocation.width,
-				      allocation.height,
+	if (child->resize_handler) {
+		child->resize_handler(child, interior.width, interior.height,
 				      child->user_data);
 
-	width = child->allocation.width + decoration_width;
-	height = child->allocation.height + decoration_height;
-
-	shadow_margin = widget->window->type == TYPE_MAXIMIZED ? 0 : t->margin;
-
-	surface->input_region =
-		wl_compositor_create_region(display->compositor);
-	if (widget->window->type != TYPE_FULLSCREEN) {
-		wl_region_add(surface->input_region,
-			      shadow_margin, shadow_margin,
-			      width - 2 * shadow_margin,
-			      height - 2 * shadow_margin);
-	} else {
-		wl_region_add(surface->input_region, 0, 0, width, height);
+		if (widget->window->type == TYPE_FULLSCREEN) {
+			width = child->allocation.width;
+			height = child->allocation.height;
+		} else {
+			frame_resize_inside(frame->frame,
+					    child->allocation.width,
+					    child->allocation.height);
+			width = frame_width(frame->frame);
+			height = frame_height(frame->frame);
+		}
 	}
 
 	widget_set_allocation(widget, 0, 0, width, height);
 
-	if (child->opaque)
-		wl_region_add(surface->opaque_region,
-			      opaque_margin, opaque_margin,
-			      widget->allocation.width - 2 * opaque_margin,
-			      widget->allocation.height - 2 * opaque_margin);
-
-	/* frame internal buttons */
-	x_r = frame->widget->allocation.width - t->width - shadow_margin;
-	x_l = t->width + shadow_margin;
-	y = t->width + shadow_margin;
-	wl_list_for_each(button, &frame->buttons_list, link) {
-		const int button_padding = 4;
-		w = cairo_image_surface_get_width(button->icon);
-		h = cairo_image_surface_get_height(button->icon);
-
-		if (button->decoration == FRAME_BUTTON_FANCY)
-			w += 10;
-
-		if (button->align == FRAME_BUTTON_LEFT) {
-			widget_set_allocation(button->widget,
-					      x_l, y , w + 1, h + 1);
-			x_l += w;
-			x_l += button_padding;
-		} else {
-			x_r -= w;
-			widget_set_allocation(button->widget,
-					      x_r, y , w + 1, h + 1);
-			x_r -= button_padding;
-		}
-	}
-}
-
-static int
-frame_button_enter_handler(struct widget *widget,
-			   struct input *input, float x, float y, void *data)
-{
-	struct frame_button *frame_button = data;
-
-	widget_schedule_redraw(frame_button->widget);
-	frame_button->state = FRAME_BUTTON_OVER;
-
-	return CURSOR_LEFT_PTR;
-}
-
-static void
-frame_button_leave_handler(struct widget *widget, struct input *input, void *data)
-{
-	struct frame_button *frame_button = data;
-
-	widget_schedule_redraw(frame_button->widget);
-	frame_button->state = FRAME_BUTTON_DEFAULT;
-}
-
-static void
-frame_button_button_handler(struct widget *widget,
-			    struct input *input, uint32_t time,
-			    uint32_t button,
-			    enum wl_pointer_button_state state, void *data)
-{
-	struct frame_button *frame_button = data;
-	struct window *window = widget->window;
-	int was_pressed = (frame_button->state == FRAME_BUTTON_ACTIVE);
-
-	if (button != BTN_LEFT)
-		return;
-
-	switch (state) {
-	case WL_POINTER_BUTTON_STATE_PRESSED:
-		frame_button->state = FRAME_BUTTON_ACTIVE;
-		widget_schedule_redraw(frame_button->widget);
-
-		if (frame_button->type == FRAME_BUTTON_ICON)
-			window_show_frame_menu(window, input, time);
-		return;
-	case WL_POINTER_BUTTON_STATE_RELEASED:
-		frame_button->state = FRAME_BUTTON_DEFAULT;
-		widget_schedule_redraw(frame_button->widget);
-		break;
-	}
-
-	if (!was_pressed)
-		return;
-
-	switch (frame_button->type) {
-	case FRAME_BUTTON_CLOSE:
-		if (window->close_handler)
-			window->close_handler(window->parent,
-					      window->user_data);
-		else
-			display_exit(window->display);
-		break;
-	case FRAME_BUTTON_MINIMIZE:
-		fprintf(stderr,"Minimize stub\n");
-		break;
-	case FRAME_BUTTON_MAXIMIZE:
-		window_set_maximized(window, window->type != TYPE_MAXIMIZED);
-		break;
-	default:
-		/* Unknown operation */
-		break;
-	}
-}
-
-static void
-frame_button_touch_down_handler(struct widget *widget, struct input *input,
-				uint32_t serial, uint32_t time, int32_t id,
-				float x, float y, void *data)
-{
-	struct frame_button *frame_button = data;
-	struct window *window = widget->window;
-
-	switch (frame_button->type) {
-	case FRAME_BUTTON_CLOSE:
-		if (window->close_handler)
-			window->close_handler(window->parent,
-					      window->user_data);
-		else
-			display_exit(window->display);
-		break;
-	case FRAME_BUTTON_MINIMIZE:
-		fprintf(stderr,"Minimize stub\n");
-		break;
-	case FRAME_BUTTON_MAXIMIZE:
-		window_set_maximized(window, window->type != TYPE_MAXIMIZED);
-		break;
-	default:
-		/* Unknown operation */
-		break;
-	}
-}
-
-
-static int
-frame_button_motion_handler(struct widget *widget,
-                            struct input *input, uint32_t time,
-                            float x, float y, void *data)
-{
-	struct frame_button *frame_button = data;
-	enum frame_button_pointer previous_button_state = frame_button->state;
-
-	/* only track state for a pressed button */
-	if (input->grab != widget)
-		return CURSOR_LEFT_PTR;
-
-	if (x > widget->allocation.x &&
-	    x < (widget->allocation.x + widget->allocation.width) &&
-	    y > widget->allocation.y &&
-	    y < (widget->allocation.y + widget->allocation.height)) {
-		frame_button->state = FRAME_BUTTON_ACTIVE;
+	widget->surface->input_region =
+		wl_compositor_create_region(widget->window->display->compositor);
+	if (widget->window->type != TYPE_FULLSCREEN) {
+		frame_input_rect(frame->frame, &input.x, &input.y,
+				 &input.width, &input.height);
+		wl_region_add(widget->surface->input_region,
+			      input.x, input.y, input.width, input.height);
 	} else {
-		frame_button->state = FRAME_BUTTON_DEFAULT;
+		wl_region_add(widget->surface->input_region, 0, 0, width, height);
 	}
 
-	if (frame_button->state != previous_button_state)
-		widget_schedule_redraw(frame_button->widget);
+	widget_set_allocation(widget, 0, 0, width, height);
 
-	return CURSOR_LEFT_PTR;
-}
+	if (child->opaque) {
+		if (widget->window->type != TYPE_FULLSCREEN) {
+			frame_opaque_rect(frame->frame, &opaque.x, &opaque.y,
+					  &opaque.width, &opaque.height);
 
-static void
-frame_button_redraw_handler(struct widget *widget, void *data)
-{
-	struct frame_button *frame_button = data;
-	cairo_t *cr;
-	int width, height, x, y;
-
-	x = widget->allocation.x;
-	y = widget->allocation.y;
-	width = widget->allocation.width;
-	height = widget->allocation.height;
-
-	if (!width)
-		return;
-	if (!height)
-		return;
-	if (widget->opaque)
-		return;
-
-	cr = widget_cairo_create(widget);
-
-	if (frame_button->decoration == FRAME_BUTTON_FANCY) {
-		cairo_set_line_width(cr, 1);
-
-		cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
-		cairo_rectangle (cr, x, y, 25, 16);
-
-		cairo_stroke_preserve(cr);
-
-		switch (frame_button->state) {
-		case FRAME_BUTTON_DEFAULT:
-			cairo_set_source_rgb(cr, 0.88, 0.88, 0.88);
-			break;
-		case FRAME_BUTTON_OVER:
-			cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
-			break;
-		case FRAME_BUTTON_ACTIVE:
-			cairo_set_source_rgb(cr, 0.7, 0.7, 0.7);
-			break;
+			wl_region_add(widget->surface->opaque_region,
+				      opaque.x, opaque.y,
+				      opaque.width, opaque.height);
+		} else {
+			wl_region_add(widget->surface->opaque_region,
+				      0, 0, width, height);
 		}
-
-		cairo_fill (cr);
-
-		x += 4;
 	}
 
-	cairo_set_source_surface(cr, frame_button->icon, x, y);
-	cairo_paint(cr);
 
-	cairo_destroy(cr);
-}
-
-static struct widget *
-frame_button_create(struct frame *frame, void *data, enum frame_button_action type,
-	enum frame_button_align align, enum frame_button_decoration style)
-{
-	struct frame_button *frame_button;
-	const char *icon = data;
-
-	frame_button = xzalloc (sizeof *frame_button);
-	frame_button->icon = cairo_image_surface_create_from_png(icon);
-	frame_button->widget = widget_add_widget(frame->widget, frame_button);
-	frame_button->frame = frame;
-	frame_button->type = type;
-	frame_button->align = align;
-	frame_button->decoration = style;
-
-	wl_list_insert(frame->buttons_list.prev, &frame_button->link);
-
-	widget_set_redraw_handler(frame_button->widget, frame_button_redraw_handler);
-	widget_set_enter_handler(frame_button->widget, frame_button_enter_handler);
-	widget_set_leave_handler(frame_button->widget, frame_button_leave_handler);
-	widget_set_touch_down_handler(frame_button->widget, frame_button_touch_down_handler);
-	widget_set_button_handler(frame_button->widget, frame_button_button_handler);
-	widget_set_motion_handler(frame_button->widget, frame_button_motion_handler);
-	return frame_button->widget;
-}
-
-static void
-frame_button_destroy(struct frame_button *frame_button)
-{
-	widget_destroy(frame_button->widget);
-	wl_list_remove(&frame_button->link);
-	cairo_surface_destroy(frame_button->icon);
-	free(frame_button);
-
-	return;
+	widget_schedule_redraw(widget);
 }
 
 static void
 frame_redraw_handler(struct widget *widget, void *data)
 {
 	cairo_t *cr;
+	struct window_frame *frame = data;
 	struct window *window = widget->window;
-	struct theme *t = window->display->theme;
-	uint32_t flags = 0;
 
 	if (window->type == TYPE_FULLSCREEN)
 		return;
 
+	if (window->focus_count) {
+		frame_set_flag(frame->frame, FRAME_FLAG_ACTIVE);
+	} else {
+		frame_unset_flag(frame->frame, FRAME_FLAG_ACTIVE);
+	}
+
 	cr = widget_cairo_create(widget);
 
-	if (window->focus_count)
-		flags |= THEME_FRAME_ACTIVE;
-	if (window->type == TYPE_MAXIMIZED)
-		flags |= THEME_FRAME_MAXIMIZED;
-	theme_render_frame(t, cr, widget->allocation.width,
-			   widget->allocation.height, window->title, flags);
+	frame_repaint(frame->frame, cr);
 
 	cairo_destroy(cr);
 }
 
 static int
-frame_get_pointer_image_for_location(struct frame *frame, struct input *input)
+frame_get_pointer_image_for_location(struct window_frame *frame,
+				     enum theme_location location)
 {
-	struct theme *t = frame->widget->window->display->theme;
 	struct window *window = frame->widget->window;
-	int location;
 
 	if (window->type != TYPE_TOPLEVEL)
 		return CURSOR_LEFT_PTR;
-
-	location = theme_get_location(t, input->sx, input->sy,
-				      frame->widget->allocation.width,
-				      frame->widget->allocation.height,
-				      window->type == TYPE_MAXIMIZED ?
-				      THEME_FRAME_MAXIMIZED : 0);
 
 	switch (location) {
 	case THEME_LOCATION_RESIZING_TOP:
@@ -2561,15 +2288,15 @@ frame_get_pointer_image_for_location(struct frame *frame, struct input *input)
 }
 
 static void
-frame_menu_func(struct window *window, int index, void *data)
+frame_menu_func(struct window *window,
+		struct input *input, int index, void *data)
 {
 	struct display *display;
 
 	switch (index) {
 	case 0: /* close */
 		if (window->close_handler)
-			window->close_handler(window->parent,
-					      window->user_data);
+			window->close_handler(window->user_data);
 		else
 			display_exit(window->display);
 		break;
@@ -2624,7 +2351,14 @@ static int
 frame_enter_handler(struct widget *widget,
 		    struct input *input, float x, float y, void *data)
 {
-	return frame_get_pointer_image_for_location(data, input);
+	struct window_frame *frame = data;
+	enum theme_location location;
+
+	location = frame_pointer_enter(frame->frame, input, x, y);
+	if (frame_status(frame->frame) & FRAME_STATUS_REPAINT)
+		widget_schedule_redraw(frame->widget);
+
+	return frame_get_pointer_image_for_location(data, location);
 }
 
 static int
@@ -2632,7 +2366,79 @@ frame_motion_handler(struct widget *widget,
 		     struct input *input, uint32_t time,
 		     float x, float y, void *data)
 {
-	return frame_get_pointer_image_for_location(data, input);
+	struct window_frame *frame = data;
+	enum theme_location location;
+
+	location = frame_pointer_motion(frame->frame, input, x, y);
+	if (frame_status(frame->frame) & FRAME_STATUS_REPAINT)
+		widget_schedule_redraw(frame->widget);
+
+	return frame_get_pointer_image_for_location(data, location);
+}
+
+static void
+frame_leave_handler(struct widget *widget,
+		    struct input *input, void *data)
+{
+	struct window_frame *frame = data;
+
+	frame_pointer_leave(frame->frame, input);
+	if (frame_status(frame->frame) & FRAME_STATUS_REPAINT)
+		widget_schedule_redraw(frame->widget);
+}
+
+static void
+frame_handle_status(struct window_frame *frame, struct input *input,
+		    uint32_t time, enum theme_location location)
+{
+	struct window *window = frame->widget->window;
+	uint32_t status;
+
+	status = frame_status(frame->frame);
+	if (status & FRAME_STATUS_REPAINT)
+		widget_schedule_redraw(frame->widget);
+
+	if (status & FRAME_STATUS_MINIMIZE)
+		fprintf(stderr,"Minimize stub\n");
+
+	if (status & FRAME_STATUS_MENU) {
+		window_show_frame_menu(window, input, time);
+		frame_status_clear(frame->frame, FRAME_STATUS_MENU);
+	}
+
+	if (status & FRAME_STATUS_MAXIMIZE) {
+		window_set_maximized(window, window->type != TYPE_MAXIMIZED);
+		frame_status_clear(frame->frame, FRAME_STATUS_MAXIMIZE);
+	}
+
+	if (status & FRAME_STATUS_CLOSE) {
+		if (window->close_handler)
+			window->close_handler(window->user_data);
+		else
+			display_exit(window->display);
+		return;
+	}
+
+	if ((status & FRAME_STATUS_MOVE) && window->shell_surface) {
+		input_ungrab(input);
+		wl_shell_surface_move(window->shell_surface,
+				      input_get_seat(input),
+				      window->display->serial);
+
+		frame_status_clear(frame->frame, FRAME_STATUS_MOVE);
+	}
+
+	if ((status & FRAME_STATUS_RESIZE) && window->shell_surface) {
+		input_ungrab(input);
+
+		window->resizing = 1;
+		wl_shell_surface_resize(window->shell_surface,
+					input_get_seat(input),
+					window->display->serial,
+					location);
+
+		frame_status_clear(frame->frame, FRAME_STATUS_RESIZE);
+	}
 }
 
 static void
@@ -2642,99 +2448,62 @@ frame_button_handler(struct widget *widget,
 		     void *data)
 
 {
-	struct frame *frame = data;
-	struct window *window = widget->window;
-	struct display *display = window->display;
-	int location;
+	struct window_frame *frame = data;
+	enum theme_location location;
 
-	if (state != WL_POINTER_BUTTON_STATE_PRESSED)
-		return;
-
-	location = theme_get_location(display->theme, input->sx, input->sy,
-				      frame->widget->allocation.width,
-				      frame->widget->allocation.height,
-				      window->type == TYPE_MAXIMIZED ?
-				      THEME_FRAME_MAXIMIZED : 0);
-
-	if (window->display->shell && button == BTN_LEFT &&
-	    window->type == TYPE_TOPLEVEL) {
-		switch (location) {
-		case THEME_LOCATION_TITLEBAR:
-			if (!window->shell_surface)
-				break;
-			input_ungrab(input);
-			wl_shell_surface_move(window->shell_surface,
-					      input_get_seat(input),
-					      display->serial);
-			break;
-		case THEME_LOCATION_RESIZING_TOP:
-		case THEME_LOCATION_RESIZING_BOTTOM:
-		case THEME_LOCATION_RESIZING_LEFT:
-		case THEME_LOCATION_RESIZING_RIGHT:
-		case THEME_LOCATION_RESIZING_TOP_LEFT:
-		case THEME_LOCATION_RESIZING_TOP_RIGHT:
-		case THEME_LOCATION_RESIZING_BOTTOM_LEFT:
-		case THEME_LOCATION_RESIZING_BOTTOM_RIGHT:
-			if (!window->shell_surface)
-				break;
-			input_ungrab(input);
-
-			window->resizing = 1;
-			wl_shell_surface_resize(window->shell_surface,
-						input_get_seat(input),
-						display->serial, location);
-			break;
-		}
-	} else if (button == BTN_RIGHT &&
-		   (window->type == TYPE_TOPLEVEL ||
-		    window->type == TYPE_MAXIMIZED)) {
-		window_show_frame_menu(window, input, time);
-	}
+	location = frame_pointer_button(frame->frame, input, button, state);
+	frame_handle_status(frame, input, time, location);
 }
 
-static void 
+static void
 frame_touch_down_handler(struct widget *widget, struct input *input,
 			 uint32_t serial, uint32_t time, int32_t id,
 			 float x, float y, void *data)
 {
-	struct window *window = widget->window;
-	struct display *display = window->display;
-	
-	wl_shell_surface_move(window->shell_surface,
-			      input_get_seat(input),
-			      display->serial);
+	struct window_frame *frame = data;
+
+	frame_touch_down(frame->frame, input, id, x, y);
+	frame_handle_status(frame, input, time, THEME_LOCATION_CLIENT_AREA);
+}
+
+static void
+frame_touch_up_handler(struct widget *widget,
+			 struct input *input, uint32_t serial, uint32_t time,
+			 int32_t id, void *data)
+{
+	struct window_frame *frame = data;
+
+	frame_touch_up(frame->frame, input, id);
+	frame_handle_status(frame, input, time, THEME_LOCATION_CLIENT_AREA);
 }
 
 struct widget *
-frame_create(struct window *window, void *data)
+window_frame_create(struct window *window, void *data)
 {
-	struct frame *frame;
+	struct window_frame *frame;
+	uint32_t buttons;
+
+	if (window->type == TYPE_CUSTOM) {
+		buttons = FRAME_BUTTON_NONE;
+	} else {
+		buttons = FRAME_BUTTON_ALL;
+	}
 
 	frame = xzalloc(sizeof *frame);
+	frame->frame = frame_create(window->display->theme, 0, 0,
+				    buttons, window->title);
+
 	frame->widget = window_add_widget(window, frame);
 	frame->child = widget_add_widget(frame->widget, data);
 
 	widget_set_redraw_handler(frame->widget, frame_redraw_handler);
 	widget_set_resize_handler(frame->widget, frame_resize_handler);
 	widget_set_enter_handler(frame->widget, frame_enter_handler);
+	widget_set_leave_handler(frame->widget, frame_leave_handler);
 	widget_set_motion_handler(frame->widget, frame_motion_handler);
 	widget_set_button_handler(frame->widget, frame_button_handler);
 	widget_set_touch_down_handler(frame->widget, frame_touch_down_handler);
-
-	/* Create empty list for frame buttons */
-	wl_list_init(&frame->buttons_list);
-
-	frame_button_create(frame, DATADIR "/weston/icon_window.png",
-		FRAME_BUTTON_ICON, FRAME_BUTTON_LEFT, FRAME_BUTTON_NONE);
-
-	frame_button_create(frame, DATADIR "/weston/sign_close.png",
-		FRAME_BUTTON_CLOSE, FRAME_BUTTON_RIGHT, FRAME_BUTTON_FANCY);
-
-	frame_button_create(frame, DATADIR "/weston/sign_maximize.png",
-		FRAME_BUTTON_MAXIMIZE, FRAME_BUTTON_RIGHT, FRAME_BUTTON_FANCY);
-
-	frame_button_create(frame, DATADIR "/weston/sign_minimize.png",
-		FRAME_BUTTON_MINIMIZE, FRAME_BUTTON_RIGHT, FRAME_BUTTON_FANCY);
+	widget_set_touch_up_handler(frame->widget, frame_touch_up_handler);
 
 	window->frame = frame;
 
@@ -2742,7 +2511,8 @@ frame_create(struct window *window, void *data)
 }
 
 void
-frame_set_child_size(struct widget *widget, int child_width, int child_height)
+window_frame_set_child_size(struct widget *widget, int child_width,
+			    int child_height)
 {
 	struct display *display = widget->window->display;
 	struct theme *t = display->theme;
@@ -2766,12 +2536,9 @@ frame_set_child_size(struct widget *widget, int child_width, int child_height)
 }
 
 static void
-frame_destroy(struct frame *frame)
+window_frame_destroy(struct window_frame *frame)
 {
-	struct frame_button *button, *tmp;
-
-	wl_list_for_each_safe(button, tmp, &frame->buttons_list, link)
-		frame_button_destroy(button);
+	frame_destroy(frame->frame);
 
 	/* frame->child must be destroyed by the application */
 	widget_destroy(frame->widget);
@@ -2810,6 +2577,31 @@ input_set_focus_widget(struct input *input, struct widget *focus,
 			cursor = widget->default_cursor;
 
 		input_set_pointer_image(input, cursor);
+	}
+}
+
+void
+touch_grab(struct input  *input, int32_t touch_id)
+{
+	input->touch_grab = 1;
+	input->touch_grab_id = touch_id;
+}
+
+void
+touch_ungrab(struct input *input)
+{
+	struct touch_point *tp, *tmp;
+
+	input->touch_grab = 0;
+
+	wl_list_for_each_safe(tp, tmp,
+			&input->touch_point_list, link) {
+		if (tp->id != input->touch_grab_id)
+			continue;
+		wl_list_remove(&tp->link);
+		free(tp);
+
+		return;
 	}
 }
 
@@ -3038,6 +2830,8 @@ keyboard_handle_keymap(void *data, struct wl_keyboard *keyboard,
 		       uint32_t format, int fd, uint32_t size)
 {
 	struct input *input = data;
+	struct xkb_keymap *keymap;
+	struct xkb_state *state;
 	char *map_str;
 
 	if (!data) {
@@ -3056,25 +2850,29 @@ keyboard_handle_keymap(void *data, struct wl_keyboard *keyboard,
 		return;
 	}
 
-	input->xkb.keymap = xkb_map_new_from_string(input->display->xkb_context,
-						    map_str,
-						    XKB_KEYMAP_FORMAT_TEXT_V1,
-						    0);
+	keymap = xkb_map_new_from_string(input->display->xkb_context,
+					 map_str,
+					 XKB_KEYMAP_FORMAT_TEXT_V1,
+					 0);
 	munmap(map_str, size);
 	close(fd);
 
-	if (!input->xkb.keymap) {
+	if (!keymap) {
 		fprintf(stderr, "failed to compile keymap\n");
 		return;
 	}
 
-	input->xkb.state = xkb_state_new(input->xkb.keymap);
-	if (!input->xkb.state) {
+	state = xkb_state_new(keymap);
+	if (!state) {
 		fprintf(stderr, "failed to create XKB state\n");
-		xkb_map_unref(input->xkb.keymap);
-		input->xkb.keymap = NULL;
+		xkb_map_unref(keymap);
 		return;
 	}
+
+	xkb_keymap_unref(input->xkb.keymap);
+	xkb_state_unref(input->xkb.state);
+	input->xkb.keymap = keymap;
+	input->xkb.state = state;
 
 	input->xkb.control_mask =
 		1 << xkb_map_mod_get_index(input->xkb.keymap, "Control");
@@ -3148,8 +2946,7 @@ keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
 		   input->modifiers == MOD_ALT_MASK &&
 		   state == WL_KEYBOARD_KEY_STATE_PRESSED) {
 		if (window->close_handler)
-			window->close_handler(window->parent,
-					      window->user_data);
+			window->close_handler(window->user_data);
 		else
 			display_exit(window->display);
 	} else if (window->key_handler) {
@@ -3236,6 +3033,8 @@ touch_handle_down(void *data, struct wl_touch *wl_touch,
 		if (tp) {
 			tp->id = id;
 			tp->widget = widget;
+			tp->x = sx;
+			tp->y = sy;
 			wl_list_insert(&input->touch_point_list, &tp->link);
 
 			if (widget->touch_down_handler)
@@ -3295,6 +3094,8 @@ touch_handle_motion(void *data, struct wl_touch *wl_touch,
 		if (tp->id != id)
 			continue;
 
+		tp->x = sx;
+		tp->y = sy;
 		if (tp->widget->touch_motion_handler)
 			(*tp->widget->touch_motion_handler)(tp->widget, input, time,
 							    id, sx, sy,
@@ -3412,6 +3213,23 @@ input_get_position(struct input *input, int32_t *x, int32_t *y)
 	*y = input->sy;
 }
 
+int
+input_get_touch(struct input *input, int32_t id, float *x, float *y)
+{
+	struct touch_point *tp;
+
+	wl_list_for_each(tp, &input->touch_point_list, link) {
+		if (tp->id != id)
+			continue;
+
+		*x = tp->x;
+		*y = tp->y;
+		return 0;
+	}
+
+	return -1;
+}
+
 struct display *
 input_get_display(struct input *input)
 {
@@ -3508,9 +3326,14 @@ data_device_enter(void *data, struct wl_data_device *data_device,
 	float y = wl_fixed_to_double(y_w);
 	char **p;
 
-	input->pointer_enter_serial = serial;
 	window = wl_surface_get_user_data(surface);
-	input->pointer_focus = window;
+	input->drag_enter_serial = serial;
+	input->drag_focus = window,
+	input->drag_x = x;
+	input->drag_y = y;
+
+	if (!input->touch_grab)
+		input->pointer_enter_serial = serial;
 
 	if (offer) {
 		input->drag_offer = wl_data_offer_get_user_data(offer);
@@ -3524,7 +3347,6 @@ data_device_enter(void *data, struct wl_data_device *data_device,
 		types_data = NULL;
 	}
 
-	window = input->pointer_focus;
 	if (window->data_handler)
 		window->data_handler(window, input, x, y, types_data,
 				     window->user_data);
@@ -3546,13 +3368,13 @@ data_device_motion(void *data, struct wl_data_device *data_device,
 		   uint32_t time, wl_fixed_t x_w, wl_fixed_t y_w)
 {
 	struct input *input = data;
-	struct window *window = input->pointer_focus;
+	struct window *window = input->drag_focus;
 	float x = wl_fixed_to_double(x_w);
 	float y = wl_fixed_to_double(y_w);
 	void *types_data;
 
-	input->sx = x;
-	input->sy = y;
+	input->drag_x = x;
+	input->drag_y = y;
 
 	if (input->drag_offer)
 		types_data = input->drag_offer->types.data;
@@ -3568,11 +3390,18 @@ static void
 data_device_drop(void *data, struct wl_data_device *data_device)
 {
 	struct input *input = data;
-	struct window *window = input->pointer_focus;
+	struct window *window = input->drag_focus;
+	float x, y;
+
+	x = input->drag_x;
+	y = input->drag_y;
 
 	if (window->drop_handler)
 		window->drop_handler(window, input,
-				     input->sx, input->sy, window->user_data);
+				     x, y, window->user_data);
+
+	if (input->touch_grab)
+		touch_ungrab(input);
 }
 
 static void
@@ -3741,7 +3570,7 @@ void
 input_accept(struct input *input, const char *type)
 {
 	wl_data_offer_accept(input->drag_offer->offer,
-			     input->pointer_enter_serial, type);
+			     input->drag_enter_serial, type);
 }
 
 static void
@@ -3789,8 +3618,8 @@ input_receive_drag_data(struct input *input, const char *mime_type,
 			data_func_t func, void *data)
 {
 	data_offer_receive_data(input->drag_offer, mime_type, func, data);
-	input->drag_offer->x = input->sx;
-	input->drag_offer->y = input->sy;
+	input->drag_offer->x = input->drag_x;
+	input->drag_offer->y = input->drag_y;
 }
 
 int
@@ -3842,16 +3671,6 @@ window_move(struct window *window, struct input *input, uint32_t serial)
 		return;
 
 	wl_shell_surface_move(window->shell_surface, input->seat, serial);
-}
-
-void
-window_touch_move(struct window *window, struct input *input, uint32_t serial)
-{
-	if (!window->shell_surface)
-		return;
-
-	wl_shell_surface_move(window->shell_surface, input->seat, 
-			      window->display->serial);
 }
 
 static void
@@ -3956,20 +3775,9 @@ hack_prevent_EGL_sub_surface_deadlock(struct window *window)
 }
 
 static void
-idle_resize(struct window *window)
+window_do_resize(struct window *window)
 {
 	struct surface *surface;
-
-	window->resize_needed = 0;
-	window->redraw_needed = 1;
-
-	DBG("from %dx%d to %dx%d\n",
-	    window->main_surface->server_allocation.width,
-	    window->main_surface->server_allocation.height,
-	    window->pending_allocation.width,
-	    window->pending_allocation.height);
-
-	hack_prevent_EGL_sub_surface_deadlock(window);
 
 	widget_set_allocation(window->main_surface->widget,
 			      window->pending_allocation.x,
@@ -3990,6 +3798,46 @@ idle_resize(struct window *window)
 
 		surface_set_synchronized(surface);
 		surface_resize(surface);
+	}
+}
+
+static void
+idle_resize(struct window *window)
+{
+	window->resize_needed = 0;
+	window->redraw_needed = 1;
+
+	DBG("from %dx%d to %dx%d\n",
+	    window->main_surface->server_allocation.width,
+	    window->main_surface->server_allocation.height,
+	    window->pending_allocation.width,
+	    window->pending_allocation.height);
+
+	hack_prevent_EGL_sub_surface_deadlock(window);
+
+	window_do_resize(window);
+}
+
+static void
+undo_resize(struct window *window)
+{
+	window->pending_allocation.width =
+		window->main_surface->server_allocation.width;
+	window->pending_allocation.height =
+		window->main_surface->server_allocation.height;
+
+	DBG("back to %dx%d\n",
+	    window->main_surface->server_allocation.width,
+	    window->main_surface->server_allocation.height);
+
+	window_do_resize(window);
+
+	if (window->pending_allocation.width == 0 &&
+	    window->pending_allocation.height == 0) {
+		fprintf(stderr, "Error: Could not draw a surface, "
+			"most likely due to insufficient disk space in "
+			"%s (XDG_RUNTIME_DIR).\n", getenv("XDG_RUNTIME_DIR"));
+		exit(EXIT_FAILURE);
 	}
 }
 
@@ -4052,6 +3900,7 @@ menu_destroy(struct menu *menu)
 {
 	widget_destroy(menu->widget);
 	window_destroy(menu->window);
+	frame_destroy(menu->frame);
 	free(menu);
 }
 
@@ -4116,23 +3965,29 @@ static const struct wl_callback_listener listener = {
 	frame_callback
 };
 
-static void
+static int
 surface_redraw(struct surface *surface)
 {
 	DBG_OBJ(surface->surface, "begin\n");
 
 	if (!surface->window->redraw_needed && !surface->redraw_needed)
-		return;
+		return 0;
 
 	/* Whole-window redraw forces a redraw even if the previous has
 	 * not yet hit the screen.
 	 */
 	if (surface->frame_cb) {
 		if (!surface->window->redraw_needed)
-			return;
+			return 0;
 
 		DBG_OBJ(surface->frame_cb, "cancelled\n");
 		wl_callback_destroy(surface->frame_cb);
+	}
+
+	if (surface->widget->use_cairo &&
+	    !widget_get_cairo_surface(surface->widget)) {
+		DBG_OBJ(surface->surface, "cancelled due buffer failure\n");
+		return -1;
 	}
 
 	surface->frame_cb = wl_surface_frame(surface->surface);
@@ -4143,6 +3998,7 @@ surface_redraw(struct surface *surface)
 	DBG_OBJ(surface->surface, "-> widget_redraw\n");
 	widget_redraw(surface->widget);
 	DBG_OBJ(surface->surface, "done\n");
+	return 0;
 }
 
 static void
@@ -4150,6 +4006,8 @@ idle_redraw(struct task *task, uint32_t events)
 {
 	struct window *window = container_of(task, struct window, redraw_task);
 	struct surface *surface;
+	int failed = 0;
+	int resized = 0;
 
 	DBG(" --------- \n");
 
@@ -4164,16 +4022,35 @@ idle_redraw(struct task *task, uint32_t events)
 		}
 
 		idle_resize(window);
+		resized = 1;
 	}
 
-	wl_list_for_each(surface, &window->subsurface_list, link)
-		surface_redraw(surface);
+	if (surface_redraw(window->main_surface) < 0) {
+		/*
+		 * Only main_surface failure will cause us to undo the resize.
+		 * If sub-surfaces fail, they will just be broken with old
+		 * content.
+		 */
+		failed = 1;
+	} else {
+		wl_list_for_each(surface, &window->subsurface_list, link) {
+			if (surface == window->main_surface)
+				continue;
+
+			surface_redraw(surface);
+		}
+	}
 
 	window->redraw_needed = 0;
 	window_flush(window);
 
 	wl_list_for_each(surface, &window->subsurface_list, link)
 		surface_set_synchronized_default(surface);
+
+	if (resized && failed) {
+		/* Restore widget tree to correspond to what is on screen. */
+		undo_resize(window);
+	}
 }
 
 static void
@@ -4205,6 +4082,12 @@ int
 window_is_fullscreen(struct window *window)
 {
 	return window->type == TYPE_FULLSCREEN;
+}
+
+int
+window_is_transient(struct window *window)
+{
+	return window->type == TYPE_TRANSIENT;
 }
 
 static void
@@ -4375,6 +4258,10 @@ window_set_title(struct window *window, const char *title)
 {
 	free(window->title);
 	window->title = strdup(title);
+	if (window->frame) {
+		frame_set_title(window->frame->frame, title);
+		widget_schedule_redraw(window->frame->widget);
+	}
 	if (window->shell_surface)
 		wl_shell_surface_set_title(window->shell_surface, title);
 }
@@ -4489,8 +4376,7 @@ surface_create(struct window *window)
 }
 
 static struct window *
-window_create_internal(struct display *display,
-		       struct window *parent, int type)
+window_create_internal(struct display *display, int type)
 {
 	struct window *window;
 	struct surface *surface;
@@ -4498,7 +4384,6 @@ window_create_internal(struct display *display,
 	window = xzalloc(sizeof *window);
 	wl_list_init(&window->subsurface_list);
 	window->display = display;
-	window->parent = parent;
 
 	surface = surface_create(window);
 	window->main_surface = surface;
@@ -4542,13 +4427,13 @@ window_create_internal(struct display *display,
 struct window *
 window_create(struct display *display)
 {
-	return window_create_internal(display, NULL, TYPE_NONE);
+	return window_create_internal(display, TYPE_NONE);
 }
 
 struct window *
 window_create_custom(struct display *display)
 {
-	return window_create_internal(display, NULL, TYPE_CUSTOM);
+	return window_create_internal(display, TYPE_CUSTOM);
 }
 
 struct window *
@@ -4557,8 +4442,7 @@ window_create_transient(struct display *display, struct window *parent,
 {
 	struct window *window;
 
-	window = window_create_internal(parent->display,
-					parent, TYPE_TRANSIENT);
+	window = window_create_internal(parent->display, TYPE_TRANSIENT);
 
 	window->x = x;
 	window->y = y;
@@ -4566,7 +4450,7 @@ window_create_transient(struct display *display, struct window *parent,
 	if (display->shell)
 		wl_shell_surface_set_transient(
 			window->shell_surface,
-			window->parent->main_surface->surface,
+			parent->main_surface->surface,
 			window->x, window->y, flags);
 
 	return window;
@@ -4575,9 +4459,11 @@ window_create_transient(struct display *display, struct window *parent,
 static void
 menu_set_item(struct menu *menu, int sy)
 {
+	int32_t x, y, width, height;
 	int next;
 
-	next = (sy - 8) / 20;
+	frame_interior(menu->frame, &x, &y, &width, &height);
+	next = (sy - y) / 20;
 	if (menu->current != next) {
 		menu->current = next;
 		widget_schedule_redraw(menu->widget);
@@ -4631,8 +4517,8 @@ menu_button_handler(struct widget *widget,
 	    (menu->release_count > 0 || time - menu->time > 500)) {
 		/* Either relase after press-drag-release or
 		 * click-motion-click. */
-		menu->func(menu->window->parent, 
-			   menu->current, menu->window->parent->user_data);
+		menu->func(menu->parent, input,
+			   menu->current, menu->parent->user_data);
 		input_ungrab(input);
 		menu_destroy(menu);
 	} else if (state == WL_POINTER_BUTTON_STATE_RELEASED) {
@@ -4644,35 +4530,35 @@ static void
 menu_redraw_handler(struct widget *widget, void *data)
 {
 	cairo_t *cr;
-	const int32_t r = 3, margin = 3;
 	struct menu *menu = data;
-	int32_t width, height, i;
+	int32_t x, y, width, height, i;
 
 	cr = widget_cairo_create(widget);
-	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-	cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.0);
-	cairo_paint(cr);
 
-	width = widget->allocation.width;
-	height = widget->allocation.height;
-	rounded_rect(cr, 0, 0, width, height, r);
+	frame_repaint(menu->frame, cr);
+	frame_interior(menu->frame, &x, &y, &width, &height);
 
-	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
-	cairo_set_source_rgba(cr, 0.0, 0.0, 0.4, 0.8);
+	theme_set_background_source(menu->window->display->theme,
+				    cr, THEME_FRAME_ACTIVE);
+	cairo_rectangle(cr, x, y, width, height);
 	cairo_fill(cr);
+
+	cairo_select_font_face(cr, "sans",
+			       CAIRO_FONT_SLANT_NORMAL,
+			       CAIRO_FONT_WEIGHT_NORMAL);
+	cairo_set_font_size(cr, 12);
 
 	for (i = 0; i < menu->count; i++) {
 		if (i == menu->current) {
 			cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
-			cairo_rectangle(cr, margin, i * 20 + margin,
-					width - 2 * margin, 20);
+			cairo_rectangle(cr, x, y + i * 20, width, 20);
 			cairo_fill(cr);
 			cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
-			cairo_move_to(cr, 10, i * 20 + 16);
+			cairo_move_to(cr, x + 10, y + i * 20 + 16);
 			cairo_show_text(cr, menu->entries[i]);
 		} else {
-			cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
-			cairo_move_to(cr, 10, i * 20 + 16);
+			cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
+			cairo_move_to(cr, x + 10, y + i * 20 + 16);
 			cairo_show_text(cr, menu->entries[i]);
 		}
 	}
@@ -4688,22 +4574,25 @@ window_show_menu(struct display *display,
 {
 	struct window *window;
 	struct menu *menu;
-	const int32_t margin = 3;
+	int32_t ix, iy;
 
 	menu = malloc(sizeof *menu);
 	if (!menu)
 		return;
 
-	window = window_create_internal(parent->display, parent, TYPE_MENU);
+	window = window_create_internal(parent->display, TYPE_MENU);
 	if (!window) {
 		free(menu);
 		return;
 	}
 
 	menu->window = window;
+	menu->parent = parent;
 	menu->widget = window_add_widget(menu->window, menu);
 	window_set_buffer_scale (menu->window, window_get_buffer_scale (parent));
 	window_set_buffer_transform (menu->window, window_get_buffer_transform (parent));
+	menu->frame = frame_create(window->display->theme, 0, 0,
+				   FRAME_BUTTON_NONE, NULL);
 	menu->entries = entries;
 	menu->count = count;
 	menu->release_count = 0;
@@ -4716,10 +4605,6 @@ window_show_menu(struct display *display,
 	window->y = y;
 
 	input_ungrab(input);
-	wl_shell_surface_set_popup(window->shell_surface, input->seat,
-				   display_get_serial(window->display),
-				   window->parent->main_surface->surface,
-				   window->x, window->y, 0);
 
 	widget_set_redraw_handler(menu->widget, menu_redraw_handler);
 	widget_set_enter_handler(menu->widget, menu_enter_handler);
@@ -4728,7 +4613,16 @@ window_show_menu(struct display *display,
 	widget_set_button_handler(menu->widget, menu_button_handler);
 
 	input_grab(input, menu->widget, 0);
-	window_schedule_resize(window, 200, count * 20 + margin * 2);
+	frame_resize_inside(menu->frame, 200, count * 20);
+	frame_set_flag(menu->frame, FRAME_FLAG_ACTIVE);
+	window_schedule_resize(window, frame_width(menu->frame),
+			       frame_height(menu->frame));
+
+	frame_interior(menu->frame, &ix, &iy, NULL, NULL);
+	wl_shell_surface_set_popup(window->shell_surface, input->seat,
+				   display_get_serial(window->display),
+				   parent->main_surface->surface,
+				   window->x - ix, window->y - iy, 0);
 }
 
 void
@@ -4849,6 +4743,7 @@ display_add_output(struct display *d, uint32_t id)
 	output->scale = 1;
 	output->output =
 		wl_registry_bind(d->registry, id, &wl_output_interface, 2);
+	output->server_output_id = id;
 	wl_list_insert(d->output_list.prev, &output->link);
 
 	wl_output_add_listener(output->output, &output_listener, output);
@@ -4865,6 +4760,19 @@ output_destroy(struct output *output)
 	free(output);
 }
 
+static void
+display_destroy_output(struct display *d, uint32_t id)
+{
+	struct output *output;
+
+	wl_list_for_each(output, &d->output_list, link) {
+		if (output->server_output_id == id) {
+			output_destroy(output);
+			break;
+		}
+	}
+}
+
 void
 display_set_global_handler(struct display *display,
 			   display_global_handler_t handler)
@@ -4879,6 +4787,15 @@ display_set_global_handler(struct display *display,
 		display->global_handler(display,
 					global->name, global->interface,
 					global->version, display->user_data);
+}
+
+void
+display_set_global_handler_remove(struct display *display,
+			   display_global_handler_t remove_handler)
+{
+	display->global_handler_remove = remove_handler;
+	if (!remove_handler)
+		return;
 }
 
 void
@@ -4965,7 +4882,7 @@ fini_xkb(struct input *input)
 	xkb_map_unref(input->xkb.keymap);
 }
 
-#define MAX(a,b) ((a) > (b) ? a : b)
+#define MIN(a,b) ((a) < (b) ? a : b)
 
 static void
 display_add_input(struct display *d, uint32_t id)
@@ -4975,7 +4892,7 @@ display_add_input(struct display *d, uint32_t id)
 	input = xzalloc(sizeof *input);
 	input->display = d;
 	input->seat = wl_registry_bind(d->registry, id, &wl_seat_interface,
-				       MAX(d->seat_version, 3));
+				       MIN(d->seat_version, 3));
 	input->touch_focus = NULL;
 	input->pointer_focus = NULL;
 	input->keyboard_focus = NULL;
@@ -5115,9 +5032,15 @@ registry_handle_global_remove(void *data, struct wl_registry *registry,
 		if (global->name != name)
 			continue;
 
-		/* XXX: Should destroy bound globals, and call
-		 * the counterpart of display::global_handler
-		 */
+		if (strcmp(global->interface, "wl_output") == 0)
+			display_destroy_output(d, name);
+
+		/* XXX: Should destroy remaining bound globals */
+
+		if (d->global_handler_remove)
+			d->global_handler_remove(d, name, global->interface,
+					global->version, d->user_data);
+
 		wl_list_remove(&global->link);
 		free(global->interface);
 		free(global);
@@ -5480,12 +5403,6 @@ display_get_argb_egl_config(struct display *d)
 	return d->argb_config;
 }
 
-struct wl_shell *
-display_get_shell(struct display *display)
-{
-	return display->shell;
-}
-
 int
 display_acquire_window_surface(struct display *display,
 			       struct window *window,
@@ -5655,4 +5572,10 @@ char *
 xstrdup(const char *s)
 {
 	return fail_on_null(strdup(s));
+}
+
+void *
+xrealloc(char *p, size_t s)
+{
+	return fail_on_null(realloc(p, s));
 }

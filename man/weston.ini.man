@@ -104,6 +104,30 @@ directory are:
 .BR xwayland.so
 .fi
 .RE
+.TP 7
+.TP 7
+.BI "backend=" headless-backend.so
+overrides defaults backend. Available backend modules in the
+.IR "__weston_modules_dir__"
+directory are:
+.PP
+.RS 10
+.nf
+.BR drm-backend.so
+.BR fbdev-backend.so
+.BR headless-backend.so
+.BR rdp-backend.so
+.BR rpi-backend.so
+.BR wayland-backend.so
+.BR x11-backend.so
+.fi
+.RE
+.BI "gbm-format="format
+sets the GBM format used for the framebuffer for the GBM backend. Can be
+.B xrgb8888,
+.B xrgb2101010,
+.B rgb565.
+By default, xrgb8888 is used.
 .RS
 .PP
 
@@ -114,6 +138,11 @@ section is used to customize the compositor. Some keys may not be handled by
 different shell plugins.
 .PP
 The entries that can appear in this section are:
+.TP 7
+.BI "client=" file
+sets the path for the shell client to run. If not specified
+.I __weston_shell_client__
+is launched (string).
 .TP 7
 .BI "background-image=" file
 sets the path for the background image file (string).
@@ -159,6 +188,12 @@ sets the effect used for opening new windows (string). Can be
 .B fade,
 .B none.
 By default, the fade animation is used.
+.TP 7
+.BI "focus-animation=" dim-layer
+sets the effect used with the focused and unfocused windows. Can be
+.B dim-layer,
+.B none.
+By default, no animation is used.
 .TP 7
 .BI "binding-modifier=" ctrl
 sets the modifier key used for common bindings (string), such as moving
@@ -229,7 +264,8 @@ currently only recognized by the drm and x11 backends.
 .TP 7
 .BI "name=" name
 sets a name for the output (string). The backend uses the name to
-identify the output. All X11 output names start with a letter X. The available
+identify the output. All X11 output names start with a letter X.  All
+Wayland output names start with the letters WL.  The available
 output names for DRM backend are listed in the
 .B "weston-launch(1)"
 output.
@@ -240,6 +276,7 @@ Examples of usage:
 .BR "LVDS1    " "DRM backend, Laptop internal panel no.1"
 .BR "VGA1     " "DRM backend, VGA connector no.1"
 .BR "X1       " "X11 backend, X window no.1"
+.BR "WL1      " "Wayland backend, Wayland window no.1"
 .fi
 .RE
 .RS

@@ -195,7 +195,8 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 }
 
 static void
-menu_func(struct window *window, int index, void *user_data)
+menu_func(struct window *window,
+	  struct input *input, int index, void *user_data)
 {
 	fprintf(stderr, "picked entry %d\n", index);
 }
@@ -235,7 +236,7 @@ resizor_create(struct display *display)
 
 	resizor = xzalloc(sizeof *resizor);
 	resizor->window = window_create(display);
-	resizor->widget = frame_create(resizor->window, resizor);
+	resizor->widget = window_frame_create(resizor->window, resizor);
 	window_set_title(resizor->window, "Wayland Resizor");
 	resizor->display = display;
 

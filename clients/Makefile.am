@@ -1,6 +1,4 @@
-bin_PROGRAMS =					\
-	weston-info				\
-	$(terminal)
+bin_PROGRAMS = $(install_clients)
 
 demo_clients = \
 	$(clients_programs)			\
@@ -9,19 +7,11 @@ demo_clients = \
 	$(simple_clients_programs)		\
 	$(simple_egl_clients_programs)
 
-if ENABLE_DEMO_CLIENTS
+if INSTALL_DEMO_CLIENTS
 bin_PROGRAMS += $(demo_clients)
 else
 noinst_PROGRAMS = $(demo_clients)
 endif
-
-libexec_PROGRAMS =				\
-	$(desktop_shell)			\
-	$(tablet_shell)				\
-	$(screenshooter)			\
-	$(screensaver)				\
-	$(keyboard)				\
-	weston-simple-im
 
 AM_CFLAGS = $(GCC_CFLAGS)
 AM_CPPFLAGS =					\
@@ -64,7 +54,14 @@ weston_simple_egl_LDADD = $(SIMPLE_EGL_CLIENT_LIBS) -lm
 endif
 
 if BUILD_CLIENTS
-terminal = weston-terminal
+install_clients = weston-terminal weston-info
+
+libexec_PROGRAMS =				\
+	weston-desktop-shell			\
+	weston-screenshooter			\
+	$(screensaver)				\
+	weston-keyboard				\
+	weston-simple-im
 
 clients_programs =				\
 	weston-flower				\
@@ -77,18 +74,12 @@ clients_programs =				\
 	weston-clickdot				\
 	weston-transformed			\
 	weston-fullscreen			\
+	weston-stacking				\
 	weston-calibrator			\
+	weston-scaler				\
 	$(subsurfaces)				\
 	$(full_gl_client_programs)		\
 	$(cairo_glesv2_programs)
-
-desktop_shell = weston-desktop-shell
-
-if ENABLE_TABLET_SHELL
-tablet_shell = weston-tablet-shell
-endif
-
-screenshooter = weston-screenshooter
 
 noinst_LTLIBRARIES = libtoytoolkit.la
 
@@ -97,8 +88,8 @@ libtoytoolkit_la_SOURCES =			\
 	window.h				\
 	text-cursor-position-protocol.c		\
 	text-cursor-position-client-protocol.h	\
-	subsurface-protocol.c			\
-	subsurface-client-protocol.h		\
+	scaler-protocol.c			\
+	scaler-client-protocol.h		\
 	workspaces-protocol.c			\
 	workspaces-client-protocol.h
 
@@ -137,6 +128,9 @@ weston_smoke_LDADD = libtoytoolkit.la
 weston_resizor_SOURCES = resizor.c
 weston_resizor_LDADD = libtoytoolkit.la
 
+weston_scaler_SOURCES = scaler.c
+weston_scaler_LDADD = libtoytoolkit.la
+
 if HAVE_CAIRO_GLESV2
 cairo_glesv2_programs = weston-nested weston-nested-client
 
@@ -158,6 +152,9 @@ weston_transformed_LDADD = libtoytoolkit.la
 
 weston_fullscreen_SOURCES = fullscreen.c
 weston_fullscreen_LDADD = libtoytoolkit.la
+
+weston_stacking_SOURCES = stacking.c
+weston_stacking_LDADD = libtoytoolkit.la
 
 weston_calibrator_SOURCES = calibrator.c	\
 	../shared/matrix.c			\
@@ -181,7 +178,6 @@ weston_editor_LDADD = libtoytoolkit.la $(PANGO_LIBS)
 weston_editor_CPPFLAGS = $(AM_CPPFLAGS) $(PANGO_CFLAGS)
 endif
 
-keyboard = weston-keyboard
 weston_keyboard_SOURCES = 			\
 	keyboard.c				\
 	desktop-shell-client-protocol.h		\
@@ -208,12 +204,6 @@ weston_desktop_shell_SOURCES =			\
 	desktop-shell-protocol.c
 weston_desktop_shell_LDADD = libtoytoolkit.la
 
-weston_tablet_shell_SOURCES =			\
-	tablet-shell.c				\
-	tablet-shell-client-protocol.h		\
-	tablet-shell-protocol.c
-weston_tablet_shell_LDADD = libtoytoolkit.la
-
 BUILT_SOURCES =					\
 	screenshooter-client-protocol.h		\
 	screenshooter-protocol.c		\
@@ -225,10 +215,8 @@ BUILT_SOURCES =					\
 	input-method-client-protocol.h		\
 	desktop-shell-client-protocol.h		\
 	desktop-shell-protocol.c		\
-	tablet-shell-client-protocol.h		\
-	tablet-shell-protocol.c			\
-	subsurface-client-protocol.h		\
-	subsurface-protocol.c			\
+	scaler-client-protocol.h		\
+	scaler-protocol.c			\
 	workspaces-client-protocol.h		\
 	workspaces-protocol.c
 

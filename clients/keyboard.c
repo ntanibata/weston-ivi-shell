@@ -261,6 +261,19 @@ struct keyboard {
 	enum keyboard_state state;
 };
 
+static void __attribute__ ((format (printf, 1, 2)))
+dbg(const char *fmt, ...)
+{
+#ifdef DEBUG
+	int l;
+	va_list argp;
+
+	va_start(argp, fmt);
+	l = vfprintf(stderr, fmt, argp);
+	va_end(argp);
+#endif
+}
+
 static const char *
 label_from_key(struct keyboard *keyboard,
 	       const struct key *key)
@@ -384,12 +397,13 @@ resize_handler(struct widget *widget,
 static char *
 insert_text(const char *text, uint32_t offset, const char *insert)
 {
-	char *new_text = xmalloc(strlen(text) + strlen(insert) + 1);
+	int tlen = strlen(text), ilen = strlen(insert);
+	char *new_text = xmalloc(tlen + ilen + 1);
 
-	strncat(new_text, text, offset);
-	new_text[offset] = '\0';
-	strcat(new_text, insert);
-	strcat(new_text, text + offset);
+	memcpy(new_text, text, offset);
+	memcpy(new_text + offset, insert, ilen);
+	memcpy(new_text + offset + ilen, text + offset, tlen - offset);
+	new_text[tlen + ilen] = '\0';
 
 	return new_text;
 }
@@ -462,14 +476,14 @@ delete_before_cursor(struct virtual_keyboard *keyboard)
 	const char *start, *end;
 
 	if (!keyboard->surrounding_text) {
-		fprintf(stderr, "delete_before_cursor: No surrounding text available\n");
+		dbg("delete_before_cursor: No surrounding text available\n");
 		return;
 	}
 
 	start = prev_utf8_char(keyboard->surrounding_text,
 			       keyboard->surrounding_text + keyboard->surrounding_cursor);
 	if (!start) {
-		fprintf(stderr, "delete_before_cursor: No previous character to delete\n");
+		dbg("delete_before_cursor: No previous character to delete\n");
 		return;
 	}
 
@@ -489,6 +503,21 @@ delete_before_cursor(struct virtual_keyboard *keyboard)
 		memmove(keyboard->surrounding_text + keyboard->surrounding_cursor, end, strlen(end));
 }
 
+static char *
+append(char *s1, const char *s2)
+{
+	int len1, len2;
+	char *s;
+
+	len1 = strlen(s1);
+	len2 = strlen(s2);
+	s = xrealloc(s1, len1 + len2 + 1);
+	memcpy(s + len1, s2, len2);
+	s[len1 + len2] = '\0';
+
+	return s;
+}
+
 static void
 keyboard_handle_key(struct keyboard *keyboard, uint32_t time, const struct key *key, struct input *input, enum wl_pointer_button_state state)
 {
@@ -501,8 +530,9 @@ keyboard_handle_key(struct keyboard *keyboard, uint32_t time, const struct key *
 			if (state != WL_POINTER_BUTTON_STATE_PRESSED)
 				break;
 
-			keyboard->keyboard->preedit_string = strcat(keyboard->keyboard->preedit_string,
-								    label);
+			keyboard->keyboard->preedit_string =
+				append(keyboard->keyboard->preedit_string,
+				       label);
 			virtual_keyboard_send_preedit(keyboard->keyboard, -1);
 			break;
 		case keytype_backspace:
@@ -526,8 +556,8 @@ keyboard_handle_key(struct keyboard *keyboard, uint32_t time, const struct key *
 		case keytype_space:
 			if (state != WL_POINTER_BUTTON_STATE_PRESSED)
 				break;
-			keyboard->keyboard->preedit_string = strcat(keyboard->keyboard->preedit_string,
-								    " ");
+			keyboard->keyboard->preedit_string =
+				append(keyboard->keyboard->preedit_string, " ");
 			virtual_keyboard_commit_preedit(keyboard->keyboard);
 			break;
 		case keytype_switch:
@@ -625,11 +655,9 @@ button_handler(struct widget *widget,
 }
 
 static void
-touch_down_handler(struct widget *widget, struct input *input,
-		   uint32_t serial, uint32_t time, int32_t id,
-		   float x, float y, void *data)
+touch_handler(struct input *input, uint32_t time,
+	      float x, float y, uint32_t state, void *data)
 {
-
 	struct keyboard *keyboard = data;
 	struct rectangle allocation;
 	int row, col;
@@ -648,20 +676,35 @@ touch_down_handler(struct widget *widget, struct input *input,
 	for (i = 0; i < layout->count; ++i) {
 		col -= layout->keys[i].width;
 		if (col < 0) {
-			keyboard_handle_key(keyboard, time, &layout->keys[i], input, WL_POINTER_BUTTON_STATE_PRESSED);
+			keyboard_handle_key(keyboard, time,
+					    &layout->keys[i], input, state);
 			break;
 		}
 	}
 
-	widget_schedule_redraw(widget);
+	widget_schedule_redraw(keyboard->widget);
+}
+
+static void
+touch_down_handler(struct widget *widget, struct input *input,
+		   uint32_t serial, uint32_t time, int32_t id,
+		   float x, float y, void *data)
+{
+  touch_handler(input, time, x, y, 
+		WL_POINTER_BUTTON_STATE_PRESSED, data);
 }
 
 static void
 touch_up_handler(struct widget *widget, struct input *input,
-				uint32_t serial, uint32_t time, int32_t id,
-				void *data)
+		 uint32_t serial, uint32_t time, int32_t id,
+		 void *data)
 {
+  float x, y;
 
+  input_get_touch(input, id, &x, &y);
+
+  touch_handler(input, time, x, y,
+		WL_POINTER_BUTTON_STATE_RELEASED, data);
 }
 
 static void
@@ -685,7 +728,7 @@ handle_reset(void *data,
 {
 	struct virtual_keyboard *keyboard = data;
 
-	fprintf(stderr, "Reset pre-edit buffer\n");
+	dbg("Reset pre-edit buffer\n");
 
 	if (strlen(keyboard->preedit_string)) {
 		free(keyboard->preedit_string);
@@ -732,7 +775,7 @@ handle_commit_state(void *data,
 	layout = get_current_layout(keyboard);
 
 	if (keyboard->surrounding_text)
-		fprintf(stderr, "Surrounding text updated: %s\n", keyboard->surrounding_text);
+		dbg("Surrounding text updated: %s\n", keyboard->surrounding_text);
 
 	window_schedule_resize(keyboard->keyboard->window,
 			       layout->columns * key_width,
@@ -881,7 +924,6 @@ keyboard_create(struct output *output, struct virtual_keyboard *virtual_keyboard
 	widget_set_button_handler(keyboard->widget, button_handler);
 	widget_set_touch_down_handler(keyboard->widget, touch_down_handler);
 	widget_set_touch_up_handler(keyboard->widget, touch_up_handler);
-
 
 	window_schedule_resize(keyboard->window,
 			       layout->columns * key_width,

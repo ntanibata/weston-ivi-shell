@@ -11,10 +11,12 @@ weston-image
 weston-nested
 weston-nested-client
 weston-resizor
+weston-scaler
 weston-simple-egl
 weston-simple-shm
 weston-simple-touch
 weston-smoke
+weston-stacking
 weston-subsurfaces
 weston-transformed
 weston-view
@@ -27,8 +29,8 @@ weston-keyboard
 libtoytoolkit.a
 screenshooter-client-protocol.h
 screenshooter-protocol.c
-subsurface-client-protocol.h
-subsurface-protocol.c
+scaler-client-protocol.h
+scaler-protocol.c
 tablet-shell-client-protocol.h
 tablet-shell-protocol.c
 text-client-protocol.h

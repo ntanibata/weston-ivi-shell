@@ -498,6 +498,7 @@ triangle_create(struct window *window, struct egl_state *egl)
 	tri->egl = egl;
 	tri->widget = window_add_subsurface(window, tri,
 		int_to_mode(option_triangle_mode));
+	widget_set_use_cairo(tri->widget, 0);
 	widget_set_resize_handler(tri->widget, triangle_resize_handler);
 	widget_set_redraw_handler(tri->widget, triangle_redraw_handler);
 
@@ -722,7 +723,7 @@ demoapp_create(struct display *display)
 	display_set_user_data(app->display, app);
 
 	app->window = window_create(app->display);
-	app->widget = frame_create(app->window, app);
+	app->widget = window_frame_create(app->window, app);
 	window_set_title(app->window, "Wayland Sub-surface Demo");
 
 	window_set_key_handler(app->window, key_handler);

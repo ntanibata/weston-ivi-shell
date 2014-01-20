@@ -1,6 +1,6 @@
 m4_define([weston_major_version], [1])
 m4_define([weston_minor_version], [3])
-m4_define([weston_micro_version], [1])
+m4_define([weston_micro_version], [91])
 m4_define([weston_version],
           [weston_major_version.weston_minor_version.weston_micro_version])
 
@@ -35,6 +35,8 @@ LT_INIT([disable-static])
 
 AC_ARG_VAR([WESTON_NATIVE_BACKEND],
            [Set the native backend to use, if Weston is not running under Wayland nor X11. @<:@default=drm-backend.so@:>@])
+AC_ARG_VAR([WESTON_SHELL_CLIENT],
+           [Set the default desktop shell client to load if none is specified in weston.ini. @<:@default=weston-desktop-shell@:>@])
 
 PKG_PROG_PKG_CONFIG()
 
@@ -53,16 +55,17 @@ AC_CHECK_DECL(CLOCK_MONOTONIC,[],
 	      [[#include <time.h>]])
 AC_CHECK_HEADERS([execinfo.h])
 
-AC_CHECK_FUNCS([mkostemp strchrnul initgroups])
+AC_CHECK_FUNCS([mkostemp strchrnul initgroups posix_fallocate])
 
-COMPOSITOR_MODULES="wayland-server >= 1.2.91 pixman-1"
+COMPOSITOR_MODULES="wayland-server >= 1.3.90 pixman-1"
 
 AC_ARG_ENABLE(egl, [  --disable-egl],,
               enable_egl=yes)
 AM_CONDITIONAL(ENABLE_EGL, test x$enable_egl = xyes)
 if test x$enable_egl = xyes; then
 	AC_DEFINE([ENABLE_EGL], [1], [Build Weston with EGL support])
-	COMPOSITOR_MODULES="$COMPOSITOR_MODULES egl >= 7.10 glesv2"
+	PKG_CHECK_MODULES(EGL, [egl >= 7.10 glesv2])
+        PKG_CHECK_MODULES([EGL_TESTS], [egl >= 7.10 glesv2 wayland-client wayland-egl])
 fi
 
 AC_ARG_ENABLE(xkbcommon,
@@ -77,8 +80,6 @@ if test x$enable_xkbcommon = xyes; then
 	AC_DEFINE(ENABLE_XKBCOMMON, [1], [Build Weston with libxkbcommon support])
 	COMPOSITOR_MODULES="$COMPOSITOR_MODULES xkbcommon >= 0.3.0"
 fi
-
-PKG_CHECK_MODULES(COMPOSITOR, [$COMPOSITOR_MODULES])
 
 AC_ARG_ENABLE(setuid-install, [  --enable-setuid-install],,
 	      enable_setuid_install=yes)
@@ -104,6 +105,8 @@ if test x$enable_xwayland = xyes; then
   fi
 fi
 
+PKG_CHECK_MODULES(LIBDRM, [libdrm],
+                  [AC_DEFINE(HAVE_LIBDRM, 1, [Define if libdrm is available]) have_libdrm=yes], have_libdrm=no)
 
 AC_ARG_ENABLE(x11-compositor, [  --enable-x11-compositor],,
 	      enable_x11_compositor=yes)
@@ -143,12 +146,13 @@ fi
 
 AC_ARG_ENABLE(drm-compositor, [  --enable-drm-compositor],,
 	      enable_drm_compositor=yes)
-AM_CONDITIONAL(ENABLE_DRM_COMPOSITOR, test x$enable_drm_compositor = xyes -a x$enable_egl = xyes)
-if test x$enable_drm_compositor = xyes -a x$enable_egl = xyes; then
+AM_CONDITIONAL(ENABLE_DRM_COMPOSITOR, test x$enable_drm_compositor = xyes)
+if test x$enable_drm_compositor = xyes; then
   AC_DEFINE([BUILD_DRM_COMPOSITOR], [1], [Build the DRM compositor])
   PKG_CHECK_MODULES(DRM_COMPOSITOR, [libudev >= 136 libdrm >= 2.4.30 gbm mtdev >= 1.1.0])
 fi
 
+PKG_CHECK_MODULES(COMPOSITOR, [$COMPOSITOR_MODULES])
 
 AC_ARG_ENABLE(wayland-compositor, [  --enable-wayland-compositor],,
 	      enable_wayland_compositor=yes)
@@ -157,7 +161,7 @@ AM_CONDITIONAL(ENABLE_WAYLAND_COMPOSITOR,
 if test x$enable_wayland_compositor = xyes -a x$enable_egl = xyes; then
   AC_DEFINE([BUILD_WAYLAND_COMPOSITOR], [1],
 	    [Build the Wayland (nested) compositor])
-  PKG_CHECK_MODULES(WAYLAND_COMPOSITOR, [wayland-client wayland-egl])
+  PKG_CHECK_MODULES(WAYLAND_COMPOSITOR, [wayland-client wayland-egl wayland-cursor])
 fi
 
 
@@ -264,6 +268,8 @@ AC_SUBST(JPEG_LIBS)
 
 PKG_CHECK_MODULES(CAIRO, [cairo])
 
+PKG_CHECK_MODULES(TEST_CLIENT, [wayland-client])
+
 AC_ARG_ENABLE(simple-clients,
               AS_HELP_STRING([--disable-simple-clients],
                              [do not build the simple wl_shm clients]),,
@@ -314,20 +320,26 @@ AC_ARG_ENABLE(resize-optimization,
 AS_IF([test "x$enable_resize_optimization" = "xyes"],
       [AC_DEFINE([USE_RESIZE_POOL], [1], [Use resize memory pool as a performance optimization])])
 
+PKG_CHECK_MODULES(SYSTEMD_LOGIN, [libsystemd-login],
+                  [have_systemd_login=yes], [have_systemd_login=no])
+AS_IF([test "x$have_systemd_login" = "xyes"],
+      [AC_DEFINE([HAVE_SYSTEMD_LOGIN], [1], [Have systemd-login])])
+AM_CONDITIONAL(HAVE_SYSTEMD_LOGIN, test "x$have_systemd_login" = "xyes")
+
+PKG_CHECK_MODULES(SYSTEMD_LOGIN_209, [libsystemd-login >= 209],
+                  [have_systemd_login_209=yes], [have_systemd_login_209=no])
+AS_IF([test "x$have_systemd_login_209" = "xyes"],
+      [AC_DEFINE([HAVE_SYSTEMD_LOGIN_209], [1], [Have systemd-login >= 209])])
+
 AC_ARG_ENABLE(weston-launch, [  --enable-weston-launch],, enable_weston_launch=yes)
 AM_CONDITIONAL(BUILD_WESTON_LAUNCH, test x$enable_weston_launch == xyes)
 if test x$enable_weston_launch == xyes; then
-  PKG_CHECK_MODULES(WESTON_LAUNCH, [libdrm])
-  PKG_CHECK_MODULES(SYSTEMD_LOGIN, [libsystemd-login],
-		    [have_systemd_login=yes], [have_systemd_login=no])
-  AS_IF([test "x$have_systemd_login" = "xyes"],
-	[AC_DEFINE([HAVE_SYSTEMD_LOGIN], [1], [Have systemd-login])])
-
   AC_CHECK_LIB([pam], [pam_open_session], [have_pam=yes], [have_pam=no])
   if test x$have_pam == xno; then
     AC_ERROR([weston-launch requires pam])
   fi
-  WESTON_LAUNCH_LIBS="$WESTON_LAUNCH_LIBS -lpam"
+  PAM_LIBS=-lpam
+  AC_SUBST(PAM_LIBS)
 fi
 
 if test x$enable_egl = xyes; then
@@ -351,13 +363,6 @@ AM_CONDITIONAL(BUILD_SUBSURFACES_CLIENT,
 
 AM_CONDITIONAL(ENABLE_DESKTOP_SHELL, true)
 
-AC_ARG_ENABLE(tablet-shell,
-              AS_HELP_STRING([--disable-tablet-shell],
-                             [do not build tablet-shell server plugin and client]),,
-	      enable_tablet_shell=yes)
-AM_CONDITIONAL(ENABLE_TABLET_SHELL,
-	       test "x$enable_tablet_shell" = "xyes")
-
 # CMS modules
 AC_ARG_ENABLE(colord,
               AS_HELP_STRING([--disable-colord],
@@ -376,6 +381,28 @@ if test "x$enable_colord" != "xno"; then
 	fi
 fi
 AM_CONDITIONAL(ENABLE_COLORD, test "x$enable_colord" = "xyes")
+
+# dbus support
+AC_ARG_ENABLE(dbus,
+              AS_HELP_STRING([--disable-dbus],
+                             [do not build with dbus support]),,
+              enable_dbus=auto)
+if test "x$enable_dbus" != "xno"; then
+        PKG_CHECK_MODULES(DBUS,
+                          dbus-1 >= 1.6,
+                          have_dbus=yes,
+                          have_dbus=no)
+        if test "x$have_dbus" = "xno" -a "x$enable_dbus" = "xyes"; then
+                AC_MSG_ERROR([dbus support explicitly requested, but libdbus couldn't be found])
+        fi
+        if test "x$have_dbus" = "xyes"; then
+                enable_dbus=yes
+                AC_DEFINE([HAVE_DBUS], [1], [Build with dbus support])
+        else
+                enable_dbus=no
+        fi
+fi
+AM_CONDITIONAL(ENABLE_DBUS, test "x$enable_dbus" = "xyes")
 
 AC_ARG_ENABLE(wcap-tools, [  --disable-wcap-tools],, enable_wcap_tools=yes)
 AM_CONDITIONAL(BUILD_WCAP_TOOLS, test x$enable_wcap_tools = xyes)
@@ -425,11 +452,18 @@ AC_MSG_NOTICE([Weston's native backend: $WESTON_NATIVE_BACKEND])
 AC_DEFINE_UNQUOTED([WESTON_NATIVE_BACKEND], ["$WESTON_NATIVE_BACKEND"],
 		   [The default backend to load, if not wayland nor x11.])
 
-AC_ARG_ENABLE(demo-clients,
-              AS_HELP_STRING([--enable-demo-clients],
-                             [install demo clients built with weston]),,
-              enable_demo_clients=no)
-AM_CONDITIONAL(ENABLE_DEMO_CLIENTS, [test "x$enable_demo_clients" = "xyes"])
+if test "x$WESTON_SHELL_CLIENT" = "x"; then
+	WESTON_SHELL_CLIENT="weston-desktop-shell"
+fi
+AC_MSG_NOTICE([Weston's default desktop shell client: $WESTON_SHELL_CLIENT])
+AC_DEFINE_UNQUOTED([WESTON_SHELL_CLIENT], ["$WESTON_SHELL_CLIENT"],
+		   [The default desktop shell client to load.])
+
+AC_ARG_ENABLE(demo-clients-install,
+              AS_HELP_STRING([--enable-demo-clients-install],
+                             [Install demo clients built with weston]),,
+			     enable_demo_clients_install=no)
+AM_CONDITIONAL(INSTALL_DEMO_CLIENTS, [test "x$enable_demo_clients_install" = "xyes"])
 
 PKG_CHECK_MODULES(LCMS, lcms2,
                   [have_lcms=yes], [have_lcms=no])
@@ -443,10 +477,22 @@ if test x$wayland_scanner = x; then
 	AC_MSG_ERROR([wayland-scanner is needed to compile weston])
 fi
 
+PKG_CHECK_MODULES(WAYLAND_SCANNER, wayland-scanner)
+AC_PATH_PROG(XMLLINT, xmllint)
+AC_ARG_WITH([dtddir],
+	    AS_HELP_STRING([--with-dtddir],
+			   [Directory containing the Wayland
+			    protocol DTD @<:@default=from pkgconfig@:>@]),
+	    [dtddir="$withval"],
+	    [dtddir=$($PKG_CONFIG --variable=pkgdatadir wayland-scanner)])
+AC_SUBST([dtddir])
+AM_CONDITIONAL([HAVE_XMLLINT], [test "x$XMLLINT" != "x" -a "x$dtddir" != "x"])
+
 AC_CONFIG_FILES([Makefile
 		 shared/Makefile
 		 src/Makefile
-		 src/xwayland/Makefile
+		 xwayland/Makefile
+		 desktop-shell/Makefile
 		 src/version.h
 		 src/weston.pc
 		 clients/Makefile
@@ -464,13 +510,14 @@ AC_MSG_RESULT([
 	Cairo Renderer			${with_cairo}
 	EGL				${enable_egl}
 	libxkbcommon			${enable_xkbcommon}
+	xcb_xkb				${have_xcb_xkb}
 	XWayland			${enable_xwayland}
+	dbus				${enable_dbus}
 
 	Build wcap utility		${enable_wcap_tools}
-	Build Tablet Shell		${enable_tablet_shell}
 
 	weston-launch utility		${enable_weston_launch}
-	weston-launch systemd support	${have_systemd_login}
+	systemd-login support		${have_systemd_login}
 
 	DRM Compositor			${enable_drm_compositor}
 	X11 Compositor			${enable_x11_compositor}
@@ -487,7 +534,7 @@ AC_MSG_RESULT([
 	Build Simple Clients		${enable_simple_clients}
 	Build Simple EGL Clients	${enable_simple_egl_clients}
 
-	Install Demo Clients		${enable_demo_clients}
+	Install Demo Clients		${enable_demo_clients_install}
 
 	Colord Support			${have_colord}
 	GLU Support			${have_glu}

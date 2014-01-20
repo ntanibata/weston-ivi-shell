@@ -36,25 +36,38 @@ weston_SOURCES =				\
 	input-method-server-protocol.h		\
 	workspaces-protocol.c			\
 	workspaces-server-protocol.h		\
-	subsurface-protocol.c			\
-	subsurface-server-protocol.h		\
+	scaler-protocol.c			\
+	scaler-server-protocol.h		\
 	bindings.c				\
 	animation.c				\
-	gl-renderer.h				\
 	noop-renderer.c				\
 	pixman-renderer.c			\
 	pixman-renderer.h			\
 	../shared/matrix.c			\
 	../shared/matrix.h			\
 	../shared/zalloc.h			\
-	weston-launch.h				\
 	weston-egl-ext.h
 
-if ENABLE_EGL
-weston_SOURCES +=				\
-	gl-renderer.c				\
-	vertex-clipping.c			\
-	vertex-clipping.h
+noinst_LTLIBRARIES =				\
+	libsession-helper.la
+
+libsession_helper_la_SOURCES =			\
+	weston-launch.h				\
+	launcher-util.c				\
+	launcher-util.h
+libsession_helper_la_CFLAGS = $(GCC_CFLAGS) $(LIBDRM_CFLAGS) $(PIXMAN_CFLAGS) $(COMPOSITOR_CFLAGS)
+libsession_helper_la_LIBADD = $(LIBDRM_LIBS)
+
+if ENABLE_DBUS
+if HAVE_SYSTEMD_LOGIN
+libsession_helper_la_SOURCES +=			\
+	dbus.h					\
+	dbus.c					\
+	logind-util.h				\
+	logind-util.c
+libsession_helper_la_CFLAGS += $(SYSTEMD_LOGIN_CFLAGS) $(DBUS_CFLAGS)
+libsession_helper_la_LIBADD += $(SYSTEMD_LOGIN_LIBS) $(DBUS_LIBS)
+endif
 endif
 
 git-version.h : .FORCE
@@ -64,20 +77,16 @@ git-version.h : .FORCE
 
 .FORCE :
 
-if ENABLE_XWAYLAND
-SUBDIRS = xwayland
-endif
-
-DIST_SUBDIRS = xwayland
-
-
 if BUILD_WESTON_LAUNCH
 weston_launch = weston-launch
 weston_launch_SOURCES = weston-launch.c weston-launch.h
-weston_launch_CFLAGS= $(GCC_CFLAGS)
-weston_launch_CPPFLAGS = $(WESTON_LAUNCH_CFLAGS) $(SYSTEMD_LOGIN_CFLAGS) \
-		 -DBINDIR='"$(bindir)"'
-weston_launch_LDADD = $(WESTON_LAUNCH_LIBS) $(SYSTEMD_LOGIN_LIBS)
+weston_launch_CPPFLAGS = -DBINDIR='"$(bindir)"'
+weston_launch_CFLAGS=				\
+	$(GCC_CFLAGS)				\
+	$(PAM_CFLAGS)				\
+	$(SYSTEMD_LOGIN_CFLAGS)			\
+	$(LIBDRM_CFLAGS)
+weston_launch_LDADD = $(PAM_LIBS) $(SYSTEMD_LOGIN_LIBS) $(LIBDRM_LIBS)
 
 if ENABLE_SETUID_INSTALL
 install-exec-hook:
@@ -100,10 +109,9 @@ westoninclude_HEADERS =				\
 
 moduledir = $(libdir)/weston
 module_LTLIBRARIES =				\
-	$(desktop_shell)			\
-	$(tablet_shell)				\
 	$(cms_static)				\
 	$(cms_colord)				\
+	$(gl_renderer)				\
 	$(x11_backend)				\
 	$(drm_backend)				\
 	$(wayland_backend)			\
@@ -111,12 +119,25 @@ module_LTLIBRARIES =				\
 	$(fbdev_backend)			\
 	$(rdp_backend)
 
-noinst_LTLIBRARIES =
-
 if INSTALL_RPI_COMPOSITOR
 module_LTLIBRARIES += $(rpi_backend)
 else
 noinst_LTLIBRARIES += $(rpi_backend)
+endif
+
+if ENABLE_EGL
+gl_renderer = gl-renderer.la
+gl_renderer_la_LDFLAGS = -module -avoid-version
+gl_renderer_la_LIBADD = $(COMPOSITOR_LIBS) $(EGL_LIBS)
+gl_renderer_la_CFLAGS =				\
+	$(COMPOSITOR_CFLAGS)			\
+	$(EGL_CFLAGS)				\
+	$(GCC_CFLAGS)
+gl_renderer_la_SOURCES =			\
+	gl-renderer.h				\
+	gl-renderer.c				\
+	vertex-clipping.c			\
+	vertex-clipping.h
 endif
 
 if ENABLE_X11_COMPOSITOR
@@ -126,6 +147,7 @@ x11_backend_la_LIBADD = $(COMPOSITOR_LIBS) $(X11_COMPOSITOR_LIBS) \
 	../shared/libshared-cairo.la
 x11_backend_la_CFLAGS =				\
 	$(COMPOSITOR_CFLAGS)			\
+	$(EGL_CFLAGS)				\
 	$(PIXMAN_CFLAGS)			\
 	$(CAIRO_CFLAGS)				\
 	$(X11_COMPOSITOR_CFLAGS)		\
@@ -136,10 +158,14 @@ endif
 if ENABLE_DRM_COMPOSITOR
 drm_backend = drm-backend.la
 drm_backend_la_LDFLAGS = -module -avoid-version
-drm_backend_la_LIBADD = $(COMPOSITOR_LIBS) $(DRM_COMPOSITOR_LIBS) \
-	../shared/libshared.la -lrt
+drm_backend_la_LIBADD =				\
+	$(COMPOSITOR_LIBS)			\
+	$(DRM_COMPOSITOR_LIBS)			\
+	../shared/libshared.la -lrt		\
+	libsession-helper.la
 drm_backend_la_CFLAGS =				\
 	$(COMPOSITOR_CFLAGS)			\
+	$(EGL_CFLAGS)				\
 	$(DRM_COMPOSITOR_CFLAGS)		\
 	$(GCC_CFLAGS)
 drm_backend_la_SOURCES =			\
@@ -149,8 +175,6 @@ drm_backend_la_SOURCES =			\
 	evdev.c					\
 	evdev.h					\
 	evdev-touchpad.c			\
-	launcher-util.c				\
-	launcher-util.h				\
 	libbacklight.c				\
 	libbacklight.h
 
@@ -164,10 +188,13 @@ endif
 if ENABLE_WAYLAND_COMPOSITOR
 wayland_backend = wayland-backend.la
 wayland_backend_la_LDFLAGS = -module -avoid-version
-wayland_backend_la_LIBADD = $(COMPOSITOR_LIBS) $(WAYLAND_COMPOSITOR_LIBS) \
+wayland_backend_la_LIBADD =			\
+	$(COMPOSITOR_LIBS)			\
+	$(WAYLAND_COMPOSITOR_LIBS)		\
 	../shared/libshared-cairo.la
 wayland_backend_la_CFLAGS =			\
 	$(COMPOSITOR_CFLAGS)			\
+	$(EGL_CFLAGS)				\
 	$(PIXMAN_CFLAGS)			\
 	$(CAIRO_CFLAGS)				\
 	$(WAYLAND_COMPOSITOR_CFLAGS)		\
@@ -181,6 +208,7 @@ rpi_backend_la_LDFLAGS = -module -avoid-version
 rpi_backend_la_LIBADD = $(COMPOSITOR_LIBS)	\
 	$(RPI_COMPOSITOR_LIBS)			\
 	$(RPI_BCM_HOST_LIBS)			\
+	libsession-helper.la			\
 	../shared/libshared.la
 rpi_backend_la_CFLAGS =				\
 	$(GCC_CFLAGS)				\
@@ -192,11 +220,17 @@ rpi_backend_la_SOURCES =			\
 	rpi-renderer.c				\
 	rpi-renderer.h				\
 	rpi-bcm-stubs.h 			\
-	launcher-util.c				\
-	launcher-util.h				\
+	udev-seat.c				\
+	udev-seat.h				\
 	evdev.c					\
 	evdev.h					\
 	evdev-touchpad.c
+
+if ENABLE_EGL
+rpi_backend_la_LIBADD += $(EGL_LIBS)
+rpi_backend_la_CFLAGS += $(EGL_CFLAGS)
+endif
+
 endif
 
 if ENABLE_HEADLESS_COMPOSITOR
@@ -216,9 +250,11 @@ fbdev_backend_la_LDFLAGS = -module -avoid-version
 fbdev_backend_la_LIBADD = \
 	$(COMPOSITOR_LIBS) \
 	$(FBDEV_COMPOSITOR_LIBS) \
+	libsession-helper.la \
 	../shared/libshared.la
 fbdev_backend_la_CFLAGS = \
 	$(COMPOSITOR_CFLAGS) \
+	$(EGL_CFLAGS) \
 	$(FBDEV_COMPOSITOR_CFLAGS) \
 	$(PIXMAN_CFLAGS) \
 	$(GCC_CFLAGS)
@@ -228,9 +264,7 @@ fbdev_backend_la_SOURCES = \
 	udev-seat.h \
 	evdev.c \
 	evdev.h \
-	evdev-touchpad.c \
-	launcher-util.c \
-	launcher-util.h
+	evdev-touchpad.c
 endif
 
 if ENABLE_RDP_COMPOSITOR
@@ -244,29 +278,6 @@ rdp_backend_la_CFLAGS =			\
 	$(RDP_COMPOSITOR_CFLAGS) \
 	$(GCC_CFLAGS)
 rdp_backend_la_SOURCES = compositor-rdp.c
-endif
-
-if ENABLE_DESKTOP_SHELL
-desktop_shell = desktop-shell.la
-desktop_shell_la_LDFLAGS = -module -avoid-version
-desktop_shell_la_LIBADD = $(COMPOSITOR_LIBS)	\
-	../shared/libshared.la
-desktop_shell_la_CFLAGS = $(GCC_CFLAGS) $(COMPOSITOR_CFLAGS)
-desktop_shell_la_SOURCES =			\
-	shell.c					\
-	desktop-shell-protocol.c		\
-	desktop-shell-server-protocol.h
-endif
-
-if ENABLE_TABLET_SHELL
-tablet_shell = tablet-shell.la
-tablet_shell_la_LDFLAGS = -module -avoid-version
-tablet_shell_la_LIBADD = $(COMPOSITOR_LIBS)
-tablet_shell_la_CFLAGS = $(GCC_CFLAGS) $(COMPOSITOR_CFLAGS)
-tablet_shell_la_SOURCES =			\
-	tablet-shell.c				\
-	tablet-shell-protocol.c			\
-	tablet-shell-server-protocol.h
 endif
 
 if HAVE_LCMS
@@ -306,18 +317,14 @@ BUILT_SOURCES =					\
 	screenshooter-protocol.c		\
 	text-cursor-position-server-protocol.h	\
 	text-cursor-position-protocol.c		\
-	tablet-shell-protocol.c			\
-	tablet-shell-server-protocol.h		\
-	desktop-shell-protocol.c		\
-	desktop-shell-server-protocol.h		\
 	text-protocol.c				\
 	text-server-protocol.h			\
 	input-method-protocol.c			\
 	input-method-server-protocol.h		\
 	workspaces-server-protocol.h		\
 	workspaces-protocol.c			\
-	subsurface-server-protocol.h		\
-	subsurface-protocol.c			\
+	scaler-server-protocol.h		\
+	scaler-protocol.c			\
 	git-version.h
 
 CLEANFILES = $(BUILT_SOURCES)

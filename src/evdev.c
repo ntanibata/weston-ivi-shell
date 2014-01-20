@@ -50,7 +50,7 @@ evdev_led_update(struct evdev_device *device, enum weston_led leds)
 	struct input_event ev[ARRAY_LENGTH(map) + 1];
 	unsigned int i;
 
-	if (!device->caps & EVDEV_KEYBOARD)
+	if (!(device->seat_caps & EVDEV_SEAT_KEYBOARD))
 		return;
 
 	memset(ev, 0, sizeof(ev));
@@ -90,10 +90,9 @@ evdev_flush_pending_event(struct evdev_device *device, uint32_t time)
 	struct weston_seat *master = device->seat;
 	wl_fixed_t x, y;
 	int32_t cx, cy;
-	int slot;
+	int slot, seat_slot;
 
 	slot = device->mt.slot;
-
 	switch (device->pending_event) {
 	case EVDEV_NONE:
 		return;
@@ -104,42 +103,56 @@ evdev_flush_pending_event(struct evdev_device *device, uint32_t time)
 		goto handled;
 	case EVDEV_ABSOLUTE_MT_DOWN:
 		weston_output_transform_coordinate(device->output,
-						   device->mt.slots[slot].x,
-						   device->mt.slots[slot].y,
+						   wl_fixed_from_int(device->mt.slots[slot].x),
+						   wl_fixed_from_int(device->mt.slots[slot].y),
 						   &x, &y);
-		notify_touch(master, time,
-			     slot, x, y, WL_TOUCH_DOWN);
+		seat_slot = ffs(~master->slot_map) - 1;
+		device->mt.slots[slot].seat_slot = seat_slot;
+		master->slot_map |= 1 << seat_slot;
+
+		notify_touch(master, time, seat_slot, x, y, WL_TOUCH_DOWN);
 		goto handled;
 	case EVDEV_ABSOLUTE_MT_MOTION:
 		weston_output_transform_coordinate(device->output,
-						   device->mt.slots[slot].x,
-						   device->mt.slots[slot].y,
+						   wl_fixed_from_int(device->mt.slots[slot].x),
+						   wl_fixed_from_int(device->mt.slots[slot].y),
 						   &x, &y);
-		notify_touch(master, time,
-			     slot, x, y, WL_TOUCH_MOTION);
+		seat_slot = device->mt.slots[slot].seat_slot;
+		notify_touch(master, time, seat_slot, x, y, WL_TOUCH_MOTION);
 		goto handled;
 	case EVDEV_ABSOLUTE_MT_UP:
-		notify_touch(master, time, slot, 0, 0,
-			     WL_TOUCH_UP);
+		seat_slot = device->mt.slots[slot].seat_slot;
+		master->slot_map &= ~(1 << seat_slot);
+		notify_touch(master, time, seat_slot, 0, 0, WL_TOUCH_UP);
 		goto handled;
 	case EVDEV_ABSOLUTE_TOUCH_DOWN:
 		transform_absolute(device, &cx, &cy);
 		weston_output_transform_coordinate(device->output,
-						   cx, cy, &x, &y);
-		notify_touch(master, time, 0, x, y, WL_TOUCH_DOWN);
+						   wl_fixed_from_int(cx),
+						   wl_fixed_from_int(cy),
+						   &x, &y);
+		seat_slot = ffs(~master->slot_map) - 1;
+		device->abs.seat_slot = seat_slot;
+		master->slot_map |= 1 << seat_slot;
+		notify_touch(master, time, seat_slot, x, y, WL_TOUCH_DOWN);
 		goto handled;
 	case EVDEV_ABSOLUTE_MOTION:
 		transform_absolute(device, &cx, &cy);
 		weston_output_transform_coordinate(device->output,
-						   cx, cy, &x, &y);
+						   wl_fixed_from_int(cx),
+						   wl_fixed_from_int(cy),
+						   &x, &y);
 
-		if (device->caps & EVDEV_TOUCH)
-			notify_touch(master, time, 0, x, y, WL_TOUCH_MOTION);
-		else
+		if (device->seat_caps & EVDEV_SEAT_TOUCH)
+			notify_touch(master, time, device->abs.seat_slot,
+				     x, y, WL_TOUCH_MOTION);
+		else if (device->seat_caps & EVDEV_SEAT_POINTER)
 			notify_motion_absolute(master, time, x, y);
 		goto handled;
 	case EVDEV_ABSOLUTE_TOUCH_UP:
-		notify_touch(master, time, 0, 0, 0, WL_TOUCH_UP);
+		seat_slot = device->abs.seat_slot;
+		master->slot_map &= ~(1 << seat_slot);
+		notify_touch(master, time, seat_slot, 0, 0, WL_TOUCH_UP);
 		goto handled;
 	}
 
@@ -400,7 +413,7 @@ evdev_device_data(int fd, uint32_t mask, void *data)
 	int len;
 
 	ec = device->seat->compositor;
-	if (!ec->focus)
+	if (!ec->session_active)
 		return 1;
 
 	/* If the compositor is repainting, this function is called only once
@@ -433,47 +446,40 @@ evdev_device_data(int fd, uint32_t mask, void *data)
 }
 
 static int
-evdev_handle_device(struct evdev_device *device)
+evdev_configure_device(struct evdev_device *device)
 {
 	struct input_absinfo absinfo;
 	unsigned long ev_bits[NBITS(EV_MAX)];
 	unsigned long abs_bits[NBITS(ABS_MAX)];
 	unsigned long rel_bits[NBITS(REL_MAX)];
 	unsigned long key_bits[NBITS(KEY_MAX)];
-	int has_key, has_abs;
+	int has_abs, has_rel, has_mt;
+	int has_button, has_keyboard, has_touch;
 	unsigned int i;
 
-	has_key = 0;
+	has_rel = 0;
 	has_abs = 0;
-	device->caps = 0;
+	has_mt = 0;
+	has_button = 0;
+	has_keyboard = 0;
+	has_touch = 0;
 
 	ioctl(device->fd, EVIOCGBIT(0, sizeof(ev_bits)), ev_bits);
 	if (TEST_BIT(ev_bits, EV_ABS)) {
-		has_abs = 1;
-
 		ioctl(device->fd, EVIOCGBIT(EV_ABS, sizeof(abs_bits)),
 		      abs_bits);
-
-		if (TEST_BIT(abs_bits, ABS_WHEEL) ||
-		    TEST_BIT(abs_bits, ABS_GAS) ||
-		    TEST_BIT(abs_bits, ABS_BRAKE) ||
-		    TEST_BIT(abs_bits, ABS_HAT0X)) {
-			weston_log("device %s is a joystick, ignoring\n",
-				   device->devnode);
-			return 0;
-		}
 
 		if (TEST_BIT(abs_bits, ABS_X)) {
 			ioctl(device->fd, EVIOCGABS(ABS_X), &absinfo);
 			device->abs.min_x = absinfo.minimum;
 			device->abs.max_x = absinfo.maximum;
-			device->caps |= EVDEV_MOTION_ABS;
+			has_abs = 1;
 		}
 		if (TEST_BIT(abs_bits, ABS_Y)) {
 			ioctl(device->fd, EVIOCGABS(ABS_Y), &absinfo);
 			device->abs.min_y = absinfo.minimum;
 			device->abs.max_y = absinfo.maximum;
-			device->caps |= EVDEV_MOTION_ABS;
+			has_abs = 1;
 		}
                 /* We only handle the slotted Protocol B in weston.
                    Devices with ABS_MT_POSITION_* but not ABS_MT_SLOT
@@ -489,7 +495,8 @@ evdev_handle_device(struct evdev_device *device)
 			device->abs.min_y = absinfo.minimum;
 			device->abs.max_y = absinfo.maximum;
 			device->is_mt = 1;
-			device->caps |= EVDEV_TOUCH;
+			has_touch = 1;
+			has_mt = 1;
 
 			if (!TEST_BIT(abs_bits, ABS_MT_SLOT)) {
 				device->mtdev = mtdev_new_open(device->fd);
@@ -510,15 +517,14 @@ evdev_handle_device(struct evdev_device *device)
 		ioctl(device->fd, EVIOCGBIT(EV_REL, sizeof(rel_bits)),
 		      rel_bits);
 		if (TEST_BIT(rel_bits, REL_X) || TEST_BIT(rel_bits, REL_Y))
-			device->caps |= EVDEV_MOTION_REL;
+			has_rel = 1;
 	}
 	if (TEST_BIT(ev_bits, EV_KEY)) {
-		has_key = 1;
 		ioctl(device->fd, EVIOCGBIT(EV_KEY, sizeof(key_bits)),
 		      key_bits);
 		if (TEST_BIT(key_bits, BTN_TOOL_FINGER) &&
 		    !TEST_BIT(key_bits, BTN_TOOL_PEN) &&
-		    has_abs) {
+		    (has_abs || has_mt)) {
 			device->dispatch = evdev_touchpad_create(device);
 			weston_log("input device %s, %s is a touchpad\n",
 				   device->devname, device->devnode);
@@ -527,59 +533,39 @@ evdev_handle_device(struct evdev_device *device)
 			if (i >= BTN_MISC && i < KEY_OK)
 				continue;
 			if (TEST_BIT(key_bits, i)) {
-				device->caps |= EVDEV_KEYBOARD;
+				has_keyboard = 1;
 				break;
 			}
 		}
-		if (TEST_BIT(key_bits, BTN_TOUCH)) {
-			device->caps |= EVDEV_TOUCH;
-		}
+		if (TEST_BIT(key_bits, BTN_TOUCH))
+			has_touch = 1;
 		for (i = BTN_MISC; i < BTN_JOYSTICK; i++) {
 			if (TEST_BIT(key_bits, i)) {
-				device->caps |= EVDEV_BUTTON;
-				device->caps &= ~EVDEV_TOUCH;
+				has_button = 1;
 				break;
 			}
 		}
 	}
-	if (TEST_BIT(ev_bits, EV_LED)) {
-		device->caps |= EVDEV_KEYBOARD;
-	}
+	if (TEST_BIT(ev_bits, EV_LED))
+		has_keyboard = 1;
 
-	/* This rule tries to catch accelerometer devices and opt out. We may
-	 * want to adjust the protocol later adding a proper event for dealing
-	 * with accelerometers and implement here accordingly */
-	if (has_abs && !has_key && !device->is_mt) {
-		weston_log("input device %s, %s "
-			   "ignored: unsupported device type\n",
-			   device->devname, device->devnode);
-		return 0;
-	}
-
-	return 1;
-}
-
-static int
-evdev_configure_device(struct evdev_device *device)
-{
-	if ((device->caps & (EVDEV_MOTION_ABS | EVDEV_MOTION_REL)) &&
-	    (device->caps & EVDEV_BUTTON)) {
+	if ((has_abs || has_rel) && has_button) {
 		weston_seat_init_pointer(device->seat);
 		device->seat_caps |= EVDEV_SEAT_POINTER;
 		weston_log("input device %s, %s is a pointer caps =%s%s%s\n",
 			   device->devname, device->devnode,
-			   device->caps & EVDEV_MOTION_ABS ? " absolute-motion" : "",
-			   device->caps & EVDEV_MOTION_REL ? " relative-motion": "",
-			   device->caps & EVDEV_BUTTON ? " button" : "");
+			   has_abs ? " absolute-motion" : "",
+			   has_rel ? " relative-motion": "",
+			   has_button ? " button" : "");
 	}
-	if ((device->caps & EVDEV_KEYBOARD)) {
+	if (has_keyboard) {
 		if (weston_seat_init_keyboard(device->seat, NULL) < 0)
 			return -1;
 		device->seat_caps |= EVDEV_SEAT_KEYBOARD;
 		weston_log("input device %s, %s is a keyboard\n",
 			   device->devname, device->devnode);
 	}
-	if ((device->caps & EVDEV_TOUCH)) {
+	if (has_touch && !has_button) {
 		weston_seat_init_touch(device->seat);
 		device->seat_caps |= EVDEV_SEAT_TOUCH;
 		weston_log("input device %s, %s is a touch device\n",
@@ -621,13 +607,13 @@ evdev_device_create(struct weston_seat *seat, const char *path, int device_fd)
 	devname[sizeof(devname) - 1] = '\0';
 	device->devname = strdup(devname);
 
-	if (!evdev_handle_device(device)) {
+	if (evdev_configure_device(device) == -1)
+		goto err;
+
+	if (device->seat_caps == 0) {
 		evdev_device_destroy(device);
 		return EVDEV_UNHANDLED_DEVICE;
 	}
-
-	if (evdev_configure_device(device) == -1)
-		goto err;
 
 	/* If the dispatch was not set up use the fallback. */
 	if (device->dispatch == NULL)
@@ -672,6 +658,7 @@ evdev_device_destroy(struct evdev_device *device)
 	close(device->fd);
 	free(device->devname);
 	free(device->devnode);
+	free(device->output_name);
 	free(device);
 }
 
@@ -687,7 +674,7 @@ evdev_notify_keyboard_focus(struct weston_seat *seat,
 	uint32_t *k;
 	int ret;
 
-	if (!seat->keyboard)
+	if (!seat->keyboard_device_count > 0)
 		return;
 
 	memset(all_keys, 0, sizeof all_keys);

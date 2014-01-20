@@ -28,7 +28,6 @@
 #include <cairo.h>
 #include "../shared/config-parser.h"
 #include "../shared/zalloc.h"
-#include "subsurface-client-protocol.h"
 
 #define ARRAY_LENGTH(a) (sizeof (a) / sizeof (a)[0])
 
@@ -62,6 +61,8 @@ void *
 xzalloc(size_t s);
 char *
 xstrdup(const char *s);
+void *
+xrealloc(char *p, size_t s);
 
 struct display *
 display_create(int *argc, char *argv[]);
@@ -87,9 +88,6 @@ display_get_cairo_device(struct display *display);
 struct wl_compositor *
 display_get_compositor(struct display *display);
 
-struct wl_shell *
-display_get_shell(struct display *display);
-
 struct output *
 display_get_output(struct display *display);
 
@@ -104,6 +102,9 @@ typedef void (*display_global_handler_t)(struct display *display,
 void
 display_set_global_handler(struct display *display,
 			   display_global_handler_t handler);
+void
+display_set_global_handler_remove(struct display *display,
+			   display_global_handler_t remove_handler);
 void *
 display_bind(struct display *display, uint32_t name,
 	     const struct wl_interface *interface, uint32_t version);
@@ -211,7 +212,7 @@ typedef void (*window_drop_handler_t)(struct window *window,
 				      struct input *input,
 				      int32_t x, int32_t y, void *data);
 
-typedef void (*window_close_handler_t)(struct window *window, void *data);
+typedef void (*window_close_handler_t)(void *data);
 typedef void (*window_fullscreen_handler_t)(struct window *window, void *data);
 
 typedef void (*window_output_handler_t)(struct window *window, struct output *output,
@@ -277,7 +278,8 @@ window_create_custom(struct display *display);
 int
 window_has_focus(struct window *window);
 
-typedef void (*menu_func_t)(struct window *window, int index, void *data);
+typedef void (*menu_func_t)(struct window *window,
+			    struct input *input, int index, void *data);
 
 void
 window_show_menu(struct display *display,
@@ -329,8 +331,6 @@ window_get_display(struct window *window);
 void
 window_move(struct window *window, struct input *input, uint32_t time);
 void
-window_touch_move(struct window *window, struct input *input, uint32_t time);
-void
 window_get_allocation(struct window *window, struct rectangle *allocation);
 void
 window_schedule_redraw(struct window *window);
@@ -347,8 +347,8 @@ window_get_surface(struct window *window);
 struct wl_surface *
 window_get_wl_surface(struct window *window);
 
-struct wl_shell_surface *
-window_get_wl_shell_surface(struct window *window);
+struct wl_subsurface *
+widget_get_wl_subsurface(struct widget *widget);
 
 enum window_buffer_type {
 	WINDOW_BUFFER_TYPE_EGL_WINDOW,
@@ -361,6 +361,9 @@ display_surface_damage(struct display *display, cairo_surface_t *cairo_surface,
 
 void
 window_set_buffer_type(struct window *window, enum window_buffer_type type);
+
+int
+window_is_transient(struct window *window);
 
 int
 window_is_fullscreen(struct window *window);
@@ -506,12 +509,15 @@ widget_set_axis_handler(struct widget *widget,
 			widget_axis_handler_t handler);
 void
 widget_schedule_redraw(struct widget *widget);
+void
+widget_set_use_cairo(struct widget *widget, int use_cairo);
 
 struct widget *
-frame_create(struct window *window, void *data);
+window_frame_create(struct window *window, void *data);
 
 void
-frame_set_child_size(struct widget *widget, int child_width, int child_height);
+window_frame_set_child_size(struct widget *widget, int child_width,
+			    int child_height);
 
 void
 input_set_pointer_image(struct input *input, int pointer);
@@ -519,12 +525,21 @@ input_set_pointer_image(struct input *input, int pointer);
 void
 input_get_position(struct input *input, int32_t *x, int32_t *y);
 
+int
+input_get_touch(struct input *input, int32_t id, float *x, float *y);
+
 #define MOD_SHIFT_MASK		0x01
 #define MOD_ALT_MASK		0x02
 #define MOD_CONTROL_MASK	0x04
 
 uint32_t
 input_get_modifiers(struct input *input);
+
+void
+touch_grab(struct input *input, int32_t touch_id);
+
+void
+touch_ungrab(struct input *input);
 
 void
 input_grab(struct input *input, struct widget *widget, uint32_t button);

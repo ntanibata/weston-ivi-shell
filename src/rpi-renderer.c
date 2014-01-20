@@ -79,12 +79,16 @@
 /* If we had a fully featured vc_dispmanx_resource_write_data()... */
 /*#define HAVE_RESOURCE_WRITE_DATA_RECT 1*/
 
+/* If we had a vc_dispmanx_element_set_opaque_rect()... */
+/*#define HAVE_ELEMENT_SET_OPAQUE_RECT 1*/
+
 struct rpi_resource {
 	DISPMANX_RESOURCE_HANDLE_T handle;
 	int width;
 	int height; /* height of the image (valid pixel data) */
 	int stride; /* bytes */
 	int buffer_height; /* height of the buffer */
+	int enable_opaque_regions;
 	VC_IMAGE_TYPE_T ifmt;
 };
 
@@ -104,15 +108,11 @@ enum buffer_type {
 struct rpir_surface {
 	struct weston_surface *surface;
 
-	/* If link is empty, the surface is guaranteed to not be on screen,
-	 * i.e. updates removing Elements have completed.
-	 */
-	struct wl_list link;
-
-	DISPMANX_ELEMENT_HANDLE_T handle;
-	int layer;
+	struct wl_list views;
+	int visible_views;
 	int need_swap;
 	int single_buffer;
+	int enable_opaque_regions;
 
 	struct rpi_resource resources[2];
 	struct rpi_resource *front;
@@ -125,6 +125,24 @@ struct rpir_surface {
 
 	struct weston_buffer_reference buffer_ref;
 	enum buffer_type buffer_type;
+
+	struct wl_listener surface_destroy_listener;
+};
+
+struct rpir_view {
+	struct rpir_surface *surface;
+	struct wl_list surface_link;
+	struct weston_view *view;
+
+	/* If link is empty, the view is guaranteed to not be on screen,
+	 * i.e. updates removing Elements have completed.
+	 */
+	struct wl_list link;
+
+	DISPMANX_ELEMENT_HANDLE_T handle;
+	int layer;
+
+	struct wl_listener view_destroy_listener;
 };
 
 struct rpir_output {
@@ -134,10 +152,10 @@ struct rpir_output {
 	struct weston_matrix matrix;
 
 	/* all Elements currently on screen */
-	struct wl_list surface_list; /* struct rpir_surface::link */
+	struct wl_list view_list; /* struct rpir_surface::link */
 
 	/* Elements just removed, waiting for update completion */
-	struct wl_list surface_cleanup_list; /* struct rpir_surface::link */
+	struct wl_list view_cleanup_list; /* struct rpir_surface::link */
 
 	struct rpi_resource capture_buffer;
 	uint8_t *capture_data;
@@ -147,6 +165,7 @@ struct rpi_renderer {
 	struct weston_renderer base;
 
 	int single_buffer;
+	int enable_opaque_regions;
 
 #ifdef ENABLE_EGL
 	EGLDisplay egl_display;
@@ -158,10 +177,31 @@ struct rpi_renderer {
 	int has_bind_display;
 };
 
+static int
+rpi_renderer_create_surface(struct weston_surface *base);
+
+static int
+rpi_renderer_create_view(struct weston_view *base);
+
+static void
+rpir_view_handle_view_destroy(struct wl_listener *listener, void *data);
+
 static inline struct rpir_surface *
 to_rpir_surface(struct weston_surface *surface)
 {
+	if (!surface->renderer_state)
+		rpi_renderer_create_surface(surface);
+
 	return surface->renderer_state;
+}
+
+static inline struct rpir_view *
+to_rpir_view(struct weston_view *view)
+{
+	if (!view->renderer_state)
+		rpi_renderer_create_view(view);
+
+	return view->renderer_state;
 }
 
 static inline struct rpir_output *
@@ -272,9 +312,47 @@ shm_buffer_get_vc_format(struct wl_shm_buffer *buffer)
 	}
 }
 
+#ifndef HAVE_ELEMENT_SET_OPAQUE_RECT
+static uint32_t *
+apply_opaque_region(struct wl_shm_buffer *buffer,
+		    pixman_region32_t *opaque_region)
+{
+	uint32_t *src, *dst;
+	int width;
+	int height;
+	int stride;
+	int x, y;
+
+	width = wl_shm_buffer_get_width(buffer);
+	height = wl_shm_buffer_get_height(buffer);
+	stride = wl_shm_buffer_get_stride(buffer);
+	src = wl_shm_buffer_get_data(buffer);
+
+	dst = malloc(height * stride);
+	if (dst == NULL) {
+		weston_log("rpi-renderer error: out of memory\n");
+		return NULL;
+	}
+
+	for (y = 0; y < height; y++) {
+		for (x = 0; x < width; x++) {
+			int i = y * stride / 4 + x;
+			pixman_box32_t box;
+			if (pixman_region32_contains_point (opaque_region, x, y, &box)) {
+				dst[i] = src[i] | 0xff000000;
+			} else {
+				dst[i] = src[i];
+			}
+		}
+	}
+
+	return dst;
+}
+#endif
+
 static int
 rpi_resource_update(struct rpi_resource *resource, struct weston_buffer *buffer,
-		    pixman_region32_t *region)
+		    pixman_region32_t *region, pixman_region32_t *opaque_region)
 {
 	pixman_region32_t write_region;
 	pixman_box32_t *r;
@@ -298,6 +376,17 @@ rpi_resource_update(struct rpi_resource *resource, struct weston_buffer *buffer,
 	stride = wl_shm_buffer_get_stride(buffer->shm_buffer);
 	pixels = wl_shm_buffer_get_data(buffer->shm_buffer);
 
+#ifndef HAVE_ELEMENT_SET_OPAQUE_RECT
+	if (pixman_region32_not_empty(opaque_region) &&
+	    wl_shm_buffer_get_format(buffer->shm_buffer) == WL_SHM_FORMAT_ARGB8888 &&
+	    resource->enable_opaque_regions) {
+		pixels = apply_opaque_region(buffer->shm_buffer, opaque_region);
+
+		if (!pixels)
+			return -1;
+	}
+#endif
+
 	ret = rpi_resource_realloc(resource, ifmt & ~PREMULT_ALPHA_FLAG,
 				   width, height, stride, height);
 	if (ret < 0)
@@ -307,6 +396,8 @@ rpi_resource_update(struct rpi_resource *resource, struct weston_buffer *buffer,
 	if (ret == 0)
 		pixman_region32_intersect(&write_region,
 					  &write_region, region);
+
+	wl_shm_buffer_begin_access(buffer->shm_buffer);
 
 #ifdef HAVE_RESOURCE_WRITE_DATA_RECT
 	/* XXX: Can this do a format conversion, so that scanout does not have to? */
@@ -342,9 +433,56 @@ rpi_resource_update(struct rpi_resource *resource, struct weston_buffer *buffer,
 	    width, r->y2 - r->y1, 0, r->y1, ret);
 #endif
 
+	wl_shm_buffer_end_access(buffer->shm_buffer);
+
 	pixman_region32_fini(&write_region);
 
+#ifndef HAVE_ELEMENT_SET_OPAQUE_RECT
+	if (pixman_region32_not_empty(opaque_region) &&
+	    wl_shm_buffer_get_format(buffer->shm_buffer) == WL_SHM_FORMAT_ARGB8888 &&
+	    resource->enable_opaque_regions)
+		free(pixels);
+#endif
+
 	return ret ? -1 : 0;
+}
+
+static inline void
+rpi_buffer_egl_lock(struct weston_buffer *buffer)
+{
+#ifdef ENABLE_EGL
+	vc_dispmanx_set_wl_buffer_in_use(buffer->resource, 1);
+#endif
+}
+
+static inline void
+rpi_buffer_egl_unlock(struct weston_buffer *buffer)
+{
+#ifdef ENABLE_EGL
+	vc_dispmanx_set_wl_buffer_in_use(buffer->resource, 0);
+#endif
+}
+
+static void
+rpir_egl_buffer_destroy(struct rpir_egl_buffer *egl_buffer)
+{
+	struct weston_buffer *buffer;
+
+	if (egl_buffer == NULL)
+		return;
+
+	buffer = egl_buffer->buffer_ref.buffer;
+	if (buffer == NULL) {
+		/* The client has already destroyed the wl_buffer, the
+		 * compositor has the responsibility to delete the resource.
+		 */
+		vc_dispmanx_resource_delete(egl_buffer->resource_handle);
+	} else {
+		rpi_buffer_egl_unlock(buffer);
+		weston_buffer_reference(&egl_buffer->buffer_ref, NULL);
+	}
+
+	free(egl_buffer);
 }
 
 static struct rpir_surface *
@@ -356,9 +494,10 @@ rpir_surface_create(struct rpi_renderer *renderer)
 	if (!surface)
 		return NULL;
 
-	wl_list_init(&surface->link);
+	wl_list_init(&surface->views);
+	surface->visible_views = 0;
 	surface->single_buffer = renderer->single_buffer;
-	surface->handle = DISPMANX_NO_HANDLE;
+	surface->enable_opaque_regions = renderer->enable_opaque_regions;
 	rpi_resource_init(&surface->resources[0]);
 	rpi_resource_init(&surface->resources[1]);
 	surface->front = &surface->resources[0];
@@ -366,6 +505,10 @@ rpir_surface_create(struct rpi_renderer *renderer)
 		surface->back = &surface->resources[0];
 	else
 		surface->back = &surface->resources[1];
+
+	surface->front->enable_opaque_regions = renderer->enable_opaque_regions;
+	surface->back->enable_opaque_regions = renderer->enable_opaque_regions;
+
 	surface->buffer_type = BUFFER_TYPE_NULL;
 
 	pixman_region32_init(&surface->prev_damage);
@@ -376,33 +519,22 @@ rpir_surface_create(struct rpi_renderer *renderer)
 static void
 rpir_surface_destroy(struct rpir_surface *surface)
 {
-	wl_list_remove(&surface->link);
-
-	if (surface->handle != DISPMANX_NO_HANDLE)
+	if (surface->visible_views)
 		weston_log("ERROR rpi: destroying on-screen element\n");
+
+	assert(wl_list_empty(&surface->views));
+
+	if (surface->surface)
+		surface->surface->renderer_state = NULL;
 
 	pixman_region32_fini(&surface->prev_damage);
 	rpi_resource_release(&surface->resources[0]);
 	rpi_resource_release(&surface->resources[1]);
-	DBG("rpir_surface %p destroyed (%u)\n", surface, surface->handle);
+	DBG("rpir_surface %p destroyed (%u)\n", surface, surface->visible_views);
 
-	if (surface->egl_back != NULL) {
-		weston_buffer_reference(&surface->egl_back->buffer_ref, NULL);
-		free(surface->egl_back);
-		surface->egl_back = NULL;
-	}
-
-	if (surface->egl_front != NULL) {
-		weston_buffer_reference(&surface->egl_front->buffer_ref, NULL);
-		free(surface->egl_front);
-		surface->egl_front = NULL;
-	}
-
-	if (surface->egl_old_front != NULL) {
-		weston_buffer_reference(&surface->egl_old_front->buffer_ref, NULL);
-		free(surface->egl_old_front);
-		surface->egl_old_front = NULL;
-	}
+	rpir_egl_buffer_destroy(surface->egl_back);
+	rpir_egl_buffer_destroy(surface->egl_front);
+	rpir_egl_buffer_destroy(surface->egl_old_front);
 
 	free(surface);
 }
@@ -422,11 +554,13 @@ rpir_surface_damage(struct rpir_surface *surface, struct weston_buffer *buffer,
 	/* XXX: todo: if no surface->handle, update front buffer directly
 	 * to avoid creating a new back buffer */
 	if (surface->single_buffer) {
-		ret = rpi_resource_update(surface->front, buffer, damage);
+		ret = rpi_resource_update(surface->front, buffer, damage,
+					  &surface->surface->opaque);
 	} else {
 		pixman_region32_init(&upload);
 		pixman_region32_union(&upload, &surface->prev_damage, damage);
-		ret = rpi_resource_update(surface->back, buffer, &upload);
+		ret = rpi_resource_update(surface->back, buffer, &upload,
+					  &surface->surface->opaque);
 		pixman_region32_fini(&upload);
 	}
 
@@ -434,6 +568,46 @@ rpir_surface_damage(struct rpir_surface *surface, struct weston_buffer *buffer,
 	surface->need_swap = 1;
 
 	return ret;
+}
+
+static struct rpir_view *
+rpir_view_create(struct rpir_surface *surface)
+{
+	struct rpir_view *view;
+
+	view = calloc(1, sizeof *view);
+	if (!view)
+		return NULL;
+
+	view->surface = surface;
+	wl_list_insert(&surface->views, &view->surface_link);
+
+	wl_list_init(&view->link);
+	view->handle = DISPMANX_NO_HANDLE;
+
+	return view;
+}
+
+static void
+rpir_view_destroy(struct rpir_view *view)
+{
+	wl_list_remove(&view->link);
+
+	if (view->handle != DISPMANX_NO_HANDLE) {
+		view->surface->visible_views--;
+		weston_log("ERROR rpi: destroying on-screen element\n");
+	}
+
+	if (view->view)
+		view->view->renderer_state = NULL;
+
+	wl_list_remove(&view->surface_link);
+	if (wl_list_empty(&view->surface->views) && view->surface->surface == NULL)
+		rpir_surface_destroy(view->surface);
+
+	DBG("rpir_view %p destroyed (%d)\n", view, view->handle);
+
+	free(view);
 }
 
 static void
@@ -495,13 +669,13 @@ warn_bad_matrix(struct weston_matrix *total, struct weston_matrix *output,
 /*#define SURFACE_TRANSFORM */
 
 static int
-rpir_surface_compute_rects(struct rpir_surface *surface,
-			   VC_RECT_T *src_rect, VC_RECT_T *dst_rect,
-			   VC_IMAGE_TRANSFORM_T *flipmask)
+rpir_view_compute_rects(struct rpir_view *view,
+			VC_RECT_T *src_rect, VC_RECT_T *dst_rect,
+			VC_IMAGE_TRANSFORM_T *flipmask)
 {
-	struct weston_output *output_base = surface->surface->output;
+	struct weston_output *output_base = view->view->surface->output;
 	struct rpir_output *output = to_rpir_output(output_base);
-	struct weston_matrix matrix = surface->surface->transform.matrix;
+	struct weston_matrix matrix = view->view->transform.matrix;
 	VC_IMAGE_TRANSFORM_T flipt = 0;
 	int src_x, src_y;
 	int dst_x, dst_y;
@@ -523,14 +697,15 @@ rpir_surface_compute_rects(struct rpir_surface *surface,
 	src_x = 0 << 16;
 	src_y = 0 << 16;
 
-	if (surface->buffer_type == BUFFER_TYPE_EGL) {
-		struct weston_buffer *buffer = surface->egl_front->buffer_ref.buffer;
+	if (view->surface->buffer_type == BUFFER_TYPE_EGL) {
+		struct weston_buffer *buffer =
+			view->surface->egl_front->buffer_ref.buffer;
 
 		src_width = buffer->width << 16;
 		src_height = buffer->height << 16;
 	} else {
-		src_width = surface->front->width << 16;
-		src_height = surface->front->height << 16;
+		src_width = view->surface->front->width << 16;
+		src_height = view->surface->front->height << 16;
 	}
 
 	weston_matrix_multiply(&matrix, &output->matrix);
@@ -541,7 +716,7 @@ rpir_surface_compute_rects(struct rpir_surface *surface,
 	if (matrix.type >= WESTON_MATRIX_TRANSFORM_ROTATE) {
 #endif
 		warn_bad_matrix(&matrix, &output->matrix,
-				&surface->surface->transform.matrix);
+				&view->view->transform.matrix);
 	} else {
 		if (matrix.type & WESTON_MATRIX_TRANSFORM_ROTATE) {
 			if (fabsf(matrix.d[0]) < 1e-4f &&
@@ -552,13 +727,13 @@ rpir_surface_compute_rects(struct rpir_surface *surface,
 				/* no transpose */
 			} else {
 				warn_bad_matrix(&matrix, &output->matrix,
-					&surface->surface->transform.matrix);
+					&view->view->transform.matrix);
 			}
 		}
 	}
 
-	p2.f[0] = surface->surface->geometry.width;
-	p2.f[1] = surface->surface->geometry.height;
+	p2.f[0] = view->view->surface->width;
+	p2.f[1] = view->view->surface->height;
 
 	/* transform top-left and bot-right corner into screen coordinates */
 	weston_matrix_transform(&matrix, &p1);
@@ -680,9 +855,9 @@ rpir_surface_compute_rects(struct rpir_surface *surface,
 	src_width = int_max(src_width, 0);
 	src_height = int_max(src_height, 0);
 
-	DBG("rpir_surface %p %dx%d: p1 %f, %f; p2 %f, %f\n", surface,
-	    surface->surface->geometry.width,
-	    surface->surface->geometry.height,
+	DBG("rpir_view %p %dx%d: p1 %f, %f; p2 %f, %f\n", view,
+	    view->view->geometry.width,
+	    view->view->geometry.height,
 	    p1.f[0], p1.f[1], p2.f[0], p2.f[1]);
 	DBG("src rect %d;%d, %d;%d, %d;%dx%d;%d\n",
 	    src_x >> 16, src_x & 0xffff,
@@ -706,7 +881,7 @@ rpir_surface_compute_rects(struct rpir_surface *surface,
 	}
 
 	/* EGL buffers will be upside-down related to what DispmanX expects */
-	if (surface->buffer_type == BUFFER_TYPE_EGL)
+	if (view->surface->buffer_type == BUFFER_TYPE_EGL)
 		flipt ^= TRANSFORM_VFLIP;
 
 	vc_dispmanx_rect_set(src_rect, src_x, src_y, src_width, src_height);
@@ -743,7 +918,6 @@ vc_image2dispmanx_transform(VC_IMAGE_TRANSFORM_T t)
 	}
 }
 
-
 static DISPMANX_RESOURCE_HANDLE_T
 rpir_surface_get_resource(struct rpir_surface *surface)
 {
@@ -759,9 +933,40 @@ rpir_surface_get_resource(struct rpir_surface *surface)
 	}
 }
 
+#ifdef HAVE_ELEMENT_SET_OPAQUE_RECT
 static int
-rpir_surface_dmx_add(struct rpir_surface *surface, struct rpir_output *output,
-		    DISPMANX_UPDATE_HANDLE_T update, int layer)
+rpir_surface_set_opaque_rect(struct rpir_surface *surface,
+			     DISPMANX_UPDATE_HANDLE_T update)
+{
+	int ret;
+
+	if (pixman_region32_not_empty(&surface->surface->opaque) &&
+	    surface->opaque_regions) {
+		pixman_box32_t *box;
+		VC_RECT_T opaque_rect;
+
+		box = pixman_region32_extents(&surface->surface->opaque);
+		opaque_rect.x = box->x1;
+		opaque_rect.y = box->y1;
+		opaque_rect.width = box->x2 - box->x1;
+		opaque_rect.height = box->y2 - box->y1;
+
+		ret = vc_dispmanx_element_set_opaque_rect(update,
+							  surface->handle,
+							  &opaque_rect);
+		if (ret) {
+			weston_log("vc_dispmanx_element_set_opaque_rect failed\n");
+			return -1;
+		}
+	}
+
+	return 0;
+}
+#endif
+
+static int
+rpir_view_dmx_add(struct rpir_view *view, struct rpir_output *output,
+		  DISPMANX_UPDATE_HANDLE_T update, int layer)
 {
 	/* Do not use DISPMANX_FLAGS_ALPHA_PREMULT here.
 	 * If you define PREMULT and ALPHA_MIX, the hardware will not
@@ -771,7 +976,7 @@ rpir_surface_dmx_add(struct rpir_surface *surface, struct rpir_output *output,
 	VC_DISPMANX_ALPHA_T alphasetup = {
 		DISPMANX_FLAGS_ALPHA_FROM_SOURCE |
 		DISPMANX_FLAGS_ALPHA_MIX,
-		float2uint8(surface->surface->alpha), /* opacity 0-255 */
+		float2uint8(view->view->alpha), /* opacity 0-255 */
 		0 /* mask resource handle */
 	};
 	VC_RECT_T dst_rect;
@@ -780,18 +985,17 @@ rpir_surface_dmx_add(struct rpir_surface *surface, struct rpir_output *output,
 	int ret;
 	DISPMANX_RESOURCE_HANDLE_T resource_handle;
 
-	resource_handle = rpir_surface_get_resource(surface);
+	resource_handle = rpir_surface_get_resource(view->surface);
 	if (resource_handle == DISPMANX_NO_HANDLE) {
 		weston_log("%s: no buffer yet, aborting\n", __func__);
 		return 0;
 	}
 
-	ret = rpir_surface_compute_rects(surface, &src_rect, &dst_rect,
-					 &flipmask);
+	ret = rpir_view_compute_rects(view, &src_rect, &dst_rect, &flipmask);
 	if (ret < 0)
 		return 0;
 
-	surface->handle = vc_dispmanx_element_add(
+	view->handle = vc_dispmanx_element_add(
 		update,
 		output->display,
 		layer,
@@ -802,37 +1006,48 @@ rpir_surface_dmx_add(struct rpir_surface *surface, struct rpir_output *output,
 		&alphasetup,
 		NULL /* clamp */,
 		vc_image2dispmanx_transform(flipmask));
-	DBG("rpir_surface %p add %u, alpha %f resource %d\n", surface,
-	    surface->handle, surface->surface->alpha, resource_handle);
+	DBG("rpir_surface %p add %u, alpha %f resource %d\n", view,
+	    view->handle, view->view->alpha, resource_handle);
+
+	if (view->handle == DISPMANX_NO_HANDLE)
+		return -1;
+
+#ifdef HAVE_ELEMENT_SET_OPAQUE_RECT
+	ret = rpir_surface_set_opaque_rect(surface, update);
+	if (ret < 0)
+		return -1;
+#endif
+
+	view->surface->visible_views++;
 
 	return 1;
 }
 
 static void
-rpir_surface_dmx_swap(struct rpir_surface *surface,
-		      DISPMANX_UPDATE_HANDLE_T update)
+rpir_view_dmx_swap(struct rpir_view *view,
+		   DISPMANX_UPDATE_HANDLE_T update)
 {
 	VC_RECT_T rect;
 	pixman_box32_t *r;
 
 	/* XXX: skip, iff resource was not reallocated, and single-buffering */
-	vc_dispmanx_element_change_source(update, surface->handle,
-					  surface->front->handle);
+	vc_dispmanx_element_change_source(update, view->handle,
+					  view->surface->front->handle);
 
 	/* This is current damage now, after rpir_surface_damage() */
-	r = pixman_region32_extents(&surface->prev_damage);
+	r = pixman_region32_extents(&view->surface->prev_damage);
 
 	vc_dispmanx_rect_set(&rect, r->x1, r->y1,
 			     r->x2 - r->x1, r->y2 - r->y1);
-	vc_dispmanx_element_modified(update, surface->handle, &rect);
-	DBG("rpir_surface %p swap\n", surface);
+	vc_dispmanx_element_modified(update, view->handle, &rect);
+	DBG("rpir_view %p swap\n", view);
 }
 
 static int
-rpir_surface_dmx_move(struct rpir_surface *surface,
-		      DISPMANX_UPDATE_HANDLE_T update, int layer)
+rpir_view_dmx_move(struct rpir_view *view,
+		   DISPMANX_UPDATE_HANDLE_T update, int layer)
 {
-	uint8_t alpha = float2uint8(surface->surface->alpha);
+	uint8_t alpha = float2uint8(view->view->alpha);
 	VC_RECT_T dst_rect;
 	VC_RECT_T src_rect;
 	VC_IMAGE_TRANSFORM_T flipmask;
@@ -840,28 +1055,27 @@ rpir_surface_dmx_move(struct rpir_surface *surface,
 
 	/* XXX: return early, if all attributes stay the same */
 
-	if (surface->buffer_type == BUFFER_TYPE_EGL) {
+	if (view->surface->buffer_type == BUFFER_TYPE_EGL) {
 		DISPMANX_RESOURCE_HANDLE_T resource_handle;
 
-		resource_handle = rpir_surface_get_resource(surface);
+		resource_handle = rpir_surface_get_resource(view->surface);
 		if (resource_handle == DISPMANX_NO_HANDLE) {
 			weston_log("%s: no buffer yet, aborting\n", __func__);
 			return 0;
 		}
 
 		vc_dispmanx_element_change_source(update,
-						  surface->handle,
+						  view->handle,
 						  resource_handle);
 	}
 
-	ret = rpir_surface_compute_rects(surface, &src_rect, &dst_rect,
-					 &flipmask);
+	ret = rpir_view_compute_rects(view, &src_rect, &dst_rect, &flipmask);
 	if (ret < 0)
 		return 0;
 
 	ret = vc_dispmanx_element_change_attributes(
 		update,
-		surface->handle,
+		view->handle,
 		ELEMENT_CHANGE_LAYER |
 			ELEMENT_CHANGE_OPACITY |
 			ELEMENT_CHANGE_TRANSFORM |
@@ -875,24 +1089,31 @@ rpir_surface_dmx_move(struct rpir_surface *surface,
 		/* This really is DISPMANX_TRANSFORM_T, no matter
 		 * what the header says. */
 		vc_image2dispmanx_transform(flipmask));
-	DBG("rpir_surface %p move\n", surface);
+	DBG("rpir_view %p move\n", view);
 
 	if (ret)
 		return -1;
+
+#ifdef HAVE_ELEMENT_SET_OPAQUE_RECT
+	ret = rpir_surface_set_opaque_rect(surface, update);
+	if (ret < 0)
+		return -1;
+#endif
 
 	return 1;
 }
 
 static void
-rpir_surface_dmx_remove(struct rpir_surface *surface,
-			DISPMANX_UPDATE_HANDLE_T update)
+rpir_view_dmx_remove(struct rpir_view *view,
+		     DISPMANX_UPDATE_HANDLE_T update)
 {
-	if (surface->handle == DISPMANX_NO_HANDLE)
+	if (view->handle == DISPMANX_NO_HANDLE)
 		return;
 
-	vc_dispmanx_element_remove(update, surface->handle);
-	DBG("rpir_surface %p remove %u\n", surface, surface->handle);
-	surface->handle = DISPMANX_NO_HANDLE;
+	vc_dispmanx_element_remove(update, view->handle);
+	DBG("rpir_view %p remove %u\n", view, view->handle);
+	view->handle = DISPMANX_NO_HANDLE;
+	view->surface->visible_views--;
 }
 
 static void
@@ -900,23 +1121,32 @@ rpir_surface_swap_pointers(struct rpir_surface *surface)
 {
 	struct rpi_resource *tmp;
 
-	tmp = surface->front;
-	surface->front = surface->back;
-	surface->back = tmp;
-	surface->need_swap = 0;
-	DBG("new back %p, new front %p\n", surface->back, surface->front);
+	if (surface->buffer_type == BUFFER_TYPE_EGL) {
+		if (surface->egl_back != NULL) {
+			assert(surface->egl_old_front == NULL);
+			surface->egl_old_front = surface->egl_front;
+			surface->egl_front = surface->egl_back;
+			surface->egl_back = NULL;
+			DBG("new front %d\n", surface->egl_front->resource_handle);
+		}
+	} else {
+		tmp = surface->front;
+		surface->front = surface->back;
+		surface->back = tmp;
+		DBG("new back %p, new front %p\n", surface->back, surface->front);
+	}
 }
 
 static int
-is_surface_not_visible(struct weston_surface *surface)
+is_view_not_visible(struct weston_view *view)
 {
 	/* Return true, if surface is guaranteed to be totally obscured. */
 	int ret;
 	pixman_region32_t unocc;
 
 	pixman_region32_init(&unocc);
-	pixman_region32_subtract(&unocc, &surface->transform.boundingbox,
-				 &surface->clip);
+	pixman_region32_subtract(&unocc, &view->transform.boundingbox,
+				 &view->clip);
 	ret = !pixman_region32_not_empty(&unocc);
 	pixman_region32_fini(&unocc);
 
@@ -924,81 +1154,54 @@ is_surface_not_visible(struct weston_surface *surface)
 }
 
 static void
-rpir_surface_update(struct rpir_surface *surface, struct rpir_output *output,
-		    DISPMANX_UPDATE_HANDLE_T update, int layer)
+rpir_view_update(struct rpir_view *view, struct rpir_output *output,
+		 DISPMANX_UPDATE_HANDLE_T update, int layer)
 {
-	int need_swap = surface->need_swap;
 	int ret;
 	int obscured;
 
-	if (surface->buffer_type == BUFFER_TYPE_EGL) {
-		if (surface->egl_back != NULL) {
-			assert(surface->egl_old_front == NULL);
-			surface->egl_old_front = surface->egl_front;
-			surface->egl_front = surface->egl_back;
-			surface->egl_back = NULL;
-		}
-		if (surface->egl_front->buffer_ref.buffer == NULL) {
-			weston_log("warning: client unreffed current front buffer\n");
-
-			wl_list_remove(&surface->link);
-			if (surface->handle == DISPMANX_NO_HANDLE) {
-				wl_list_init(&surface->link);
-			} else {
-				rpir_surface_dmx_remove(surface, update);
-				wl_list_insert(&output->surface_cleanup_list,
-						   &surface->link);
-			}
-
-			goto out;
-		}
-	} else {
-		if (need_swap)
-			rpir_surface_swap_pointers(surface);
-	}
-
-	obscured = is_surface_not_visible(surface->surface);
+	obscured = is_view_not_visible(view->view);
 	if (obscured) {
-		DBG("rpir_surface %p totally obscured.\n", surface);
+		DBG("rpir_view %p totally obscured.\n", view);
 
-		wl_list_remove(&surface->link);
-		if (surface->handle == DISPMANX_NO_HANDLE) {
-			wl_list_init(&surface->link);
+		wl_list_remove(&view->link);
+		if (view->handle == DISPMANX_NO_HANDLE) {
+			wl_list_init(&view->link);
 		} else {
-			rpir_surface_dmx_remove(surface, update);
-			wl_list_insert(&output->surface_cleanup_list,
-				       &surface->link);
+			rpir_view_dmx_remove(view, update);
+			wl_list_insert(&output->view_cleanup_list,
+				       &view->link);
 		}
 
 		goto out;
 	}
 
-	if (surface->handle == DISPMANX_NO_HANDLE) {
-		ret = rpir_surface_dmx_add(surface, output, update, layer);
+	if (view->handle == DISPMANX_NO_HANDLE) {
+		ret = rpir_view_dmx_add(view, output, update, layer);
 		if (ret == 0) {
-			wl_list_remove(&surface->link);
-			wl_list_init(&surface->link);
+			wl_list_remove(&view->link);
+			wl_list_init(&view->link);
 		} else if (ret < 0) {
-			weston_log("ERROR rpir_surface_dmx_add() failed.\n");
+			weston_log("ERROR rpir_view_dmx_add() failed.\n");
 		}
 	} else {
-		if (need_swap)
-			rpir_surface_dmx_swap(surface, update);
+		if (view->surface->need_swap)
+			rpir_view_dmx_swap(view, update);
 
-		ret = rpir_surface_dmx_move(surface, update, layer);
+		ret = rpir_view_dmx_move(view, update, layer);
 		if (ret == 0) {
-			rpir_surface_dmx_remove(surface, update);
+			rpir_view_dmx_remove(view, update);
 
-			wl_list_remove(&surface->link);
-			wl_list_insert(&output->surface_cleanup_list,
-				       &surface->link);
+			wl_list_remove(&view->link);
+			wl_list_insert(&output->view_cleanup_list,
+				       &view->link);
 		} else if (ret < 0) {
-			weston_log("ERROR rpir_surface_dmx_move() failed.\n");
+			weston_log("ERROR rpir_view_dmx_move() failed.\n");
 		}
 	}
 
 out:
-	surface->layer = layer;
+	view->layer = layer;
 }
 
 static int
@@ -1105,15 +1308,15 @@ static void
 rpir_output_dmx_remove_all(struct rpir_output *output,
 			   DISPMANX_UPDATE_HANDLE_T update)
 {
-	struct rpir_surface *surface;
+	struct rpir_view *view;
 
-	while (!wl_list_empty(&output->surface_list)) {
-		surface = container_of(output->surface_list.next,
-				       struct rpir_surface, link);
-		rpir_surface_dmx_remove(surface, update);
+	while (!wl_list_empty(&output->view_list)) {
+		view = container_of(output->view_list.next,
+				    struct rpir_view, link);
+		rpir_view_dmx_remove(view, update);
 
-		wl_list_remove(&surface->link);
-		wl_list_insert(&output->surface_cleanup_list, &surface->link);
+		wl_list_remove(&view->link);
+		wl_list_insert(&output->view_cleanup_list, &view->link);
 	}
 }
 
@@ -1186,8 +1389,8 @@ rpi_renderer_repaint_output(struct weston_output *base,
 {
 	struct weston_compositor *compositor = base->compositor;
 	struct rpir_output *output = to_rpir_output(base);
-	struct weston_surface *ws;
-	struct rpir_surface *surface;
+	struct weston_view *wv;
+	struct rpir_view *view;
 	struct wl_list done_list;
 	int layer = 1;
 
@@ -1199,27 +1402,66 @@ rpi_renderer_repaint_output(struct weston_output *base,
 	free(output->capture_data);
 	output->capture_data = NULL;
 
+	/* Swap resources on surfaces as needed */
+	wl_list_for_each_reverse(wv, &compositor->view_list, link)
+		wv->surface->touched = 0;
+
+	wl_list_for_each_reverse(wv, &compositor->view_list, link) {
+		view = to_rpir_view(wv);
+
+		if (!wv->surface->touched) {
+			wv->surface->touched = 1;
+
+			if (view->surface->buffer_type == BUFFER_TYPE_EGL ||
+			    view->surface->need_swap)
+				rpir_surface_swap_pointers(view->surface);
+		}
+
+		if (view->surface->buffer_type == BUFFER_TYPE_EGL) {
+			struct weston_buffer *buffer;
+			buffer = view->surface->egl_front->buffer_ref.buffer;
+			if (buffer != NULL) {
+				rpi_buffer_egl_lock(buffer);
+			} else {
+				weston_log("warning: client destroyed current front buffer\n");
+
+				wl_list_remove(&view->link);
+				if (view->handle == DISPMANX_NO_HANDLE) {
+					wl_list_init(&view->link);
+				} else {
+					rpir_view_dmx_remove(view, output->update);
+					wl_list_insert(&output->view_cleanup_list,
+						       &view->link);
+				}
+			}
+		}
+	}
+
 	/* update all renderable surfaces */
 	wl_list_init(&done_list);
-	wl_list_for_each_reverse(ws, &compositor->surface_list, link) {
-		if (ws->plane != &compositor->primary_plane)
+	wl_list_for_each_reverse(wv, &compositor->view_list, link) {
+		if (wv->plane != &compositor->primary_plane)
 			continue;
 
-		surface = to_rpir_surface(ws);
-		assert(!wl_list_empty(&surface->link) ||
-		       surface->handle == DISPMANX_NO_HANDLE);
+		view = to_rpir_view(wv);
+		assert(!wl_list_empty(&view->link) ||
+		       view->handle == DISPMANX_NO_HANDLE);
 
-		wl_list_remove(&surface->link);
-		wl_list_insert(&done_list, &surface->link);
-		rpir_surface_update(surface, output, output->update, layer++);
+		wl_list_remove(&view->link);
+		wl_list_insert(&done_list, &view->link);
+		rpir_view_update(view, output, output->update, layer++);
 	}
+
+	/* Mark all surfaces as swapped */
+	wl_list_for_each_reverse(wv, &compositor->view_list, link)
+		to_rpir_surface(wv->surface)->need_swap = 0;
 
 	/* Remove all surfaces that are still on screen, but were
 	 * not rendered this time.
 	 */
 	rpir_output_dmx_remove_all(output, output->update);
 
-	wl_list_insert_list(&output->surface_list, &done_list);
+	wl_list_insert_list(&output->view_list, &done_list);
 	output->update = DISPMANX_NO_HANDLE;
 
 	/* The frame_signal is emitted in rpi_renderer_finish_frame(),
@@ -1263,7 +1505,7 @@ rpi_renderer_attach(struct weston_surface *base, struct weston_buffer *buffer)
 			/* XXX: need to check if in middle of update */
 			rpi_resource_release(surface->back);
 
-		if (surface->handle == DISPMANX_NO_HANDLE)
+		if (!surface->visible_views)
 			/* XXX: cannot do this, if middle of an update */
 			rpi_resource_release(surface->front);
 
@@ -1319,6 +1561,27 @@ rpi_renderer_attach(struct weston_surface *base, struct weston_buffer *buffer)
 	}
 }
 
+static void
+rpir_surface_handle_surface_destroy(struct wl_listener *listener, void *data)
+{
+	struct rpir_surface *surface;
+	struct weston_surface *base = data;
+
+	surface = container_of(listener, struct rpir_surface,
+			       surface_destroy_listener);
+
+	assert(surface);
+	assert(surface->surface == base);
+	if (!surface)
+		return;
+
+	surface->surface = NULL;
+	base->renderer_state = NULL;
+
+	if (wl_list_empty(&surface->views))
+		rpir_surface_destroy(surface);
+}
+
 static int
 rpi_renderer_create_surface(struct weston_surface *base)
 {
@@ -1333,6 +1596,35 @@ rpi_renderer_create_surface(struct weston_surface *base)
 
 	surface->surface = base;
 	base->renderer_state = surface;
+
+	surface->surface_destroy_listener.notify =
+		rpir_surface_handle_surface_destroy;
+	wl_signal_add(&base->destroy_signal,
+		      &surface->surface_destroy_listener);
+
+	return 0;
+}
+
+static int
+rpi_renderer_create_view(struct weston_view *base)
+{
+	struct rpir_surface *surface = to_rpir_surface(base->surface);
+	struct rpir_view *view;
+
+	assert(base->renderer_state == NULL);
+
+	view = rpir_view_create(surface);
+	if (!view)
+		return -1;
+
+	view->view = base;
+	base->renderer_state = view;
+
+	view->view_destroy_listener.notify =
+		rpir_view_handle_view_destroy;
+	wl_signal_add(&base->destroy_signal,
+		      &view->view_destroy_listener);
+
 	return 0;
 }
 
@@ -1378,25 +1670,28 @@ rpi_renderer_surface_set_color(struct weston_surface *base,
 }
 
 static void
-rpi_renderer_destroy_surface(struct weston_surface *base)
+rpir_view_handle_view_destroy(struct wl_listener *listener, void *data)
 {
-	struct rpir_surface *surface = to_rpir_surface(base);
+	struct rpir_view *view;
+	struct weston_view *base = data;
 
-	assert(surface);
-	assert(surface->surface == base);
-	if (!surface)
+	view = container_of(listener, struct rpir_view, view_destroy_listener);
+
+	assert(view);
+	assert(view->view == base);
+	if (!view)
 		return;
 
-	surface->surface = NULL;
+	view->view = NULL;
 	base->renderer_state = NULL;
 
-	/* If guaranteed to not be on screen, just detroy it. */
-	if (wl_list_empty(&surface->link))
-		rpir_surface_destroy(surface);
+	/* If guaranteed to not be on screen, just destroy it. */
+	if (wl_list_empty(&view->link))
+		rpir_view_destroy(view);
 
-	/* Otherwise, the surface is either on screen and needs
+	/* Otherwise, the view is either on screen and needs
 	 * to be removed by a repaint update, or it is in the
-	 * surface_cleanup_list, and will be destroyed by
+	 * view_cleanup_list, and will be destroyed by
 	 * rpi_renderer_finish_frame().
 	 */
 }
@@ -1434,14 +1729,13 @@ rpi_renderer_create(struct weston_compositor *compositor,
 		return -1;
 
 	renderer->single_buffer = params->single_buffer;
+	renderer->enable_opaque_regions = params->opaque_regions;
 
 	renderer->base.read_pixels = rpi_renderer_read_pixels;
 	renderer->base.repaint_output = rpi_renderer_repaint_output;
 	renderer->base.flush_damage = rpi_renderer_flush_damage;
 	renderer->base.attach = rpi_renderer_attach;
-	renderer->base.create_surface = rpi_renderer_create_surface;
 	renderer->base.surface_set_color = rpi_renderer_surface_set_color;
-	renderer->base.destroy_surface = rpi_renderer_destroy_surface;
 	renderer->base.destroy = rpi_renderer_destroy;
 
 #ifdef ENABLE_EGL
@@ -1504,8 +1798,8 @@ rpi_renderer_output_create(struct weston_output *base,
 
 	output->display = display;
 	output->update = DISPMANX_NO_HANDLE;
-	wl_list_init(&output->surface_list);
-	wl_list_init(&output->surface_cleanup_list);
+	wl_list_init(&output->view_list);
+	wl_list_init(&output->view_cleanup_list);
 	rpi_resource_init(&output->capture_buffer);
 	base->renderer_state = output;
 
@@ -1516,7 +1810,7 @@ WL_EXPORT void
 rpi_renderer_output_destroy(struct weston_output *base)
 {
 	struct rpir_output *output = to_rpir_output(base);
-	struct rpir_surface *surface;
+	struct rpir_view *view;
 	DISPMANX_UPDATE_HANDLE_T update;
 
 	rpi_resource_release(&output->capture_buffer);
@@ -1527,12 +1821,10 @@ rpi_renderer_output_destroy(struct weston_output *base)
 	rpir_output_dmx_remove_all(output, update);
 	vc_dispmanx_update_submit_sync(update);
 
-	while (!wl_list_empty(&output->surface_cleanup_list)) {
-		surface = container_of(output->surface_cleanup_list.next,
-				       struct rpir_surface, link);
-		if (surface->surface)
-			surface->surface->renderer_state = NULL;
-		rpir_surface_destroy(surface);
+	while (!wl_list_empty(&output->view_cleanup_list)) {
+		view = container_of(output->view_cleanup_list.next,
+				    struct rpir_view, link);
+		rpir_view_destroy(view);
 	}
 
 	free(output);
@@ -1553,41 +1845,37 @@ rpi_renderer_finish_frame(struct weston_output *base)
 {
 	struct rpir_output *output = to_rpir_output(base);
 	struct weston_compositor *compositor = base->compositor;
-	struct weston_surface *ws;
-	struct rpir_surface *surface;
+	struct weston_view *wv;
+	struct rpir_view *view;
 
-	while (!wl_list_empty(&output->surface_cleanup_list)) {
-		surface = container_of(output->surface_cleanup_list.next,
-				       struct rpir_surface, link);
+	while (!wl_list_empty(&output->view_cleanup_list)) {
+		view = container_of(output->view_cleanup_list.next,
+				    struct rpir_view, link);
 
-		if (surface->surface) {
-			/* The weston_surface still exists, but is
+		if (view->view) {
+			/* The weston_view still exists, but is
 			 * temporarily not visible, and hence its Element
 			 * was removed. The current front buffer contents
 			 * must be preserved.
 			 */
-			if (!surface->single_buffer)
-				rpi_resource_release(surface->back);
+			if (!view->surface->visible_views)
+				rpi_resource_release(view->surface->back);
 
-			wl_list_remove(&surface->link);
-			wl_list_init(&surface->link);
+			wl_list_remove(&view->link);
+			wl_list_init(&view->link);
 		} else {
-			rpir_surface_destroy(surface);
+			rpir_view_destroy(view);
 		}
 	}
 
-	wl_list_for_each(ws, &compositor->surface_list, link) {
-		surface = to_rpir_surface(ws);
+	wl_list_for_each(wv, &compositor->view_list, link) {
+		view = to_rpir_view(wv);
 
-		if (surface->buffer_type != BUFFER_TYPE_EGL)
+		if (view->surface->buffer_type != BUFFER_TYPE_EGL)
 			continue;
 
-		if(surface->egl_old_front == NULL)
-			continue;
-
-		weston_buffer_reference(&surface->egl_old_front->buffer_ref, NULL);
-		free(surface->egl_old_front);
-		surface->egl_old_front = NULL;
+		rpir_egl_buffer_destroy(view->surface->egl_old_front);
+		view->surface->egl_old_front = NULL;
 	}
 
 	wl_signal_emit(&base->frame_signal, base);

@@ -40,12 +40,9 @@
 #include <linux/kd.h>
 #include <linux/major.h>
 
-#ifdef BUILD_DRM_COMPOSITOR
-#include <xf86drm.h>
-#endif
-
 #include "compositor.h"
 #include "launcher-util.h"
+#include "logind-util.h"
 #include "weston-launch.h"
 
 #define DRM_MAJOR 226
@@ -54,41 +51,54 @@
 #define KDSKBMUTE	0x4B51
 #endif
 
-union cmsg_data { unsigned char b[4]; int fd; };
+#ifdef HAVE_LIBDRM
 
-struct weston_launcher {
-	struct weston_compositor *compositor;
-	int fd;
-	struct wl_event_source *source;
+#include <xf86drm.h>
 
-	int kb_mode, tty, drm_fd;
-	struct wl_event_source *vt_source;
-};
-
-#ifdef BUILD_DRM_COMPOSITOR
-static int
-drm_drop_master(int drm_fd)
-{
-	return drmDropMaster(drm_fd);
-}
-static int
-drm_set_master(int drm_fd)
-{
-	return drmSetMaster(drm_fd);
-}
-static int
-drm_is_master(int drm_fd)
+static inline int
+is_drm_master(int drm_fd)
 {
 	drm_magic_t magic;
 
 	return drmGetMagic(drm_fd, &magic) == 0 &&
 		drmAuthMagic(drm_fd, magic) == 0;
 }
+
 #else
-static int drm_drop_master(int drm_fd) {return 0;}
-static int drm_set_master(int drm_fd) {return 0;}
-static int drm_is_master(int drm_fd) {return 1;}
+
+static inline int
+drmDropMaster(int drm_fd)
+{
+	return 0;
+}
+
+static inline int
+drmSetMaster(int drm_fd)
+{
+	return 0;
+}
+
+static inline int
+is_drm_master(int drm_fd)
+{
+	return 0;
+}
+
 #endif
+
+
+union cmsg_data { unsigned char b[4]; int fd; };
+
+struct weston_launcher {
+	struct weston_compositor *compositor;
+	struct weston_logind *logind;
+	struct wl_event_loop *loop;
+	int fd;
+	struct wl_event_source *source;
+
+	int kb_mode, tty, drm_fd;
+	struct wl_event_source *vt_source;
+};
 
 int
 weston_launcher_open(struct weston_launcher *launcher,
@@ -104,6 +114,9 @@ weston_launcher_open(struct weston_launcher *launcher,
 	struct weston_launcher_open *message;
 	struct stat s;
 
+	if (launcher->logind)
+		return weston_logind_open(launcher->logind, path, flags);
+
 	if (launcher->fd == -1) {
 		fd = open(path, flags | O_CLOEXEC);
 		if (fd == -1)
@@ -116,7 +129,7 @@ weston_launcher_open(struct weston_launcher *launcher,
 
 		if (major(s.st_rdev) == DRM_MAJOR) {
 			launcher->drm_fd = fd;
-			if (!drm_is_master(fd)) {
+			if (!is_drm_master(fd)) {
 				weston_log("drm fd not master\n");
 				close(fd);
 				return -1;
@@ -174,9 +187,21 @@ weston_launcher_open(struct weston_launcher *launcher,
 }
 
 void
+weston_launcher_close(struct weston_launcher *launcher, int fd)
+{
+	if (launcher->logind)
+		return weston_logind_close(launcher->logind, fd);
+
+	close(fd);
+}
+
+void
 weston_launcher_restore(struct weston_launcher *launcher)
 {
 	struct vt_mode mode = { 0 };
+
+	if (launcher->logind)
+		return weston_logind_restore(launcher->logind);
 
 	if (ioctl(launcher->tty, KDSKBMUTE, 0) &&
 	    ioctl(launcher->tty, KDSKBMODE, launcher->kb_mode))
@@ -188,7 +213,7 @@ weston_launcher_restore(struct weston_launcher *launcher)
 	/* We have to drop master before we switch the VT back in
 	 * VT_AUTO, so we don't risk switching to a VT with another
 	 * display server, that will then fail to set drm master. */
-	drm_drop_master(launcher->drm_fd);
+	drmDropMaster(launcher->drm_fd);
 
 	mode.mode = VT_AUTO;
 	if (ioctl(launcher->tty, VT_SETMODE, &mode) < 0)
@@ -242,11 +267,11 @@ vt_handler(int signal_number, void *data)
 	if (compositor->session_active) {
 		compositor->session_active = 0;
 		wl_signal_emit(&compositor->session_signal, compositor);
-		drm_drop_master(launcher->drm_fd);
+		drmDropMaster(launcher->drm_fd);
 		ioctl(launcher->tty, VT_RELDISP, 1);
 	} else {
 		ioctl(launcher->tty, VT_RELDISP, VT_ACKACQ);
-		drm_set_master(launcher->drm_fd);
+		drmSetMaster(launcher->drm_fd);
 		compositor->session_active = 1;
 		wl_signal_emit(&compositor->session_signal, compositor);
 	}
@@ -341,19 +366,25 @@ setup_tty(struct weston_launcher *launcher, int tty)
 int
 weston_launcher_activate_vt(struct weston_launcher *launcher, int vt)
 {
+	if (launcher->logind)
+		return weston_logind_activate_vt(launcher->logind, vt);
+
 	return ioctl(launcher->tty, VT_ACTIVATE, vt);
 }
 
 struct weston_launcher *
-weston_launcher_connect(struct weston_compositor *compositor, int tty)
+weston_launcher_connect(struct weston_compositor *compositor, int tty,
+			const char *seat_id)
 {
 	struct weston_launcher *launcher;
 	struct wl_event_loop *loop;
+	int r;
 
 	launcher = malloc(sizeof *launcher);
 	if (launcher == NULL)
 		return NULL;
 
+	launcher->logind = NULL;
 	launcher->compositor = compositor;
 	launcher->drm_fd = -1;
 	launcher->fd = weston_environment_get_fd("WESTON_LAUNCHER_SOCK");
@@ -368,14 +399,21 @@ weston_launcher_connect(struct weston_compositor *compositor, int tty)
 			free(launcher);
 			return NULL;
 		}
-	} else if (geteuid() == 0) {
-		if (setup_tty(launcher, tty) == -1) {
-			free(launcher);
-			return NULL;
-		}
 	} else {
-		free(launcher);
-		return NULL;
+		r = weston_logind_connect(&launcher->logind, compositor,
+					  seat_id, tty);
+		if (r < 0) {
+			launcher->logind = NULL;
+			if (geteuid() == 0) {
+				if (setup_tty(launcher, tty) == -1) {
+					free(launcher);
+					return NULL;
+				}
+			} else {
+				free(launcher);
+				return NULL;
+			}
+		}
 	}
 
 	return launcher;
@@ -384,7 +422,9 @@ weston_launcher_connect(struct weston_compositor *compositor, int tty)
 void
 weston_launcher_destroy(struct weston_launcher *launcher)
 {
-	if (launcher->fd != -1) {
+	if (launcher->logind) {
+		weston_logind_destroy(launcher->logind);
+	} else if (launcher->fd != -1) {
 		close(launcher->fd);
 		wl_event_source_remove(launcher->source);
 	} else {
@@ -392,6 +432,8 @@ weston_launcher_destroy(struct weston_launcher *launcher)
 		wl_event_source_remove(launcher->vt_source);
 	}
 
-	close(launcher->tty);
+	if (launcher->tty >= 0)
+		close(launcher->tty);
+
 	free(launcher);
 }

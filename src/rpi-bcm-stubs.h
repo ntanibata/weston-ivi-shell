@@ -303,6 +303,19 @@ vc_dispmanx_get_handle_from_wl_buffer(struct wl_resource *_buffer)
 	return DISPMANX_NO_HANDLE;
 }
 
+static inline void
+vc_dispmanx_set_wl_buffer_in_use(struct wl_resource *_buffer, int in_use)
+{
+}
+
+static inline int
+vc_dispmanx_element_set_opaque_rect(DISPMANX_UPDATE_HANDLE_T update,
+				    DISPMANX_ELEMENT_HANDLE_T element,
+				    const VC_RECT_T *opaque_rect)
+{
+	return -1;
+}
+
 /* from /opt/vc/include/EGL/eglplatform.h */
 
 typedef struct {

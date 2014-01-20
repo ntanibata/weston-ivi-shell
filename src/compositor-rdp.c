@@ -486,8 +486,6 @@ rdp_compositor_create_output(struct rdp_compositor *c, int width, int height,
 	if (pixman_renderer_output_create(&output->base) < 0)
 		goto out_shadow_surface;
 
-	weston_output_move(&output->base, 0, 0);
-
 	loop = wl_display_get_event_loop(c->base.wl_display);
 	output->finish_frame_timer = wl_event_loop_add_timer(loop, finish_frame_handler, output);
 
@@ -523,7 +521,6 @@ rdp_restore(struct weston_compositor *ec)
 static void
 rdp_destroy(struct weston_compositor *ec)
 {
-	ec->renderer->destroy(ec);
 	weston_compositor_shutdown(ec);
 
 	free(ec);
@@ -599,8 +596,11 @@ rdp_peer_context_free(freerdp_peer* client, RdpPeerContext* context)
 			wl_event_source_remove(context->events[i]);
 	}
 
-	if(context->item.flags & RDP_PEER_ACTIVATED)
+	if(context->item.flags & RDP_PEER_ACTIVATED) {
+		weston_seat_release_keyboard(&context->item.seat);
+		weston_seat_release_pointer(&context->item.seat);
 		weston_seat_release(&context->item.seat);
+	}
 	Stream_Free(context->encode_stream, TRUE);
 	nsc_context_free(context->nsc_context);
 	rfx_context_free(context->rfx_context);

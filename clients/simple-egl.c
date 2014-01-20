@@ -87,12 +87,13 @@ struct window {
 		GLuint col;
 	} gl;
 
+	uint32_t benchmark_time, frames;
 	struct wl_egl_window *native;
 	struct wl_surface *surface;
 	struct wl_shell_surface *shell_surface;
 	EGLSurface egl_surface;
 	struct wl_callback *callback;
-	int fullscreen, configured, opaque;
+	int fullscreen, configured, opaque, buffer_size, frame_sync;
 };
 
 static const char *vert_shader_text =
@@ -115,7 +116,7 @@ static const char *frag_shader_text =
 static int running = 1;
 
 static void
-init_egl(struct display *display, int opaque)
+init_egl(struct display *display, struct window *window)
 {
 	static const EGLint context_attribs[] = {
 		EGL_CONTEXT_CLIENT_VERSION, 2,
@@ -128,15 +129,15 @@ init_egl(struct display *display, int opaque)
 		EGL_RED_SIZE, 1,
 		EGL_GREEN_SIZE, 1,
 		EGL_BLUE_SIZE, 1,
-		EGL_ALPHA_SIZE, 1,
 		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
 		EGL_NONE
 	};
 
-	EGLint major, minor, n;
+	EGLint major, minor, n, count, i, size;
+	EGLConfig *configs;
 	EGLBoolean ret;
 
-	if (opaque)
+	if (window->opaque || window->buffer_size == 16)
 		config_attribs[9] = 0;
 
 	display->egl.dpy = eglGetDisplay(display->display);
@@ -147,9 +148,30 @@ init_egl(struct display *display, int opaque)
 	ret = eglBindAPI(EGL_OPENGL_ES_API);
 	assert(ret == EGL_TRUE);
 
+	if (!eglGetConfigs(display->egl.dpy, NULL, 0, &count) || count < 1)
+		assert(0);
+
+	configs = calloc(count, sizeof *configs);
+	assert(configs);
+
 	ret = eglChooseConfig(display->egl.dpy, config_attribs,
-			      &display->egl.conf, 1, &n);
-	assert(ret && n == 1);
+			      configs, count, &n);
+	assert(ret && n >= 1);
+
+	for (i = 0; i < n; i++) {
+		eglGetConfigAttrib(display->egl.dpy,
+				   configs[i], EGL_BUFFER_SIZE, &size);
+		if (window->buffer_size == size) {
+			display->egl.conf = configs[i];
+			break;
+		}
+	}
+	free(configs);
+	if (display->egl.conf == NULL) {
+		fprintf(stderr, "did not find config with buffer size %d\n",
+			window->buffer_size);
+		exit(EXIT_FAILURE);
+	}
 
 	display->egl.ctx = eglCreateContext(display->egl.dpy,
 					    display->egl.conf,
@@ -275,9 +297,6 @@ static const struct wl_shell_surface_listener shell_surface_listener = {
 };
 
 static void
-redraw(void *data, struct wl_callback *callback, uint32_t time);
-
-static void
 configure_callback(void *data, struct wl_callback *callback, uint32_t  time)
 {
 	struct window *window = data;
@@ -285,9 +304,6 @@ configure_callback(void *data, struct wl_callback *callback, uint32_t  time)
 	wl_callback_destroy(callback);
 
 	window->configured = 1;
-
-	if (window->callback == NULL)
-		redraw(data, NULL, time);
 }
 
 static struct wl_callback_listener configure_callback_listener = {
@@ -295,7 +311,7 @@ static struct wl_callback_listener configure_callback_listener = {
 };
 
 static void
-toggle_fullscreen(struct window *window, int fullscreen)
+set_fullscreen(struct window *window, int fullscreen)
 {
 	struct wl_callback *callback;
 
@@ -306,16 +322,18 @@ toggle_fullscreen(struct window *window, int fullscreen)
 		wl_shell_surface_set_fullscreen(window->shell_surface,
 						WL_SHELL_SURFACE_FULLSCREEN_METHOD_DEFAULT,
 						0, NULL);
+		callback = wl_display_sync(window->display->display);
+		wl_callback_add_listener(callback,
+					 &configure_callback_listener,
+					 window);
+
 	} else {
 		wl_shell_surface_set_toplevel(window->shell_surface);
 		handle_configure(window, window->shell_surface, 0,
 				 window->window_size.width,
 				 window->window_size.height);
+		window->configured = 1;
 	}
-
-	callback = wl_display_sync(window->display->display);
-	wl_callback_add_listener(callback, &configure_callback_listener,
-				 window);
 }
 
 static void
@@ -346,7 +364,10 @@ create_surface(struct window *window)
 			     window->egl_surface, window->display->egl.ctx);
 	assert(ret == EGL_TRUE);
 
-	toggle_fullscreen(window, window->fullscreen);
+	if (!window->frame_sync)
+		eglSwapInterval(display->egl.dpy, 0);
+
+	set_fullscreen(window, window->fullscreen);
 }
 
 static void
@@ -391,11 +412,11 @@ redraw(void *data, struct wl_callback *callback, uint32_t time)
 		{ 0, 0, 1, 0 },
 		{ 0, 0, 0, 1 }
 	};
-	static const int32_t speed_div = 5;
-	static uint32_t start_time = 0;
+	static const int32_t speed_div = 5, benchmark_interval = 5;
 	struct wl_region *region;
 	EGLint rect[4];
 	EGLint buffer_age = 0;
+	struct timeval tv;
 
 	assert(window->callback == callback);
 	window->callback = NULL;
@@ -406,10 +427,20 @@ redraw(void *data, struct wl_callback *callback, uint32_t time)
 	if (!window->configured)
 		return;
 
-	if (start_time == 0)
-		start_time = time;
+	gettimeofday(&tv, NULL);
+	time = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+	if (window->frames == 0)
+		window->benchmark_time = time;
+	if (time - window->benchmark_time > (benchmark_interval * 1000)) {
+		printf("%d frames in %d seconds: %f fps\n",
+		       window->frames,
+		       benchmark_interval,
+		       (float) window->frames / benchmark_interval);
+		window->benchmark_time = time;
+		window->frames = 0;
+	}
 
-	angle = ((time-start_time) / speed_div) % 360 * M_PI / 180.0;
+	angle = (time / speed_div) % 360 * M_PI / 180.0;
 	rotation[0][0] =  cos(angle);
 	rotation[0][2] =  sin(angle);
 	rotation[2][0] = -sin(angle);
@@ -448,9 +479,6 @@ redraw(void *data, struct wl_callback *callback, uint32_t time)
 		wl_surface_set_opaque_region(window->surface, NULL);
 	}
 
-	window->callback = wl_surface_frame(window->surface);
-	wl_callback_add_listener(window->callback, &frame_listener, window);
-
 	if (display->swap_buffers_with_damage && buffer_age > 0) {
 		rect[0] = window->geometry.width / 4 - 1;
 		rect[1] = window->geometry.height / 4 - 1;
@@ -462,6 +490,7 @@ redraw(void *data, struct wl_callback *callback, uint32_t time)
 	} else {
 		eglSwapBuffers(display->egl.dpy, window->egl_surface);
 	}
+	window->frames++;
 }
 
 static const struct wl_callback_listener frame_listener = {
@@ -599,7 +628,7 @@ keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
 	struct display *d = data;
 
 	if (key == KEY_F11 && state)
-		toggle_fullscreen(d->window, d->window->fullscreen ^ 1);
+		set_fullscreen(d->window, d->window->fullscreen ^ 1);
 	else if (key == KEY_ESC && state)
 		running = 0;
 }
@@ -705,6 +734,8 @@ usage(int error_code)
 	fprintf(stderr, "Usage: simple-egl [OPTIONS]\n\n"
 		"  -f\tRun in fullscreen mode\n"
 		"  -o\tCreate an opaque surface\n"
+		"  -s\tUse a 16 bpp EGL config\n"
+		"  -b\tDon't sync to compositor redraw (eglSwapInterval 0)\n"
 		"  -h\tThis help text\n\n");
 
 	exit(error_code);
@@ -722,12 +753,18 @@ main(int argc, char **argv)
 	display.window = &window;
 	window.window_size.width  = 250;
 	window.window_size.height = 250;
+	window.buffer_size = 32;
+	window.frame_sync = 1;
 
 	for (i = 1; i < argc; i++) {
 		if (strcmp("-f", argv[i]) == 0)
 			window.fullscreen = 1;
 		else if (strcmp("-o", argv[i]) == 0)
 			window.opaque = 1;
+		else if (strcmp("-s", argv[i]) == 0)
+			window.buffer_size = 16;
+		else if (strcmp("-b", argv[i]) == 0)
+			window.frame_sync = 0;
 		else if (strcmp("-h", argv[i]) == 0)
 			usage(EXIT_SUCCESS);
 		else
@@ -743,7 +780,7 @@ main(int argc, char **argv)
 
 	wl_display_dispatch(display.display);
 
-	init_egl(&display, window.opaque);
+	init_egl(&display, &window);
 	create_surface(&window);
 	init_gl(&window);
 
@@ -755,8 +792,16 @@ main(int argc, char **argv)
 	sigint.sa_flags = SA_RESETHAND;
 	sigaction(SIGINT, &sigint, NULL);
 
-	while (running && ret != -1)
-		ret = wl_display_dispatch(display.display);
+	/* The mainloop here is a little subtle.  Redrawing will cause
+	 * EGL to read events so we can just call
+	 * wl_display_dispatch_pending() to handle any events that got
+	 * queued up as a side effect. */
+	while (running && ret != -1) {
+		wl_display_dispatch_pending(display.display);
+		while (!window.configured)
+			wl_display_dispatch(display.display);
+		redraw(&window, NULL, 0);
+	}
 
 	fprintf(stderr, "simple-egl exiting\n");
 
