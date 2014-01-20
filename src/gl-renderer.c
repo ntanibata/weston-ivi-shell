@@ -106,6 +106,8 @@ struct gl_renderer {
 	EGLContext egl_context;
 	EGLConfig egl_config;
 
+	GLuint fbo;
+
 	struct wl_array vertices;
 	struct wl_array vtxcnt;
 
@@ -583,6 +585,54 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 
 out:
 	pixman_region32_fini(&repaint);
+}
+
+static int
+gl_renderer_read_surface_pixels(struct weston_surface *es,
+				pixman_format_code_t format, void *pixels,
+				int x, int y, int width, int height)
+{
+	struct weston_buffer *buffer = es->buffer_ref.buffer;
+	struct weston_compositor *ec = es->compositor;
+	struct gl_renderer *gr = get_renderer(ec);
+	struct gl_surface_state *gs = get_surface_state(es);
+	GLenum gl_format;
+	int size;
+	struct wl_shm_buffer *shm_buffer = NULL;
+
+	switch (format) {
+	case PIXMAN_a8r8g8b8:
+		gl_format = GL_BGRA_EXT;
+		break;
+	case PIXMAN_a8b8g8r8:
+		gl_format = GL_RGBA;
+		break;
+	default:
+		return -1;
+	}
+
+        if (buffer) {
+		shm_buffer = wl_shm_buffer_get(buffer->resource);
+	}
+	if (shm_buffer) {
+		size = buffer->width * 4 * buffer->height;
+		memcpy(pixels, wl_shm_buffer_get_data(shm_buffer), size);
+	} else {
+		if (gr->fbo == 0)
+			glGenFramebuffers(1, &gr->fbo);
+		glBindFramebuffer(GL_FRAMEBUFFER, gr->fbo);
+		glFramebufferTexture2D(GL_FRAMEBUFFER,
+				       GL_COLOR_ATTACHMENT0,
+				       GL_TEXTURE_2D,
+				       gs->textures[0], 0);
+
+		glReadPixels(x, y, width, height,
+			     gl_format, GL_UNSIGNED_BYTE, pixels);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	}
+
+	return 0;
 }
 
 static void
@@ -1602,6 +1652,9 @@ gl_renderer_destroy(struct weston_compositor *ec)
 
 	wl_signal_emit(&gr->destroy_signal, gr);
 
+	if (gr->fbo)
+		glDeleteFramebuffers(1, &gr->fbo);
+
 	if (gr->has_bind_display)
 		gr->unbind_display(gr->egl_display, ec->wl_display);
 
@@ -1699,6 +1752,7 @@ gl_renderer_create(struct weston_compositor *ec, EGLNativeDisplayType display,
 		return -1;
 
 	gr->base.read_pixels = gl_renderer_read_pixels;
+	gr->base.read_surface_pixels = gl_renderer_read_surface_pixels;
 	gr->base.repaint_output = gl_renderer_repaint_output;
 	gr->base.flush_damage = gl_renderer_flush_damage;
 	gr->base.attach = gl_renderer_attach;
