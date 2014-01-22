@@ -11,6 +11,7 @@ SUBDIRS =					\
 	src					\
 	$(xwayland_subdir)			\
 	desktop-shell				\
+	ivi-shell				\
 	clients					\
 	data					\
 	protocol				\
