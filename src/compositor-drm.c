@@ -431,9 +431,10 @@ drm_output_check_scanout_format(struct drm_output *output,
 		/* We can scanout an ARGB buffer if the surface's
 		 * opaque region covers the whole output, but we have
 		 * to use XRGB as the KMS format code. */
-		pixman_region32_init(&r);
-		pixman_region32_subtract(&r, &output->base.region,
-					 &es->opaque);
+		pixman_region32_init_rect(&r, 0, 0,
+					  output->base.width,
+					  output->base.height);
+		pixman_region32_subtract(&r, &r, &es->opaque);
 
 		if (!pixman_region32_not_empty(&r))
 			format = GBM_FORMAT_XRGB8888;
@@ -668,6 +669,7 @@ drm_output_repaint(struct weston_output *output_base,
 	return 0;
 
 err_pageflip:
+	output->cursor_view = NULL;
 	if (output->next) {
 		drm_output_release_fb(output, output->next);
 		output->next = NULL;
@@ -2058,7 +2060,7 @@ create_output_for_connector(struct drm_compositor *ec,
 	weston_log("Output %s, (connector %d, crtc %d)\n",
 		   output->base.name, output->connector_id, output->crtc_id);
 	wl_list_for_each(m, &output->base.mode_list, link)
-		weston_log_continue("  mode %dx%d@%.1f%s%s%s\n",
+		weston_log_continue(STAMP_SPACE "mode %dx%d@%.1f%s%s%s\n",
 				    m->width, m->height, m->refresh / 1000.0,
 				    m->flags & WL_OUTPUT_MODE_PREFERRED ?
 				    ", preferred" : "",

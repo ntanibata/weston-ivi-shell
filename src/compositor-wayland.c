@@ -879,7 +879,7 @@ wayland_output_create_for_config(struct wayland_compositor *c,
 		name = str;
 	}
 	if (!name)
-		name = WINDOW_TITLE;
+		name = strdup(WINDOW_TITLE);
 
 	weston_config_section_get_string(config_section,
 					 "mode", &mode, "1024x600");
@@ -1426,6 +1426,8 @@ create_cursor(struct wayland_compositor *c, struct weston_config *config)
 	weston_config_section_get_int(s, "cursor-size", &size, 32);
 
 	c->cursor_theme = wl_cursor_theme_load(theme, size, c->parent.shm);
+
+	free(theme);
 
 	c->cursor = NULL;
 	for (i = 0; !c->cursor && i < ARRAY_LENGTH(left_ptrs); ++i)

@@ -277,6 +277,26 @@ frame_touch_destroy(struct frame_touch *touch)
 	free(touch);
 }
 
+void
+frame_destroy(struct frame *frame)
+{
+	struct frame_button *button, *next;
+	struct frame_touch *touch, *next_touch;
+	struct frame_pointer *pointer, *next_pointer;
+
+	wl_list_for_each_safe(button, next, &frame->buttons, link)
+		frame_button_destroy(button);
+
+	wl_list_for_each_safe(touch, next_touch, &frame->touches, link)
+		frame_touch_destroy(touch);
+
+	wl_list_for_each_safe(pointer, next_pointer, &frame->pointers, link)
+		frame_pointer_destroy(pointer);
+
+	free(frame->title);
+	free(frame);
+}
+
 struct frame *
 frame_create(struct theme *t, int32_t width, int32_t height, uint32_t buttons,
 	     const char *title)
@@ -295,15 +315,15 @@ frame_create(struct theme *t, int32_t width, int32_t height, uint32_t buttons,
 	frame->status = FRAME_STATUS_REPAINT;
 	frame->geometry_dirty = 1;
 
+	wl_list_init(&frame->buttons);
+	wl_list_init(&frame->pointers);
+	wl_list_init(&frame->touches);
+
 	if (title) {
 		frame->title = strdup(title);
 		if (!frame->title)
 			goto free_frame;
 	}
-
-	wl_list_init(&frame->buttons);
-	wl_list_init(&frame->pointers);
-	wl_list_init(&frame->touches);
 
 	if (title) {
 		button = frame_button_create(frame,
@@ -347,21 +367,8 @@ frame_create(struct theme *t, int32_t width, int32_t height, uint32_t buttons,
 	return frame;
 
 free_frame:
-	free(frame->title);
-	free(frame);
+	frame_destroy(frame);
 	return NULL;
-}
-
-void
-frame_destroy(struct frame *frame)
-{
-	struct frame_button *button, *next;
-
-	wl_list_for_each_safe(button, next, &frame->buttons, link)
-		frame_button_destroy(button);
-
-	free(frame->title);
-	free(frame);
 }
 
 int
@@ -729,15 +736,15 @@ frame_pointer_button(struct frame *frame, void *data,
 {
 	struct frame_pointer *pointer = frame_pointer_get(frame, data);
 	struct frame_pointer_button *button;
-	enum theme_location location;
+	enum theme_location location = THEME_LOCATION_EXTERIOR;
+
+	if (!pointer)
+		return location;
 
 	location = theme_get_location(frame->theme, pointer->x, pointer->y,
 				      frame->width, frame->height,
 				      frame->flags & FRAME_FLAG_MAXIMIZED ?
 				      THEME_FRAME_MAXIMIZED : 0);
-
-	if (!pointer)
-		return location;
 
 	if (state == FRAME_BUTTON_PRESSED) {
 		button = malloc(sizeof *button);
@@ -777,7 +784,7 @@ frame_touch_down(struct frame *frame, void *data, int32_t id, int x, int y)
 	if (id > 0)
 		return;
 
-	if (button) {
+	if (touch && button) {
 		touch->button = button;
 		frame_button_press(touch->button);
 		return;
@@ -815,10 +822,9 @@ frame_touch_up(struct frame *frame, void *data, int32_t id)
 	if (id > 0)
 		return;
 
-	if (touch->button) {
+	if (touch && touch->button) {
 		frame_button_release(touch->button);
 		frame_touch_destroy(touch);
-		return;
 	}
 }
 

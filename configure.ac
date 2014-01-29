@@ -1,6 +1,6 @@
 m4_define([weston_major_version], [1])
-m4_define([weston_minor_version], [3])
-m4_define([weston_micro_version], [91])
+m4_define([weston_minor_version], [4])
+m4_define([weston_micro_version], [0])
 m4_define([weston_version],
           [weston_major_version.weston_minor_version.weston_micro_version])
 
@@ -204,6 +204,11 @@ AM_CONDITIONAL([ENABLE_RDP_COMPOSITOR],
 if test x$enable_rdp_compositor = xyes; then
   AC_DEFINE([BUILD_RDP_COMPOSITOR], [1], [Build the RDP compositor])
   PKG_CHECK_MODULES(RDP_COMPOSITOR, [freerdp >= 1.1.0])
+
+  SAVED_CPPFLAGS="$CPPFLAGS"
+  CPPFLAGS="$CPPFLAGS $RDP_COMPOSITOR_CFLAGS"
+  AC_CHECK_HEADERS([freerdp/version.h])
+  CPPFLAGS="$SAVED_CPPFLAGS"
 fi
 
 AC_ARG_WITH(cairo,
@@ -320,7 +325,7 @@ AC_ARG_ENABLE(resize-optimization,
 AS_IF([test "x$enable_resize_optimization" = "xyes"],
       [AC_DEFINE([USE_RESIZE_POOL], [1], [Use resize memory pool as a performance optimization])])
 
-PKG_CHECK_MODULES(SYSTEMD_LOGIN, [libsystemd-login],
+PKG_CHECK_MODULES(SYSTEMD_LOGIN, [libsystemd-login >= 198],
                   [have_systemd_login=yes], [have_systemd_login=no])
 AS_IF([test "x$have_systemd_login" = "xyes"],
       [AC_DEFINE([HAVE_SYSTEMD_LOGIN], [1], [Have systemd-login])])
