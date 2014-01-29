@@ -1,0 +1,27 @@
+ivi-shell addon:
+
+ivi-shell proposes two features
+- Common layout library for surface, which allow ivi-shell developer
+  to develop own shell, linking Common layout library.
+  For the time being, the library refers Genivi ilm interface.
+
+  http://projects.genivi.org/wayland-ivi-extension/
+
+- Extension protocal; ivi-application to tie wl_surface and a given ID.
+  With this ID, shell can identify which wl_surface is drawn by which
+  application. In in-vehicle infortainment system, a shell has to update
+  a property of a wl_surface. E.g. there may be a use case when vehicle
+  starts to move, the wl_surface drawn by Car navigation is expected to
+  move top of surfaces.
+
+How to compile:
+same as weston. To disable, use option: --disable-ivi-shell for configure.
+
+How to configure weston.ini:
+reference ini file will be generated in <build_dir>/ivi-shell.
+
+How to run:
+same as weston. exec weston.
+
+How to use UI:
+http://lists.freedesktop.org/archives/wayland-devel/attachments/20140625/abbfc064/attachment-0001.png
