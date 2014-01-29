@@ -1,3 +1,20 @@
+ivi-shell addon:
+
+ivi-shell proposes two features
+- Common layout library for surface, which allow ivi-shell developer
+  to develop own shell, linking Common layout library.
+  For the time being, the library refers Genivi ilm interface.
+
+  http://projects.genivi.org/ivi-layer-management/
+
+- Extension protocal; ivi-application to tie wl_surface and a given ID.
+  With this ID, shell can identify which wl_surface is drawn by which
+  application. In in-vehicle infortainment system, a shell has to update
+  a property of a wl_surface. E.g. there may be a use case when vehicle
+  starts to move, the wl_surface drawn by Car navigation is expected to
+  move top of surfaces.
+
+-----------------------------
 Weston
 
 Weston is the reference implementation of a Wayland compositor, and a
