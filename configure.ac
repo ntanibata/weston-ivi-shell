@@ -409,6 +409,16 @@ if test "x$enable_dbus" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_DBUS, test "x$enable_dbus" = "xyes")
 
+# ivi-shell support
+AC_ARG_ENABLE(ivi-shell,
+              AS_HELP_STRING([--disable-ivi-shell],
+                             [do not build ivi-shell server plugin and client]),,
+	      enable_ivi_shell=yes)
+AM_CONDITIONAL(ENABLE_IVI_SHELL, test "x$enable_ivi_shell" = "xyes")
+if test x$enable_ivi_shell = xyes; then
+  PKG_CHECK_MODULES(IVI_SHELL, [cairo])
+fi
+
 AC_ARG_ENABLE(wcap-tools, [  --disable-wcap-tools],, enable_wcap_tools=yes)
 AM_CONDITIONAL(BUILD_WCAP_TOOLS, test x$enable_wcap_tools = xyes)
 if test x$enable_wcap_tools = xyes; then
@@ -505,7 +515,8 @@ AC_CONFIG_FILES([Makefile
 		 data/Makefile
 		 protocol/Makefile
 		 man/Makefile
-		 tests/Makefile])
+		 tests/Makefile
+		 ivi-shell/Makefile])
 AC_OUTPUT
 
 AC_MSG_RESULT([
