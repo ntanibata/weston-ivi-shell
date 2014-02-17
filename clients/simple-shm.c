@@ -35,6 +35,12 @@
 #include <wayland-client.h>
 #include "../shared/os-compatibility.h"
 
+#ifdef ENABLE_IVI_CLIENT
+#include <sys/types.h>
+#include "../ivi-shell/ivi-application-client-protocol.h"
+#define IVI_SURFACE_ID 9000
+#endif
+
 struct display {
 	struct wl_display *display;
 	struct wl_registry *registry;
@@ -42,6 +48,9 @@ struct display {
 	struct wl_shell *shell;
 	struct wl_shm *shm;
 	uint32_t formats;
+#ifdef ENABLE_IVI_CLIENT
+    struct ivi_application *ivi_application;
+#endif
 };
 
 struct buffer {
@@ -55,6 +64,9 @@ struct window {
 	int width, height;
 	struct wl_surface *surface;
 	struct wl_shell_surface *shell_surface;
+#ifdef ENABLE_IVI_CLIENT
+    struct ivi_surface *ivi_surface;
+#endif
 	struct buffer buffers[2];
 	struct buffer *prev_buffer;
 	struct wl_callback *callback;
@@ -154,6 +166,16 @@ create_window(struct display *display, int width, int height)
 	if (window->shell_surface)
 		wl_shell_surface_add_listener(window->shell_surface,
 					      &shell_surface_listener, window);
+
+#ifdef ENABLE_IVI_CLIENT
+    uint32_t id_ivisurf = IVI_SURFACE_ID + (uint32_t)getpid();
+    window->ivi_surface = ivi_application_surface_create(display->ivi_application,
+                                             id_ivisurf, window->surface);
+    if (window->ivi_surface == NULL) {
+        fprintf(stderr, "Failed to create ivi_client_surface\n");
+        abort();
+    }
+#endif
 
 	wl_shell_surface_set_title(window->shell_surface, "simple-shm");
 
@@ -318,6 +340,11 @@ registry_handle_global(void *data, struct wl_registry *registry,
 					  id, &wl_shm_interface, 1);
 		wl_shm_add_listener(d->shm, &shm_listener, d);
 	}
+#ifdef ENABLE_IVI_CLIENT
+    else if (strcmp(interface, "ivi_application") == 0) {
+        d->ivi_application = wl_registry_bind(registry, id, &ivi_application_interface, 1);
+    }
+#endif
 }
 
 static void
@@ -379,6 +406,9 @@ destroy_display(struct display *display)
 		wl_compositor_destroy(display->compositor);
 
 	wl_registry_destroy(display->registry);
+#ifdef ENABLE_IVI_CLIENT
+	wl_display_roundtrip(display->display);
+#endif
 	wl_display_flush(display->display);
 	wl_display_disconnect(display->display);
 	free(display);
@@ -420,6 +450,10 @@ main(int argc, char **argv)
 		ret = wl_display_dispatch(display->display);
 
 	fprintf(stderr, "simple-shm exiting\n");
+#ifdef ENABLE_IVI_CLIENT
+    ivi_surface_destroy(window->ivi_surface);
+    ivi_application_destroy(window->display->ivi_application);
+#endif
 	destroy_window(window);
 	destroy_display(display);
 

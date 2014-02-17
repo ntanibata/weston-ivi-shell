@@ -20,6 +20,11 @@ weston-stacking
 weston-subsurfaces
 weston-transformed
 weston-view
+weston-clickdot-ivi
+weston-flower-ivi
+weston-simple-egl-ivi
+weston-simple-shm-ivi
+weston-smoke-ivi
 
 desktop-shell-client-protocol.h
 desktop-shell-protocol.c
