@@ -1,0 +1,7 @@
+ivi-application-client-protocol.h
+ivi-application-protocol.c
+ivi-application-server-protocol.h
+hmi-controller-client-protocol.h
+hmi-controller-protocol.c
+hmi-controller-server-protocol.h
+weston.ini
