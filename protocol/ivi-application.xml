@@ -83,6 +83,11 @@
             <arg name="error_text" type="string" allow-null="true"/>
         </event>
 
+        <event name="wl_shell_info">
+            <arg name="pid" type="int"/>
+            <arg name="title" type="string" allow-null="true"/>
+        </event>
+
     </interface>
 
 </protocol>
