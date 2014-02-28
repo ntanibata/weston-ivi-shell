@@ -1,32 +1,35 @@
-ivi-shell addon:
+# README file for the ivi-shell addon:
 
-ivi-shell proposes two features
-- Common layout library for surface, which allow ivi-shell developer
-  to develop own shell, linking Common layout library.
-  For the time being, the library refers Genivi ilm interface.
+The ivi-shell proposes two features;
+
+- A common layout library for surfaces, which allows the ivi-shell
+  developer to create their own shell linking against the common
+  layout library. Currently this library refers to the GENIVI ILM
+  interface.
 
   http://projects.genivi.org/ivi-layer-management/
 
-- Extension protocal; ivi-application to tie wl_surface and a given ID.
-  With this ID, shell can identify which wl_surface is drawn by which
-  application. In in-vehicle infortainment system, a shell has to update
-  a property of a wl_surface. E.g. there may be a use case when vehicle
-  starts to move, the wl_surface drawn by Car navigation is expected to
-  move top of surfaces.
+- An extension protocol; This protocol allows an ivi-application to tie
+  wl_surface to a given ID.  With this ID, the shell can identify
+  which wl_surface is drawn by which application. In an in-vehicle
+  infortainment system, a shell has to update a property of a
+  wl_surface. E.g. there may be a use case when vehicle starts to
+  move, the wl_surface drawn by Car navigation is expected to move to
+  top of the surface layers.
 
 -----------------------------
 Weston
 
-Weston is the reference implementation of a Wayland compositor, and a
-useful compositor in its own right.  Weston has various backends that
-lets it run on Linux kernel modesetting and evdev input as well as
-under X11.  Weston ships with a few example clients, from simple
-clients that demonstrate certain aspects of the protocol to more
-complete clients and a simplistic toolkit.  There is also a quite
-capable terminal emulator (weston-terminal) and an toy/example desktop
-shell.  Finally, weston also provides integration with the Xorg server
-and can pull X clients into the Wayland desktop and act as a X window
-manager.
+Weston is the reference compositor implementation of the Wayland
+protocol, and a useful compositor in its own right.  Weston has
+various backends that allows it run on Linux kernel modesetting and
+evdev input as well as under X11. Weston ships with a few example
+clients, from simple clients that demonstrate certain aspects of the
+protocol to more complete clients and a simplistic toolkit.  There is
+also a quite capable terminal emulator (weston-terminal) and an
+toy/example desktop shell. Finally, Weston also provides integration
+with the Xorg server and can pull X clients into the Wayland desktop
+and act as a X window manager.
 
-Refer to http://wayland.freedesktop.org/building.html for buiding
-weston and its dependencies.
+Refer to http://wayland.freedesktop.org/building.html for building
+Weston and its dependencies.
