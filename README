@@ -12,7 +12,7 @@ The ivi-shell proposes two features;
 - An extension protocol; This protocol allows an ivi-application to tie
   wl_surface to a given ID.  With this ID, the shell can identify
   which wl_surface is drawn by which application. In an in-vehicle
-  infortainment system, a shell has to update a property of a
+  infotainment system, a shell has to update a property of a
   wl_surface. E.g. there may be a use case when vehicle starts to
   move, the wl_surface drawn by Car navigation is expected to move to
   top of the surface layers.
