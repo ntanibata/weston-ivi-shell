@@ -67,3 +67,15 @@ CLEANFILES = $(BUILT_SOURCES)
 
 wayland_protocoldir = $(top_srcdir)/protocol
 include $(top_srcdir)/wayland-scanner.mk
+
+
+weston.ini : $(srcdir)/weston.ini.in
+	$(AM_V_GEN)$(SED) \
+		-e 's|@bindir[@]|$(bindir)|g' \
+		-e 's|@abs_top_builddir[@]|$(abs_top_builddir)|g' \
+		-e 's|@libexecdir[@]|$(libexecdir)|g' \
+		$< > $@
+
+all-local : weston.ini
+
+CLEANFILES += weston.ini
