@@ -1,6 +1,6 @@
 [core]
 shell=ivi-shell.so
-modules=hmi-controller.so
+modules=ivi-shell-ext.so,ivi-controller.so,hmi-controller.so
 
 [ivi-shell]
 cursor-theme=default
@@ -27,6 +27,8 @@ home-image=@abs_top_builddir@/data/home.png
 home-id=1007
 workspace-background-color=0x99000000
 workspace-background-id=2001
+
+ivi-surface-creator-path=@abs_top_builddir@/clients/IVISurfaceCreator
 
 [ivi-launcher]
 workspace-id=0
