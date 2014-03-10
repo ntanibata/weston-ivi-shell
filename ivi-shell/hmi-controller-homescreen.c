@@ -136,6 +136,7 @@ hmi_homescreen_launcher {
     char*               icon;
     char*               path;
     struct wl_list      link;
+    struct wl_array     setid_window_titles;
 };
 
 struct
@@ -148,6 +149,7 @@ hmi_homescreen_setting {
     struct hmi_homescreen_srf  random;
     struct hmi_homescreen_srf  home;
     struct hmi_homescreen_srf  workspace_background;
+    char*                      surface_creator_path;
 
     struct wl_list workspace_list;
     struct wl_list launcher_list;
@@ -323,9 +325,30 @@ static pid_t execute_process(char* path, char *argv[])
     return pid;
 }
 
-static int32_t
-launcher_button(uint32_t surfaceId, struct wl_list *launcher_list)
+static void
+execute_ivi_surface_creator(char* path, pid_t pid,
+                            char* window_title, uint32_t id_surface)
 {
+    char arg1[255] = {0};
+    char arg3[255] = {0};
+    char *argv[] = {path, arg1, window_title, arg3,  NULL};
+
+    sprintf(arg1, "%d", pid);
+
+    if (NULL == window_title) {
+        argv[2] = "";
+    }
+
+    sprintf(arg3, "%u", id_surface);
+
+    execute_process(path, argv);
+}
+
+static int32_t
+launcher_button(uint32_t surfaceId, struct wl_list *launcher_list,
+                char* surface_creator)
+{
+    pid_t pid = 0;
     struct hmi_homescreen_launcher *launcher = NULL;
 
     wl_list_for_each(launcher, launcher_list, link) {
@@ -334,7 +357,23 @@ launcher_button(uint32_t surfaceId, struct wl_list *launcher_list)
         }
 
         char *argv[] = {NULL};
-        execute_process(launcher->path, argv);
+        pid = execute_process(launcher->path, argv);
+
+        if (0 < pid &&
+            surface_creator &&
+            launcher->setid_window_titles.size) {
+                uint32_t count = 0;
+                char** title = NULL;
+
+                wl_array_for_each(title, &launcher->setid_window_titles) {
+                    assert(count < 128);
+                    assert(0 == (pid & 0xff000000));
+                    uint32_t id_surface = pid | 0x80000000 | (count << 24);
+                    count++;
+                    execute_ivi_surface_creator(
+                        surface_creator, pid, *title, id_surface);
+                }
+        }
 
         return 1;
     }
@@ -371,7 +410,8 @@ static void
 touch_up(struct ivi_hmi_controller *hmi_ctrl, uint32_t id_surface,
          int32_t *is_home_on, struct hmi_homescreen_setting* hmi_setting)
 {
-    if (launcher_button(id_surface, &hmi_setting->launcher_list)) {
+    if (launcher_button(id_surface, &hmi_setting->launcher_list,
+        hmi_setting->surface_creator_path)) {
         *is_home_on = 0;
         ivi_hmi_controller_home(hmi_ctrl, IVI_HMI_CONTROLLER_HOME_OFF);
     } else if (id_surface == hmi_setting->tiling.id) {
@@ -591,7 +631,8 @@ ivi_hmi_controller_workspace_end_control(void *data,
      * if up event happens on a launcher surface.
      *
      */
-    if (launcher_button(id_surface, &pCtx->hmi_setting->launcher_list)) {
+    if (launcher_button(id_surface, &pCtx->hmi_setting->launcher_list,
+                        pCtx->hmi_setting->surface_creator_path)) {
         pCtx->is_home_on = 0;
         ivi_hmi_controller_home(hmi_ctrl, IVI_HMI_CONTROLLER_HOME_OFF);
     }
@@ -1120,9 +1161,62 @@ static void sigFunc(int signum)
     gRun = 0;
 }
 
+/*
+ * Add launcher to launcher_list
+ */
+static void
+add_launcher(struct weston_config_section *section, uint32_t icon_surface_id,
+             struct wl_list *launcher_list)
+{
+    struct hmi_homescreen_launcher *launcher = NULL;
+    launcher = MEM_ALLOC(sizeof(*launcher));
+    wl_list_init(&launcher->link);
+    launcher->icon_surface_id = icon_surface_id;
+
+    weston_config_section_get_string(section, "icon", &launcher->icon, NULL);
+    weston_config_section_get_string(section, "path", &launcher->path, NULL);
+    weston_config_section_get_uint(section, "workspace-id", &launcher->workspace_id, 0);
+
+    wl_list_insert(launcher_list->prev, &launcher->link);
+}
+
 /**
  * Internal method to read out weston.ini to get configuration
  */
+static void parse_commma_separated_string(char* src, struct wl_array *dst)
+{
+    char *tmp_src = strdup(src);
+    char *sep = ",";
+    char *saveptr = NULL;
+
+    char *tok = strtok_r(tmp_src, sep, &saveptr);
+
+    while (tok) {
+        char** add = wl_array_add(dst, sizeof(*add));
+        assert(add);
+        *add = strdup(tok);
+        assert(*add);
+        tok = strtok_r(NULL, sep, &saveptr);
+    }
+
+    free(tmp_src);
+}
+
+static void parse_window_title_section(char* src, struct wl_array *titles)
+{
+    wl_array_init(titles);
+
+    if (NULL == src) {
+        return;
+    }
+    if (0 == strlen(src)) {
+        char** add = wl_array_add(titles, sizeof(*add));
+        *add = NULL;
+        return;
+    }
+    parse_commma_separated_string(src, titles);
+}
+
 static struct hmi_homescreen_setting*
 hmi_homescreen_setting_create(void)
 {
@@ -1203,6 +1297,10 @@ hmi_homescreen_setting_create(void)
         shellSection, "workspace-background-id",
         &setting->workspace_background.id, 2001);
 
+    weston_config_section_get_string(
+        shellSection, "ivi-surface-creator-path",
+        &setting->surface_creator_path, "");
+
     struct weston_config_section *section = NULL;
     const char *name = NULL;
 
@@ -1215,12 +1313,18 @@ hmi_homescreen_setting_create(void)
             struct hmi_homescreen_launcher *launcher = NULL;
             launcher = MEM_ALLOC(sizeof(*launcher));
             wl_list_init(&launcher->link);
+            wl_array_init(&launcher->setid_window_titles);
             launcher->icon_surface_id = icon_surface_id;
             icon_surface_id++;
 
             weston_config_section_get_string(section, "icon", &launcher->icon, NULL);
             weston_config_section_get_string(section, "path", &launcher->path, NULL);
             weston_config_section_get_uint(section, "workspace-id", &launcher->workspace_id, 0);
+
+            char* window_titles = NULL;
+            weston_config_section_get_string(section, "setid-window-titles", &window_titles, NULL);
+            parse_window_title_section(window_titles, &launcher->setid_window_titles);
+            free(window_titles);
 
             wl_list_insert(setting->launcher_list.prev, &launcher->link);
         }
