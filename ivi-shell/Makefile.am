@@ -2,7 +2,8 @@ moduledir = $(libdir)/weston
 
 module_LTLIBRARIES = 				\
 	$(libweston_layout)			\
-	$(ivi_shell)
+	$(ivi_shell)				\
+	$(hmi_controller)
 
 AM_CPPFLAGS =					\
 	-I$(top_srcdir)/shared			\
@@ -39,12 +40,26 @@ ivi_shell_la_SOURCES =				\
 	ivi-application-protocol.c		\
 	ivi-application-server-protocol.h
 
+hmi_controller = hmi-controller.la
+hmi_controller_la_LDFLAGS = -module -avoid-version
+hmi_controller_la_LIBADD = $(CLIENT_LIBS) $(IVI_SHELL_LIBS) ./libweston-layout.la ../shared/libshared-cairo.la
+hmi_controller_la_CFLAGS = $(GCC_CFLAGS) $(IVI_SHELL_CFLAGS)
+hmi_controller_la_SOURCES =			\
+	hmi-controller.c			\
+	ivi-application-protocol.c		\
+	ivi-application-client-protocol.h	\
+	ivi-hmi-controller-protocol.c		\
+	ivi-hmi-controller-client-protocol.h	\
+	ivi-hmi-controller-server-protocol.h
 endif
 
 BUILT_SOURCES =					\
 	ivi-application-protocol.c		\
 	ivi-application-server-protocol.h	\
-	ivi-application-client-protocol.h
+	ivi-application-client-protocol.h	\
+	ivi-hmi-controller-protocol.c		\
+	ivi-hmi-controller-client-protocol.h	\
+	ivi-hmi-controller-server-protocol.h
 
 CLEANFILES = $(BUILT_SOURCES)
 
