@@ -9,7 +9,8 @@ protocol_sources =				\
 	wayland-test.xml			\
 	xdg-shell.xml				\
 	scaler.xml                              \
-	ivi-application.xml
+	ivi-application.xml			\
+	ivi-hmi-controller.xml
 
 if HAVE_XMLLINT
 .PHONY: validate
