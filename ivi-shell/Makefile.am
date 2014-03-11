@@ -46,6 +46,8 @@ hmi_controller_la_LIBADD = $(CLIENT_LIBS) $(IVI_SHELL_LIBS) ./libweston-layout.l
 hmi_controller_la_CFLAGS = $(GCC_CFLAGS) $(IVI_SHELL_CFLAGS)
 hmi_controller_la_SOURCES =			\
 	hmi-controller.c			\
+	hmi-controller-homescreen.h			\
+	hmi-controller-homescreen.c		\
 	ivi-application-protocol.c		\
 	ivi-application-client-protocol.h	\
 	ivi-hmi-controller-protocol.c		\
