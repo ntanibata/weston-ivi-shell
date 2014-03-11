@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="ivi_hmi_controller">
+
+    <copyright>
+    Copyright (C) 2013 DENSO CORPORATION
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+    THE SOFTWARE.
+    </copyright>
+
+    <interface name="ivi_hmi_controller" version="1">
+        <description summary="set up and control IVI style UI">
+            Currently it's possible to set up surface for background, panel,
+            buttons, and workspace.
+        </description>
+
+        <request name="set_background">
+            <description summary="set surface drawing background by surface ID"/>
+            <arg name="srf_id" type="uint"/>
+        </request>
+
+        <request name="set_panel">
+            <description summary="set surface drawing panel by surface ID"/>
+            <arg name="srf_id" type="uint"/>
+        </request>
+
+        <request name="set_button">
+            <description summary="set surface drawing button by surface ID">
+                Several buttons are regitered on panel by using arg; number.
+            </description>
+            <arg name="srf_id" type="uint"/>
+            <arg name="number" type="uint"/>
+        </request>
+
+        <request name="set_home_button">
+            <description summary="set surface drawing home button by surface ID"/>
+            <arg name="srf_id" type="uint"/>
+        </request>
+
+        <request name="set_workspacebackground">
+            <description summary="set surface drawing background of workspace by surface ID"/>
+            <arg name="srf_id" type="uint"/>
+        </request>
+
+        <request name="add_launchers">
+            <description summary="set a list of surface drawing launchers by a list of surface ID">
+                Per calling this request, a group of launchers are added.
+            </description>
+            <arg name="srf_ids" type="array"/>
+            <arg name="icon_size" type="uint"/>
+        </request>
+
+        <request name="workspace_control">
+            <description summary="start controlling workspace by server">
+                Give seat to the server to be controlled by server side.
+            </description>
+            <arg name="seat" type="object" interface="wl_seat"/>
+            <arg name="serial" type="uint"/>
+        </request>
+
+        <enum name="layout_mode">
+            <entry name="tiling" value="0"/>
+            <entry name="side_by_side" value="1"/>
+            <entry name="full_screen" value="2"/>
+            <entry name="random" value="3" />
+        </enum>
+
+        <request name="switch_mode">
+            <description summary="request mode switch of application layout"/>
+            <arg name="layout_mode" type="uint"/>
+        </request>
+
+        <enum name="home">
+            <entry name="off" value="0"/>
+            <entry name="on" value="1"/>
+        </enum>
+
+        <request name="home">
+            <description summary="request showing workspace or disable"/>
+            <arg name="home" type="uint"/>
+        </request>
+
+        <event name="workspace_end_control">
+            <description summary="notify controlling workspace end"/>
+            <arg name="is_controlled" type="int"/>
+        </event>
+
+    </interface>
+
+</protocol>
