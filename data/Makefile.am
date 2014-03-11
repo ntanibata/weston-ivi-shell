@@ -9,7 +9,19 @@ dist_westondata_DATA =				\
 	icon_window.png				\
 	sign_close.png				\
 	sign_maximize.png			\
-	sign_minimize.png
+	sign_minimize.png			\
+	background.png				\
+	tiling.png				\
+	fullscreen.png				\
+	panel.png				\
+	random.png				\
+	sidebyside.png				\
+	home.png				\
+	icon_ivi_clickdot.png			\
+	icon_ivi_flower.png			\
+	icon_ivi_simple-egl.png			\
+	icon_ivi_simple-shm.png			\
+	icon_ivi_smoke.png
 
 if HAVE_RSVG_CONVERT
 wayland_icon_png = wayland.png
