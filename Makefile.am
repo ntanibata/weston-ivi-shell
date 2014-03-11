@@ -448,7 +448,9 @@ nodist_libtoytoolkit_la_SOURCES =			\
 	protocol/xdg-shell-protocol.c			\
 	protocol/xdg-shell-client-protocol.h		\
 	protocol/ivi-application-protocol.c		\
-	protocol/ivi-application-client-protocol.h
+	protocol/ivi-application-client-protocol.h      \
+	protocol/ivi-hmi-controller-protocol.c		\
+	protocol/ivi-hmi-controller-client-protocol.h
 
 BUILT_SOURCES += $(nodist_libtoytoolkit_la_SOURCES)
 
@@ -1027,7 +1029,8 @@ EXTRA_DIST +=					\
 	protocol/xdg-shell.xml			\
 	protocol/fullscreen-shell.xml		\
 	protocol/scaler.xml			\
-	protocol/ivi-application.xml
+	protocol/ivi-application.xml		\
+	protocol/ivi-hmi-controller.xml
 
 man_MANS = weston.1 weston.ini.5
 
