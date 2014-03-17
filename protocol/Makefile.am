@@ -8,7 +8,8 @@ protocol_sources =				\
 	text-cursor-position.xml		\
 	wayland-test.xml			\
 	xdg-shell.xml				\
-	scaler.xml
+	scaler.xml                              \
+	ivi-application.xml
 
 if HAVE_XMLLINT
 .PHONY: validate
