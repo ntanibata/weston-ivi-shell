@@ -7,6 +7,11 @@ demo_clients = \
 	$(simple_clients_programs)		\
 	$(simple_egl_clients_programs)
 
+if ENABLE_IVI_SHELL
+demo_clients += \
+	$(ivi_shell_clients_programs)
+endif
+
 if INSTALL_DEMO_CLIENTS
 bin_PROGRAMS += $(demo_clients)
 else
@@ -244,6 +249,73 @@ weston_screensaver_LDADD = libtoytoolkit.la $(GLU_LIBS)
 weston_screensaver_CFLAGS = $(GLU_CFLAGS)
 endif
 
+endif
+
+if ENABLE_IVI_SHELL
+noinst_LTLIBRARIES = libivitoytoolkit.la
+
+libivitoytoolkit_la_SOURCES =			\
+	window.c				\
+	window.h				\
+	text-cursor-position-protocol.c		\
+	text-cursor-position-client-protocol.h	\
+	scaler-protocol.c			\
+	scaler-client-protocol.h		\
+	workspaces-protocol.c			\
+	workspaces-client-protocol.h
+
+libivitoytoolkit_la_CPPFLAGS = $(AM_CPPFLAGS) -DENABLE_IVI_CLIENT
+
+libivitoytoolkit_la_LIBADD =			\
+	$(CLIENT_LIBS)				\
+	$(CAIRO_EGL_LIBS)			\
+	../shared/libshared-cairo.la -lrt -lm
+
+ivi_shell_clients_programs =	\
+	weston-simple-egl-ivi			\
+	weston-simple-shm-ivi			\
+	weston-flower-ivi				\
+	weston-smoke-ivi				\
+	weston-clickdot-ivi			\
+	weston-dnd-ivi
+
+weston_simple_egl_ivi_SOURCES = simple-egl.c \
+	../ivi-shell/ivi-application-protocol.c			\
+	../ivi-shell/ivi-application-client-protocol.h
+weston_simple_egl_ivi_CPPFLAGS = $(SIMPLE_EGL_CLIENT_CFLAGS) -DENABLE_IVI_CLIENT
+weston_simple_egl_ivi_LDADD = $(SIMPLE_EGL_CLIENT_LIBS) -lm
+
+weston_simple_shm_ivi_SOURCES = simple-shm.c 	\
+	../shared/os-compatibility.c		\
+	../shared/os-compatibility.h		\
+	../ivi-shell/ivi-application-protocol.c			\
+	../ivi-shell/ivi-application-client-protocol.h
+weston_simple_shm_ivi_CPPFLAGS = $(SIMPLE_CLIENT_CFLAGS) -DENABLE_IVI_CLIENT
+weston_simple_shm_ivi_LDADD = $(SIMPLE_CLIENT_LIBS)
+
+weston_flower_ivi_SOURCES = flower.c \
+	../ivi-shell/ivi-application-protocol.c			\
+	../ivi-shell/ivi-application-client-protocol.h
+weston_flower_ivi_CPPFLAGS = $(AM_CPPFLAGS) -DENABLE_IVI_CLIENT
+weston_flower_ivi_LDADD = libivitoytoolkit.la
+
+weston_smoke_ivi_SOURCES = smoke.c \
+	../ivi-shell/ivi-application-protocol.c			\
+	../ivi-shell/ivi-application-client-protocol.h
+weston_smoke_ivi_CPPFLAGS = $(AM_CPPFLAGS) -DENABLE_IVI_CLIENT
+weston_smoke_ivi_LDADD = libivitoytoolkit.la
+
+weston_clickdot_ivi_SOURCES = clickdot.c \
+	../ivi-shell/ivi-application-protocol.c			\
+	../ivi-shell/ivi-application-client-protocol.h
+weston_clickdot_ivi_CPPFLAGS = $(AM_CPPFLAGS) -DENABLE_IVI_CLIENT
+weston_clickdot_ivi_LDADD = libivitoytoolkit.la
+
+weston_dnd_ivi_SOURCES = dnd.c \
+	../ivi-shell/ivi-application-protocol.c			\
+	../ivi-shell/ivi-application-client-protocol.h
+weston_dnd_ivi_CPPFLAGS = $(AM_CPPFLAGS) -DENABLE_IVI_CLIENT
+weston_dnd_ivi_LDADD = libivitoytoolkit.la
 endif
 
 wayland_protocoldir = $(top_srcdir)/protocol

@@ -38,6 +38,13 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
+#ifdef ENABLE_IVI_CLIENT
+#include <sys/types.h>
+#include <unistd.h>
+#include "../ivi-shell/ivi-application-client-protocol.h"
+#define IVI_SURFACE_ID 9000
+#endif
+
 #ifndef EGL_EXT_swap_buffers_with_damage
 #define EGL_EXT_swap_buffers_with_damage 1
 typedef EGLBoolean (EGLAPIENTRYP PFNEGLSWAPBUFFERSWITHDAMAGEEXTPROC)(EGLDisplay dpy, EGLSurface surface, EGLint *rects, EGLint n_rects);
@@ -70,6 +77,9 @@ struct display {
 		EGLConfig conf;
 	} egl;
 	struct window *window;
+#ifdef ENABLE_IVI_CLIENT
+	struct ivi_application *ivi_application;
+#endif
 
 	PFNEGLSWAPBUFFERSWITHDAMAGEEXTPROC swap_buffers_with_damage;
 };
@@ -91,6 +101,9 @@ struct window {
 	struct wl_egl_window *native;
 	struct wl_surface *surface;
 	struct wl_shell_surface *shell_surface;
+#ifdef ENABLE_IVI_CLIENT
+	struct ivi_surface *ivi_surface;
+#endif
 	EGLSurface egl_surface;
 	struct wl_callback *callback;
 	int fullscreen, configured, opaque, buffer_size, frame_sync;
@@ -250,7 +263,7 @@ init_gl(struct window *window)
 	}
 
 	glUseProgram(program);
-	
+
 	window->gl.pos = 0;
 	window->gl.col = 1;
 
@@ -318,6 +331,12 @@ set_fullscreen(struct window *window, int fullscreen)
 	window->fullscreen = fullscreen;
 	window->configured = 0;
 
+	if (!window->shell_surface) {
+		handle_configure(window, NULL, 0, 250, 250);
+		window->configured = 1;
+		return;
+	}
+
 	if (fullscreen) {
 		wl_shell_surface_set_fullscreen(window->shell_surface,
 						WL_SHELL_SURFACE_FULLSCREEN_METHOD_DEFAULT,
@@ -341,13 +360,15 @@ create_surface(struct window *window)
 {
 	struct display *display = window->display;
 	EGLBoolean ret;
-	
-	window->surface = wl_compositor_create_surface(display->compositor);
-	window->shell_surface = wl_shell_get_shell_surface(display->shell,
-							   window->surface);
 
-	wl_shell_surface_add_listener(window->shell_surface,
-				      &shell_surface_listener, window);
+	window->surface = wl_compositor_create_surface(display->compositor);
+	if (display->shell)
+		window->shell_surface = wl_shell_get_shell_surface(display->shell,
+							           window->surface);
+
+	if (window->shell_surface)
+		wl_shell_surface_add_listener(window->shell_surface,
+				              &shell_surface_listener, window);
 
 	window->native =
 		wl_egl_window_create(window->surface,
@@ -357,8 +378,19 @@ create_surface(struct window *window)
 		eglCreateWindowSurface(display->egl.dpy,
 				       display->egl.conf,
 				       window->native, NULL);
+#ifdef ENABLE_IVI_CLIENT
+	uint32_t id_ivisurf = IVI_SURFACE_ID + (uint32_t)getpid();
+	window->ivi_surface =
+		ivi_application_surface_create(display->ivi_application,
+					       id_ivisurf, window->surface);
+	if (window->ivi_surface == NULL) {
+		fprintf(stderr, "Failed to create ivi_client_surface\n");
+		abort();
+	}
+#endif
 
-	wl_shell_surface_set_title(window->shell_surface, "simple-egl");
+	if (window->shell_surface)
+		wl_shell_surface_set_title(window->shell_surface, "simple-egl");
 
 	ret = eglMakeCurrent(window->display->egl.dpy, window->egl_surface,
 			     window->egl_surface, window->display->egl.ctx);
@@ -381,7 +413,8 @@ destroy_surface(struct window *window)
 	eglDestroySurface(window->display->egl.dpy, window->egl_surface);
 	wl_egl_window_destroy(window->native);
 
-	wl_shell_surface_destroy(window->shell_surface);
+	if (window->shell_surface)
+		wl_shell_surface_destroy(window->shell_surface);
 	wl_surface_destroy(window->surface);
 
 	if (window->callback)
@@ -542,7 +575,8 @@ pointer_handle_button(void *data, struct wl_pointer *wl_pointer,
 {
 	struct display *display = data;
 
-	if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED)
+	if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED &&
+	    display->window->shell_surface)
 		wl_shell_surface_move(display->window->shell_surface,
 				      display->seat, serial);
 }
@@ -568,7 +602,8 @@ touch_handle_down(void *data, struct wl_touch *wl_touch,
 {
 	struct display *d = (struct display *)data;
 
-	wl_shell_surface_move(d->window->shell_surface, d->seat, serial);
+	if (d->window->shell_surface)
+		wl_shell_surface_move(d->window->shell_surface, d->seat, serial);
 }
 
 static void
@@ -709,6 +744,13 @@ registry_handle_global(void *data, struct wl_registry *registry,
 		d->default_cursor =
 			wl_cursor_theme_get_cursor(d->cursor_theme, "left_ptr");
 	}
+#ifdef ENABLE_IVI_CLIENT
+	else if (strcmp(interface, "ivi_application") == 0) {
+		d->ivi_application =
+			wl_registry_bind(registry, name,
+					 &ivi_application_interface, 1);
+	}
+#endif
 }
 
 static void
@@ -805,6 +847,11 @@ main(int argc, char **argv)
 
 	fprintf(stderr, "simple-egl exiting\n");
 
+#ifdef ENABLE_IVI_CLIENT
+	ivi_surface_destroy(window.ivi_surface);
+	ivi_application_destroy(window.display->ivi_application);
+#endif
+
 	destroy_surface(&window);
 	fini_egl(&display);
 
@@ -819,6 +866,9 @@ main(int argc, char **argv)
 		wl_compositor_destroy(display.compositor);
 
 	wl_registry_destroy(display.registry);
+#ifdef ENABLE_IVI_CLIENT
+	wl_display_roundtrip(display.display);
+#endif
 	wl_display_flush(display.display);
 	wl_display_disconnect(display.display);
 
