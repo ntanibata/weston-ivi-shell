@@ -223,6 +223,7 @@ application_surface_create(struct wl_client *client,
 
     wl_resource_set_implementation(res, &surface_implementation,
                                    ivisurf, NULL);
+    ivi_shell_surface_configure(es, 0, 0);
 }
 
 static const struct ivi_application_interface application_implementation = {
