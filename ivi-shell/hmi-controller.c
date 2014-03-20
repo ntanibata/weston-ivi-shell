@@ -54,6 +54,7 @@
 #include <time.h>
 
 #include "weston-layout.h"
+#include "hmi-controller-homescreen.h"
 #include "ivi-hmi-controller-server-protocol.h"
 
 /*****************************************************************************
@@ -1749,7 +1750,7 @@ bind_hmi_controller(struct wl_client *client,
 static void
 launch_hmi_client(void *data)
 {
-    /*Nothing to do here*/
+    hmi_client_start();
 }
 
 /*****************************************************************************
