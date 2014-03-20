@@ -35,7 +35,9 @@ ivi_shell_la_LDFLAGS = -module -avoid-version
 ivi_shell_la_LIBADD = $(COMPOSITOR_LIBS) $(IVI_SHELL_LIBS) ./libweston-layout.la
 ivi_shell_la_CFLAGS = $(GCC_CFLAGS) $(COMPOSITOR_CFLAGS) $(IVI_SHELL_CFLAGS)
 ivi_shell_la_SOURCES =				\
+	ivi-shell.h				\
 	ivi-shell.c				\
+	input-panel-ivi.c			\
 	weston-layout.h				\
 	ivi-application-protocol.c		\
 	ivi-application-server-protocol.h

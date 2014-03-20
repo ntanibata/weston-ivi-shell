@@ -2637,3 +2637,12 @@ weston_layout_commitChanges(void)
 
     return 0;
 }
+
+WL_EXPORT void
+weston_layout_add_panel_layer(struct weston_layer *panel_layer)
+{
+    struct weston_compositor *ec = get_instance()->compositor;
+
+    if (ec && panel_layer)
+        wl_list_insert(&ec->layer_list, &panel_layer->link);
+}

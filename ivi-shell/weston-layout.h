@@ -927,6 +927,9 @@ weston_layout_surfaceSetSourceRectangle(struct weston_layout_surface *ivisurf,
 int32_t
 weston_layout_commitChanges(void);
 
+void
+weston_layout_add_panel_layer(struct weston_layer *panel_layer);
+
 #ifdef __cplusplus
 } /**/
 #endif /* __cplusplus */
