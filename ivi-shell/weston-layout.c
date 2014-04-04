@@ -169,7 +169,6 @@ struct weston_layout_layer {
     uint32_t id_layer;
 
     struct weston_layout *layout;
-    struct weston_layer el;
 
     struct weston_layout_LayerProperties prop;
     uint32_t event_mask;
@@ -224,8 +223,7 @@ struct weston_layout {
         struct wl_list list_configure;
     } surface_notification;
 
-    /* to enable displaying cursor*/
-    int32_t is_cursor_enabled;
+    struct weston_layer layout_layer;
 };
 
 struct weston_layout ivilayout = {0};
@@ -794,7 +792,6 @@ commit_list_layer(struct weston_layout *layout)
 static void
 commit_list_screen(struct weston_layout *layout)
 {
-    struct weston_compositor  *ec = layout->compositor;
     struct weston_layout_screen  *iviscrn  = NULL;
     struct weston_layout_layer   *ivilayer = NULL;
     struct weston_layout_layer   *next     = NULL;
@@ -823,34 +820,26 @@ commit_list_screen(struct weston_layout *layout)
             iviscrn->event_mask = 0;
         }
 
-        /* For rendering */
-        wl_list_init(&ec->layer_list);
-        wl_list_for_each(ivilayer, &iviscrn->order.list_layer, order.link) {
-            if (ivilayer->prop.visibility == 0) {
-                continue;
-            }
+        /* Clear view list of layout layer */
+        wl_list_init(&layout->layout_layer.view_list);
 
-            wl_list_insert(&ec->layer_list, &ivilayer->el.link);
-            wl_list_init(&ivilayer->el.view_list);
+        wl_list_for_each(ivilayer, &iviscrn->order.list_layer, order.link) {
+
+            if (ivilayer->prop.visibility == 0)
+                continue;
 
             wl_list_for_each(ivisurf, &ivilayer->order.list_surface, order.link) {
-                if (ivisurf->prop.visibility == 0) {
-                    continue;
-                }
 
-                if (ivisurf->surface == NULL || ivisurf->view == NULL) {
+                if (ivisurf->prop.visibility == 0)
                     continue;
-                }
+                if (ivisurf->surface == NULL || ivisurf->view == NULL)
+                    continue;
 
-                wl_list_insert(&ivilayer->el.view_list,
+                wl_list_insert(&layout->layout_layer.view_list,
                                &ivisurf->view->layer_link);
+
                 ivisurf->surface->output = iviscrn->output;
             }
-        }
-
-        /*Add cursor layer if cursor is configured.*/
-        if (layout->is_cursor_enabled) {
-            wl_list_insert(&ec->layer_list, &ec->cursor_layer.link);
         }
 
         break;
@@ -928,6 +917,9 @@ weston_layout_initWithCompositor(struct weston_compositor *ec)
     wl_list_init(&layout->surface_notification.list_remove);
     wl_list_init(&layout->surface_notification.list_configure);
 
+    /* Add layout_layer at the last of weston_compositor.layer_list */
+    weston_layer_init(&layout->layout_layer, ec->layer_list.prev);
+
     create_screen(ec);
 
     struct weston_config *config = weston_config_parse("weston.ini");
@@ -937,8 +929,10 @@ weston_layout_initWithCompositor(struct weston_compositor *ec)
     /*A cursor is configured if weston.ini has keys.*/
     char* cursor_theme = NULL;
     weston_config_section_get_string(s, "cursor-theme", &cursor_theme, NULL);
-    layout->is_cursor_enabled = (NULL != cursor_theme);
-    free(cursor_theme);
+    if (cursor_theme)
+        free(cursor_theme);
+    else
+        wl_list_remove(&ec->cursor_layer.link);
     weston_config_destroy(config);
 }
 
