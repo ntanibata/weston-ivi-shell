@@ -2002,12 +2002,18 @@ weston_layout_layerSetRenderOrder(struct weston_layout_layer *ivilayer,
 {
     struct weston_layout *layout = get_instance();
     struct weston_layout_surface *ivisurf = NULL;
+    struct weston_layout_surface *next = NULL;
     uint32_t *id_surface = NULL;
     uint32_t i = 0;
 
     if (ivilayer == NULL) {
         weston_log("weston_layout_layerSetRenderOrder: invalid argument\n");
         return -1;
+    }
+
+    wl_list_for_each_safe(ivisurf, next,
+                          &ivilayer->pending.list_surface, pending.link) {
+        wl_list_init(&ivisurf->pending.link);
     }
 
     wl_list_init(&ivilayer->pending.list_surface);
