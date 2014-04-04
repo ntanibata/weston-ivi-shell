@@ -277,7 +277,8 @@ ivi_shell_clients_programs =	\
 	weston-flower-ivi				\
 	weston-smoke-ivi				\
 	weston-clickdot-ivi			\
-	weston-dnd-ivi
+	weston-dnd-ivi				\
+	weston-editor-ivi
 
 weston_simple_egl_ivi_SOURCES = simple-egl.c \
 	../ivi-shell/ivi-application-protocol.c			\
@@ -316,6 +317,16 @@ weston_dnd_ivi_SOURCES = dnd.c \
 	../ivi-shell/ivi-application-client-protocol.h
 weston_dnd_ivi_CPPFLAGS = $(AM_CPPFLAGS) -DENABLE_IVI_CLIENT
 weston_dnd_ivi_LDADD = libivitoytoolkit.la
+
+if HAVE_PANGO
+weston_editor_ivi_SOURCES = editor.c		\
+	text-protocol.c				\
+	text-client-protocol.h			\
+	../ivi-shell/ivi-application-protocol.c		\
+	../ivi-shell/ivi-application-client-protocol.h
+weston_editor_ivi_CPPFLAGS = $(AM_CPPFLAGS) $(PANGO_CFLAGS) -DENABLE_IVI_CLIENT
+weston_editor_ivi_LDADD = libivitoytoolkit.la $(PANGO_LIBS)
+endif
 endif
 
 wayland_protocoldir = $(top_srcdir)/protocol

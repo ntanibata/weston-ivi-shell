@@ -26,6 +26,7 @@ weston-simple-egl-ivi
 weston-simple-shm-ivi
 weston-smoke-ivi
 weston-dnd-ivi
+weston-editor-ivi
 
 desktop-shell-client-protocol.h
 desktop-shell-protocol.c
