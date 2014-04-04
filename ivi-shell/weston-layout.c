@@ -2340,12 +2340,18 @@ weston_layout_screenSetRenderOrder(struct weston_layout_screen *iviscrn,
 {
     struct weston_layout *layout = get_instance();
     struct weston_layout_layer *ivilayer = NULL;
+    struct weston_layout_layer *next = NULL;
     uint32_t *id_layer = NULL;
     uint32_t i = 0;
 
     if (iviscrn == NULL) {
         weston_log("weston_layout_screenSetRenderOrder: invalid argument\n");
         return -1;
+    }
+
+    wl_list_for_each_safe(ivilayer, next,
+                          &iviscrn->pending.list_layer, pending.link) {
+        wl_list_init(&ivilayer->pending.link);
     }
 
     wl_list_init(&iviscrn->pending.list_layer);
@@ -2357,7 +2363,7 @@ weston_layout_screenSetRenderOrder(struct weston_layout_screen *iviscrn,
     for (i = 0; i < number; i++) {
         id_layer = &pLayer[i]->id_layer;
         wl_list_for_each(ivilayer, &layout->list_layer, link) {
-            if (*id_layer == ivilayer->id_layer) {
+            if (*id_layer != ivilayer->id_layer) {
                 continue;
             }
 
