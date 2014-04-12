@@ -347,6 +347,7 @@ westonsurface_destroy_from_ivisurface(struct wl_listener *listener, void *data)
                            surface_destroy_listener);
     ivisurf->surface = NULL;
     ivisurf->view = NULL;
+    weston_layout_surfaceRemove(ivisurf);
 }
 
 /**
