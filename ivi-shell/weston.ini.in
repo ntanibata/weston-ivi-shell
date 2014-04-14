@@ -1,6 +1,6 @@
 [core]
 shell=ivi-shell.so
-modules=hmi-controller.so
+modules=ivi-controller.so,hmi-controller.so
 
 [ivi-shell]
 cursor-theme=default
@@ -28,55 +28,68 @@ home-id=1007
 workspace-background-color=0x99000000
 workspace-background-id=2001
 
+ivi-surface-creator-path=@abs_top_builddir@/clients/IVISurfaceCreator
+
 [input-method]
 path=@libexecdir@/weston-keyboard
 
 [ivi-launcher]
 workspace-id=0
 icon=@abs_top_builddir@/data/icon_ivi_flower.png
-path=@abs_top_builddir@/clients/weston-flower-ivi
+path=@abs_top_builddir@/clients/weston-flower
+setid-window-titles=Flower
 
 [ivi-launcher]
 workspace-id=0
 icon=@abs_top_builddir@/data/icon_ivi_clickdot.png
-path=@abs_top_builddir@/clients/weston-clickdot-ivi
+path=@abs_top_builddir@/clients/weston-clickdot
+setid-window-titles=Wayland ClickDot
 
 [ivi-launcher]
 workspace-id=1
 icon=@abs_top_builddir@/data/icon_ivi_simple-egl.png
-path=@abs_top_builddir@/clients/weston-simple-egl-ivi
+path=@abs_top_builddir@/clients/weston-simple-egl
+setid-window-titles=simple-egl
 
 [ivi-launcher]
 workspace-id=1
 icon=@abs_top_builddir@/data/icon_ivi_simple-shm.png
-path=@abs_top_builddir@/clients/weston-simple-shm-ivi
+path=@abs_top_builddir@/clients/weston-simple-shm
+setid-window-titles=simple-shm
 
 [ivi-launcher]
 workspace-id=2
 icon=@abs_top_builddir@/data/icon_ivi_smoke.png
-path=@abs_top_builddir@/clients/weston-smoke-ivi
+path=@abs_top_builddir@/clients/weston-smoke
+setid-window-titles=smoke
 
 [ivi-launcher]
 workspace-id=3
 icon=@abs_top_builddir@/data/icon_ivi_flower.png
-path=@abs_top_builddir@/clients/weston-flower-ivi
+path=@abs_top_builddir@/clients/weston-flower
+setid-window-titles=Flower
 
 [ivi-launcher]
 workspace-id=3
 icon=@abs_top_builddir@/data/icon_ivi_clickdot.png
-path=@abs_top_builddir@/clients/weston-clickdot-ivi
+path=@abs_top_builddir@/clients/weston-clickdot
+setid-window-titles=Wayland ClickDot
 
 [ivi-launcher]
 workspace-id=3
 icon=@abs_top_builddir@/data/icon_ivi_simple-egl.png
-path=@abs_top_builddir@/clients/weston-simple-egl-ivi
+path=@abs_top_builddir@/clients/weston-simple-egl
+setid-window-titles=simple-egl
 
 [ivi-launcher]
 workspace-id=3
 icon=@abs_top_builddir@/data/icon_ivi_simple-shm.png
-path=@abs_top_builddir@/clients/weston-simple-shm-ivi
+path=@abs_top_builddir@/clients/weston-simple-shm
+setid-window-titles=simple-shm
 
 [ivi-launcher]
 workspace-id=3
 icon=@abs_top_builddir@/data/icon_ivi_smoke.png
-path=@abs_top_builddir@/clients/weston-smoke-ivi
+path=@abs_top_builddir@/clients/weston-smoke
+setid-window-titles=smoke
+
