@@ -27,8 +27,12 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#include "compositor.h"
 #include <wayland-util.h>
 struct shell_surface;
+
+int
+init_ivi_shell_ext(struct weston_compositor *ec, int *argc, char *argv[]);
 
 void
 ivi_shell_get_shell_surfaces(struct wl_array *surfaces);

@@ -34,6 +34,7 @@
 #include <linux/input.h>
 
 #include "ivi-shell-ext.h"
+#include "ivi-shell.h"
 #include "compositor.h"
 #include "weston-layout.h"
 
@@ -348,6 +349,8 @@ shell_surface_set_title(struct wl_client *client,
     } else {
         shsurf->title = strdup("");
     }
+
+    send_wl_shell_info(shsurf->pid, shsurf->title);
 }
 
 static void
@@ -494,6 +497,8 @@ shell_get_shell_surface(struct wl_client   *client,
 
     shsurf->pid = pid;
     wl_list_insert(&shell->list_shell_surface, &shsurf->link);
+
+    send_wl_shell_info(shsurf->pid, shsurf->title);
 }
 
 static const struct wl_shell_interface shell_implementation = {
@@ -525,13 +530,6 @@ shell_ext_destroy(struct wl_listener *listener, void *data)
 
     free(shell);
     shell = NULL;
-}
-
-static void
-init_ivi_shell_ext(struct weston_compositor *ec, struct ivi_shell_ext *shell)
-{
-    wl_list_init(&shell->list_weston_surface);
-    wl_list_init(&shell->list_shell_surface);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -574,12 +572,13 @@ shell_surface_get_surface(struct shell_surface* surface)
  */
 
 WL_EXPORT int
-module_init(struct weston_compositor *ec,
-            int *argc, char *argv[])
+init_ivi_shell_ext(struct weston_compositor *ec,
+                   int *argc, char *argv[])
 {
     struct ivi_shell_ext *shell = get_instance();
 
-    init_ivi_shell_ext(ec, shell);
+    wl_list_init(&shell->list_weston_surface);
+    wl_list_init(&shell->list_shell_surface);
 
     shell->destroy_listener.notify = shell_ext_destroy;
     wl_signal_add(&ec->destroy_signal, &shell->destroy_listener);

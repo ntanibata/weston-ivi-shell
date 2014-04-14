@@ -39,6 +39,8 @@ ivi_shell_la_CFLAGS = $(GCC_CFLAGS) $(COMPOSITOR_CFLAGS) $(IVI_SHELL_CFLAGS)
 ivi_shell_la_SOURCES =				\
 	ivi-shell.h				\
 	ivi-shell.c				\
+	ivi-shell-ext.h				\
+	ivi-shell-ext.c				\
 	input-panel-ivi.c			\
 	weston-layout.h				\
 	ivi-application-protocol.c		\
@@ -57,15 +59,6 @@ hmi_controller_la_SOURCES =			\
 	ivi-hmi-controller-protocol.c		\
 	ivi-hmi-controller-client-protocol.h	\
 	ivi-hmi-controller-server-protocol.h
-
-ivi_shell_ext = ivi-shell-ext.la
-ivi_shell_ext_la_LDFLAGS = -module -avoid-version
-ivi_shell_ext_la_LIBADD = $(COMPOSITOR_LIBS) $(IVI_SHELL_LIBS) ./libweston-layout.la
-ivi_shell_ext_la_CFLAGS = $(GCC_CFLAGS) $(COMPOSITOR_CFLAGS) $(IVI_SHELL_CFLAGS)
-ivi_shell_ext_la_SOURCES =			\
-	ivi-shell-ext.c					\
-	ivi-shell-ext.h					\
-	weston-layout.h
 endif
 
 BUILT_SOURCES =					\
