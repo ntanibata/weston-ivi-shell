@@ -32,6 +32,7 @@ struct ivi_shell
     struct weston_compositor *compositor;
 
     struct wl_list ivi_surface_list; /* struct ivi_shell_surface::link */
+    struct wl_list client_list;
 
     struct wl_listener show_input_panel_listener;
     struct wl_listener hide_input_panel_listener;
@@ -62,3 +63,6 @@ input_panel_setup(struct ivi_shell *shell);
 
 void
 input_panel_destroy(struct ivi_shell *shell);
+
+WL_EXPORT void
+send_wl_shell_info(int32_t pid, const char *window_title);

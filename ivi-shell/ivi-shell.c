@@ -43,6 +43,7 @@
 #include <limits.h>
 
 #include "ivi-shell.h"
+#include "ivi-shell-ext.h"
 #include "ivi-application-server-protocol.h"
 #include "ivi-layout.h"
 
@@ -73,6 +74,18 @@ static struct ivi_layout_interface *ivi_layout;
 
     /* common functions                                                          */
 /* ------------------------------------------------------------------------- */
+
+static struct ivi_shell *
+get_instance(void)
+{
+    static struct ivi_shell *shell = NULL;
+
+    if (NULL == shell) {
+        shell = calloc(1, sizeof(*shell));
+    }
+
+    return shell;
+}
 
 /**
  * Implementation of ivi_surface
@@ -256,6 +269,12 @@ static const struct ivi_application_interface application_implementation = {
 };
 
 static void
+unbind_resource(struct wl_resource *resource)
+{
+    wl_list_remove(wl_resource_get_link(resource));
+}
+
+static void
 bind_ivi_application(struct wl_client *client,
                 void *data, uint32_t version, uint32_t id)
 {
@@ -266,7 +285,9 @@ bind_ivi_application(struct wl_client *client,
 
     wl_resource_set_implementation(resource,
                                    &application_implementation,
-                                   shell, NULL);
+                                   shell, unbind_resource);
+
+    wl_list_insert(&shell->client_list, wl_resource_get_link(resource));
 }
 
 struct weston_view *
@@ -318,6 +339,7 @@ init_ivi_shell(struct weston_compositor *compositor, struct ivi_shell *shell)
     shell->compositor = compositor;
 
     wl_list_init(&shell->ivi_surface_list);
+    wl_list_init(&shell->client_list);
 
     weston_layer_init(&shell->panel_layer, &compositor->cursor_layer.link);
     weston_layer_init(&shell->input_panel_layer, NULL);
@@ -345,6 +367,17 @@ ivi_shell_setting_create(struct ivi_shell_setting *dest)
 
     weston_config_destroy(config);
     return result;
+}
+
+WL_EXPORT void
+send_wl_shell_info(int32_t pid, const char *window_title)
+{
+    struct ivi_shell *shell = get_instance();
+    struct wl_resource *resource;
+
+    wl_resource_for_each(resource, &shell->client_list) {
+        ivi_application_send_wl_shell_info(resource, pid, window_title);
+    }
 }
 
 /**
@@ -382,15 +415,11 @@ WL_EXPORT int
 module_init(struct weston_compositor *compositor,
             int *argc, char *argv[])
 {
-    struct ivi_shell  *shell = NULL;
     char ivi_layout_path[PATH_MAX];
     void *module;
     struct ivi_shell_setting setting = { };
 
-    shell = zalloc(sizeof *shell);
-    if (shell == NULL) {
-        return -1;
-    }
+    struct ivi_shell *shell = get_instance();
 
     init_ivi_shell(compositor, shell);
 
@@ -443,5 +472,7 @@ module_init(struct weston_compositor *compositor,
     }
 
     free(setting.ivi_module);
-    return 0;
+
+    /* Initialize ivi-shell-ext. wl_shell is supported here */
+    return init_ivi_shell_ext(compositor, argc, argv);
 }
