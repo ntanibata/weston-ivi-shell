@@ -20,6 +20,8 @@
  * OF THIS SOFTWARE.
  */
 
+#include "config.h"
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -975,6 +977,8 @@ ss_surface_init(struct nested_surface *surface)
 		window_add_subsurface(nested->window,
 				      nested,
 				      SUBSURFACE_SYNCHRONIZED);
+
+	widget_set_use_cairo(ss_surface->widget, 0);
 
 	ss_surface->surface = widget_get_wl_surface(ss_surface->widget);
 	ss_surface->subsurface = widget_get_wl_subsurface(ss_surface->widget);

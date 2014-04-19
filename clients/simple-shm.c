@@ -34,12 +34,15 @@
 
 #include <wayland-client.h>
 #include "../shared/os-compatibility.h"
+#include "xdg-shell-client-protocol.h"
+#include "fullscreen-shell-client-protocol.h"
 
 struct display {
 	struct wl_display *display;
 	struct wl_registry *registry;
 	struct wl_compositor *compositor;
-	struct wl_shell *shell;
+	struct xdg_shell *shell;
+	struct _wl_fullscreen_shell *fshell;
 	struct wl_shm *shm;
 	uint32_t formats;
 };
@@ -54,11 +57,13 @@ struct window {
 	struct display *display;
 	int width, height;
 	struct wl_surface *surface;
-	struct wl_shell_surface *shell_surface;
+	struct xdg_surface *xdg_surface;
 	struct buffer buffers[2];
 	struct buffer *prev_buffer;
 	struct wl_callback *callback;
 };
+
+static int running = 1;
 
 static void
 buffer_release(void *data, struct wl_buffer *buffer)
@@ -111,27 +116,41 @@ create_shm_buffer(struct display *display, struct buffer *buffer,
 }
 
 static void
-handle_ping(void *data, struct wl_shell_surface *shell_surface,
-							uint32_t serial)
-{
-	wl_shell_surface_pong(shell_surface, serial);
-}
-
-static void
-handle_configure(void *data, struct wl_shell_surface *shell_surface,
-		 uint32_t edges, int32_t width, int32_t height)
+handle_configure(void *data, struct xdg_surface *surface,
+		 int32_t width, int32_t height)
 {
 }
 
 static void
-handle_popup_done(void *data, struct wl_shell_surface *shell_surface)
+handle_change_state(void *data, struct xdg_surface *xdg_surface,
+		    uint32_t state,
+		    uint32_t value,
+		    uint32_t serial)
 {
 }
 
-static const struct wl_shell_surface_listener shell_surface_listener = {
-	handle_ping,
+static void
+handle_activated(void *data, struct xdg_surface *xdg_surface)
+{
+}
+
+static void
+handle_deactivated(void *data, struct xdg_surface *xdg_surface)
+{
+}
+
+static void
+handle_delete(void *data, struct xdg_surface *xdg_surface)
+{
+	running = 0;
+}
+
+static const struct xdg_surface_listener xdg_surface_listener = {
 	handle_configure,
-	handle_popup_done
+	handle_change_state,
+	handle_activated,
+	handle_deactivated,
+	handle_delete,
 };
 
 static struct window *
@@ -148,16 +167,26 @@ create_window(struct display *display, int width, int height)
 	window->width = width;
 	window->height = height;
 	window->surface = wl_compositor_create_surface(display->compositor);
-	window->shell_surface = wl_shell_get_shell_surface(display->shell,
-							   window->surface);
 
-	if (window->shell_surface)
-		wl_shell_surface_add_listener(window->shell_surface,
-					      &shell_surface_listener, window);
+	if (display->shell) {
+		window->xdg_surface =
+			xdg_shell_get_xdg_surface(display->shell,
+						  window->surface);
 
-	wl_shell_surface_set_title(window->shell_surface, "simple-shm");
+		assert(window->xdg_surface);
 
-	wl_shell_surface_set_toplevel(window->shell_surface);
+		xdg_surface_add_listener(window->xdg_surface,
+					 &xdg_surface_listener, window);
+
+		xdg_surface_set_title(window->xdg_surface, "simple-shm");
+	} else if (display->fshell) {
+		_wl_fullscreen_shell_present_surface(display->fshell,
+						     window->surface,
+						     _WL_FULLSCREEN_SHELL_PRESENT_METHOD_DEFAULT,
+						     NULL);
+	} else {
+		assert(0);
+	}
 
 	return window;
 }
@@ -173,7 +202,8 @@ destroy_window(struct window *window)
 	if (window->buffers[1].buffer)
 		wl_buffer_destroy(window->buffers[1].buffer);
 
-	wl_shell_surface_destroy(window->shell_surface);
+	if (window->xdg_surface)
+		xdg_surface_destroy(window->xdg_surface);
 	wl_surface_destroy(window->surface);
 	free(window);
 }
@@ -301,6 +331,22 @@ struct wl_shm_listener shm_listener = {
 };
 
 static void
+xdg_shell_ping(void *data, struct xdg_shell *shell, uint32_t serial)
+{
+	xdg_shell_pong(shell, serial);
+}
+
+static const struct xdg_shell_listener xdg_shell_listener = {
+	xdg_shell_ping,
+};
+
+#define XDG_VERSION 3 /* The version of xdg-shell that we implement */
+#ifdef static_assert
+static_assert(XDG_VERSION == XDG_SHELL_VERSION_CURRENT,
+	      "Interface version doesn't match implementation version");
+#endif
+
+static void
 registry_handle_global(void *data, struct wl_registry *registry,
 		       uint32_t id, const char *interface, uint32_t version)
 {
@@ -310,9 +356,14 @@ registry_handle_global(void *data, struct wl_registry *registry,
 		d->compositor =
 			wl_registry_bind(registry,
 					 id, &wl_compositor_interface, 1);
-	} else if (strcmp(interface, "wl_shell") == 0) {
+	} else if (strcmp(interface, "xdg_shell") == 0) {
 		d->shell = wl_registry_bind(registry,
-					    id, &wl_shell_interface, 1);
+					    id, &xdg_shell_interface, 1);
+		xdg_shell_use_unstable_version(d->shell, XDG_VERSION);
+		xdg_shell_add_listener(d->shell, &xdg_shell_listener, d);
+	} else if (strcmp(interface, "_wl_fullscreen_shell") == 0) {
+		d->fshell = wl_registry_bind(registry,
+					     id, &_wl_fullscreen_shell_interface, 1);
 	} else if (strcmp(interface, "wl_shm") == 0) {
 		d->shm = wl_registry_bind(registry,
 					  id, &wl_shm_interface, 1);
@@ -373,7 +424,10 @@ destroy_display(struct display *display)
 		wl_shm_destroy(display->shm);
 
 	if (display->shell)
-		wl_shell_destroy(display->shell);
+		xdg_shell_destroy(display->shell);
+
+	if (display->fshell)
+		_wl_fullscreen_shell_release(display->fshell);
 
 	if (display->compositor)
 		wl_compositor_destroy(display->compositor);
@@ -383,8 +437,6 @@ destroy_display(struct display *display)
 	wl_display_disconnect(display->display);
 	free(display);
 }
-
-static int running = 1;
 
 static void
 signal_int(int signum)

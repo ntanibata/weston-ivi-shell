@@ -21,6 +21,8 @@
  * OF THIS SOFTWARE.
  */
 
+#include "config.h"
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,7 +40,6 @@ struct transformed {
 	struct widget *widget;
 	int width, height;
 	int fullscreen;
-	enum wl_shell_surface_fullscreen_method fullscreen_method;
 };
 
 static void
@@ -97,16 +98,6 @@ fullscreen_handler(struct window *window, void *data)
 
 	transformed->fullscreen ^= 1;
 	window_set_fullscreen(window, transformed->fullscreen);
-}
-
-static void
-resize_handler(struct widget *widget, int width, int height, void *data)
-{
-	struct transformed *transformed = data;
-
-	if (transformed->fullscreen_method !=
-	    WL_SHELL_SURFACE_FULLSCREEN_METHOD_DEFAULT)
-		widget_set_size(widget, transformed->width, transformed->height);
 }
 
 static void
@@ -251,14 +242,9 @@ int main(int argc, char *argv[])
 	transformed.width = 500;
 	transformed.height = 250;
 	transformed.fullscreen = 0;
-	transformed.fullscreen_method =
-		WL_SHELL_SURFACE_FULLSCREEN_METHOD_DEFAULT;
 
 	for (i = 1; i < argc; i++) {
-		if (strcmp(argv[i], "-d") == 0) {
-			transformed.fullscreen_method =
-				WL_SHELL_SURFACE_FULLSCREEN_METHOD_DRIVER;
-		} else if (strcmp(argv[i], "-w") == 0) {
+		if (strcmp(argv[i], "-w") == 0) {
 			if (++i >= argc)
 				usage(EXIT_FAILURE);
 
@@ -286,13 +272,10 @@ int main(int argc, char *argv[])
 		window_add_widget(transformed.window, &transformed);
 
 	window_set_title(transformed.window, "Transformed");
-	window_set_fullscreen_method(transformed.window,
-				     transformed.fullscreen_method);
 
 	widget_set_transparent(transformed.widget, 0);
 	widget_set_default_cursor(transformed.widget, CURSOR_BLANK);
 
-	widget_set_resize_handler(transformed.widget, resize_handler);
 	widget_set_redraw_handler(transformed.widget, redraw_handler);
 	widget_set_button_handler(transformed.widget, button_handler);
 

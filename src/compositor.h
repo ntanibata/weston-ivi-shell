@@ -328,7 +328,10 @@ struct weston_pointer {
 	uint32_t grab_time;
 
 	wl_fixed_t x, y;
+	wl_fixed_t sx, sy;
 	uint32_t button_count;
+
+	struct wl_listener output_destroy_listener;
 };
 
 
@@ -375,8 +378,6 @@ weston_pointer_move(struct weston_pointer *pointer,
 void
 weston_pointer_set_default_grab(struct weston_pointer *pointer,
 		const struct weston_pointer_grab_interface *interface);
-void
-weston_pointer_verify(struct weston_pointer *pointer);
 
 struct weston_keyboard *
 weston_keyboard_create(void);
@@ -494,6 +495,7 @@ struct weston_seat {
 	struct weston_output *output; /* constraint */
 
 	struct wl_signal destroy_signal;
+	struct wl_signal updated_caps_signal;
 
 	struct weston_compositor *compositor;
 	struct wl_list link;
@@ -556,6 +558,12 @@ enum weston_capability {
 
 	/* screencaptures need to be y-flipped */
 	WESTON_CAP_CAPTURE_YFLIP		= 0x0002,
+
+	/* backend/renderer has a seperate cursor plane */
+	WESTON_CAP_CURSOR_PLANE			= 0x0004,
+
+	/* backend supports setting arbitrary resolutions */
+	WESTON_CAP_ARBITRARY_MODES		= 0x0008,
 };
 
 struct weston_compositor {
@@ -566,6 +574,7 @@ struct weston_compositor {
 	struct weston_config *config;
 
 	/* surface signals */
+	struct wl_signal create_surface_signal;
 	struct wl_signal activate_signal;
 	struct wl_signal transform_signal;
 
@@ -579,6 +588,8 @@ struct weston_compositor {
 
 	struct wl_signal seat_created_signal;
 	struct wl_signal output_created_signal;
+	struct wl_signal output_destroyed_signal;
+	struct wl_signal output_moved_signal;
 
 	struct wl_event_loop *input_loop;
 	struct wl_event_source *input_loop_source;
@@ -620,8 +631,6 @@ struct weston_compositor {
 	void (*restore)(struct weston_compositor *ec);
 	int (*authenticate)(struct weston_compositor *c, uint32_t id);
 
-	void (*ping_handler)(struct weston_surface *surface, uint32_t serial);
-
 	struct weston_launcher *launcher;
 
 	uint32_t output_id_pool;
@@ -654,20 +663,27 @@ struct weston_buffer_reference {
 };
 
 struct weston_buffer_viewport {
-	/* wl_surface.set_buffer_transform */
-	uint32_t transform;
+	struct {
+		/* wl_surface.set_buffer_transform */
+		uint32_t transform;
 
-	/* wl_surface.set_scaling_factor */
-	int32_t scale;
+		/* wl_surface.set_scaling_factor */
+		int32_t scale;
 
-	/* bool for whether wl_viewport.set has been
-	 * called yet (before this is called there is no
-	 * cropping or scaling on the surface) */
-	int viewport_set; /* bool */
+		/*
+		 * If src_width != wl_fixed_from_int(-1),
+		 * then and only then src_* are used.
+		 */
+		wl_fixed_t src_x, src_y;
+		wl_fixed_t src_width, src_height;
+	} buffer;
 
-	wl_fixed_t src_x, src_y;
-	wl_fixed_t src_width, src_height;
-	int32_t dst_width, dst_height;
+	struct {
+		/*
+		 * If width == -1, the size is inferred from the buffer.
+		 */
+		int32_t width, height;
+	} surface;
 };
 
 struct weston_region {
@@ -818,9 +834,6 @@ struct weston_view {
 	 * displayed on.
 	 */
 	uint32_t output_mask;
-
-	struct wl_listener output_move_listener;
-	struct wl_listener output_destroy_listener;
 };
 
 struct weston_surface {
@@ -859,6 +872,8 @@ struct weston_surface {
 
 	struct weston_buffer_reference buffer_ref;
 	struct weston_buffer_viewport buffer_viewport;
+	int32_t width_from_buffer; /* before applying viewport */
+	int32_t height_from_buffer;
 	int keep_buffer; /* bool for backends to prevent early release */
 
 	/* wl_viewport resource for this surface */
@@ -898,12 +913,6 @@ struct weston_surface {
 	 */
 	void (*configure)(struct weston_surface *es, int32_t sx, int32_t sy);
 	void *configure_private;
-
-	/* If non-NULL, this function will be called on surface->output::
-	 * destroy, after the output is removed from the compositor's
-	 * output list and the remaining outputs moved.
-	 */
-	void (*output_destroyed)(struct weston_surface *surface);
 
 	/* Parent's list of its sub-surfaces, weston_subsurface:parent_link.
 	 * Contains also the parent itself as a dummy weston_subsurface,
@@ -1291,6 +1300,18 @@ tty_activate_vt(struct tty *tty, int vt);
 
 void
 screenshooter_create(struct weston_compositor *ec);
+
+enum weston_screenshooter_outcome {
+	WESTON_SCREENSHOOTER_SUCCESS,
+	WESTON_SCREENSHOOTER_NO_MEMORY,
+	WESTON_SCREENSHOOTER_BAD_BUFFER
+};
+
+typedef void (*weston_screenshooter_done_func_t)(void *data,
+				enum weston_screenshooter_outcome outcome);
+int
+weston_screenshooter_shoot(struct weston_output *output, struct weston_buffer *buffer,
+			   weston_screenshooter_done_func_t done, void *data);
 
 struct clipboard *
 clipboard_create(struct weston_seat *seat);

@@ -29,10 +29,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <linux/input.h>
 #include <libudev.h>
 
 #ifdef HAVE_BCM_HOST
@@ -43,9 +45,8 @@
 
 #include "compositor.h"
 #include "rpi-renderer.h"
-#include "evdev.h"
 #include "launcher-util.h"
-#include "udev-seat.h"
+#include "udev-input.h"
 
 #if 0
 #define DBG(...) \
@@ -441,7 +442,7 @@ session_notify(struct wl_listener *listener, void *data)
 		weston_log("activating session\n");
 		compositor->base.state = compositor->prev_state;
 		weston_compositor_damage_all(&compositor->base);
-		udev_input_enable(&compositor->input, compositor->udev);
+		udev_input_enable(&compositor->input);
 	} else {
 		weston_log("deactivating session\n");
 		udev_input_disable(&compositor->input);
@@ -527,13 +528,6 @@ rpi_compositor_create(struct wl_display *display, int *argc, char *argv[],
 	weston_log("Dispmanx planes are %s buffered.\n",
 		   compositor->single_buffer ? "single" : "double");
 
-	if (udev_input_init(&compositor->input,
-			    &compositor->base,
-			    compositor->udev, "seat0") != 0) {
-		weston_log("Failed to initialize udev input.\n");
-		goto out_launcher;
-	}
-
 	for (key = KEY_F1; key < KEY_F9; key++)
 		weston_compositor_add_key_binding(&compositor->base, key,
 						  MODIFIER_CTRL | MODIFIER_ALT,
@@ -549,18 +543,22 @@ rpi_compositor_create(struct wl_display *display, int *argc, char *argv[],
 	bcm_host_init();
 
 	if (rpi_renderer_create(&compositor->base, &param->renderer) < 0)
-		goto out_udev_input;
+		goto out_launcher;
 
 	if (rpi_output_create(compositor, param->output_transform) < 0)
 		goto out_renderer;
+
+	if (udev_input_init(&compositor->input,
+			    &compositor->base,
+			    compositor->udev, "seat0") != 0) {
+		weston_log("Failed to initialize udev input.\n");
+		goto out_renderer;
+	}
 
 	return &compositor->base;
 
 out_renderer:
 	compositor->base.renderer->destroy(&compositor->base);
-
-out_udev_input:
-	udev_input_destroy(&compositor->input);
 
 out_launcher:
 	weston_launcher_destroy(compositor->base.launcher);

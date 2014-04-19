@@ -1,6 +1,6 @@
 m4_define([weston_major_version], [1])
 m4_define([weston_minor_version], [4])
-m4_define([weston_micro_version], [0])
+m4_define([weston_micro_version], [91])
 m4_define([weston_version],
           [weston_major_version.weston_minor_version.weston_micro_version])
 
@@ -16,12 +16,13 @@ AC_SUBST([WESTON_VERSION_MINOR], [weston_minor_version])
 AC_SUBST([WESTON_VERSION_MICRO], [weston_micro_version])
 AC_SUBST([WESTON_VERSION], [weston_version])
 
+AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([config.h])
 
 AC_USE_SYSTEM_EXTENSIONS
 AC_SYS_LARGEFILE
 
-AM_INIT_AUTOMAKE([1.11 parallel-tests foreign no-dist-gzip dist-xz color-tests])
+AM_INIT_AUTOMAKE([1.11 parallel-tests foreign no-dist-gzip dist-xz color-tests subdir-objects])
 
 AM_SILENT_RULES([yes])
 
@@ -98,7 +99,7 @@ if test x$enable_xwayland = xyes; then
 
   AC_ARG_WITH(xserver-path, AS_HELP_STRING([--with-xserver-path=PATH],
               [Path to X server]), [XSERVER_PATH="$withval"],
-              [XSERVER_PATH="$bindir/Xorg"])
+              [XSERVER_PATH="$bindir/Xwayland"])
   AC_SUBST([XSERVER_PATH])
   if test x$enable_xwayland_test = xyes; then
     PKG_CHECK_MODULES([XWAYLAND_TEST], xcb xcb-dri2 libdrm)
@@ -151,6 +152,16 @@ if test x$enable_drm_compositor = xyes; then
   AC_DEFINE([BUILD_DRM_COMPOSITOR], [1], [Build the DRM compositor])
   PKG_CHECK_MODULES(DRM_COMPOSITOR, [libudev >= 136 libdrm >= 2.4.30 gbm mtdev >= 1.1.0])
 fi
+
+
+AC_ARG_ENABLE(libinput-backend, [  --enable-libinput-backend],,
+	      enable_libinput_backend=no)
+AM_CONDITIONAL([ENABLE_LIBINPUT_BACKEND], [test x$enable_libinput_backend = xyes])
+if test x$enable_libinput_backend = xyes; then
+  AC_DEFINE([BUILD_LIBINPUT_BACKEND], [1], [Build the libinput input device backend])
+  PKG_CHECK_MODULES(LIBINPUT_BACKEND, [libinput >= 0.1.0])
+fi
+
 
 PKG_CHECK_MODULES(COMPOSITOR, [$COMPOSITOR_MODULES])
 
@@ -209,6 +220,18 @@ if test x$enable_rdp_compositor = xyes; then
   CPPFLAGS="$CPPFLAGS $RDP_COMPOSITOR_CFLAGS"
   AC_CHECK_HEADERS([freerdp/version.h])
   CPPFLAGS="$SAVED_CPPFLAGS"
+fi
+
+AC_ARG_ENABLE([screen-sharing], [--enable-screen-sharing],,
+              enable_screen_sharing=no)
+AM_CONDITIONAL([ENABLE_SCREEN_SHARING],
+               [test x$enable_screen_sharing = xyes])
+if test x$enable_screen_sharing = xyes; then
+  PKG_CHECK_MODULES(SCREEN_SHARE, [wayland-client])
+
+  if test x$enable_rdp_compositor != xyes; then
+    AC_MSG_WARN([The screen-share.so module requires the RDP backend.])
+  fi
 fi
 
 AC_ARG_WITH(cairo,
@@ -303,9 +326,6 @@ if test x$enable_clients = xyes; then
   PKG_CHECK_MODULES(SERVER, [wayland-server])
   PKG_CHECK_MODULES(WESTON_INFO, [wayland-client])
 
-  PKG_CHECK_MODULES(POPPLER, [poppler-glib glib-2.0 gobject-2.0 gio-2.0 ],
-			     [have_poppler=yes], [have_poppler=no])
-
   # Only check for cairo-egl if a GL or GLES renderer requested
   AS_IF([test "x$cairo_modules" = "xcairo-gl" -o "x$cairo_modules" = "xcairo-glesv2"], [
     PKG_CHECK_MODULES(CAIRO_EGL, [wayland-egl egl >= 7.10 cairo-egl >= 1.11.3 $cairo_modules],
@@ -352,9 +372,6 @@ if test x$enable_egl = xyes; then
 fi
 AM_CONDITIONAL(HAVE_GLU, test "x$have_glu" = "xyes")
 
-
-AM_CONDITIONAL(HAVE_POPPLER, test "x$have_poppler" = "xyes")
-
 AM_CONDITIONAL(HAVE_PANGO, test "x$have_pango" = "xyes")
 
 AM_CONDITIONAL(HAVE_CAIRO_GLESV2,
@@ -367,6 +384,13 @@ AM_CONDITIONAL(BUILD_SUBSURFACES_CLIENT,
 	       [test '(' "x$have_cairo_egl" != "xyes" -o "x$cairo_modules" = "xcairo-glesv2" ')' -a "x$enable_simple_egl_clients" = "xyes"])
 
 AM_CONDITIONAL(ENABLE_DESKTOP_SHELL, true)
+
+AC_ARG_ENABLE(fullscreen-shell,
+              AS_HELP_STRING([--disable-fullscreen-shell],
+                             [do not build fullscreen-shell server plugin]),,
+	      enable_fullscreen_shell=yes)
+AM_CONDITIONAL(ENABLE_FULLSCREEN_SHELL,
+	       test "x$enable_fullscreen_shell" = "xyes")
 
 # CMS modules
 AC_ARG_ENABLE(colord,
@@ -417,16 +441,13 @@ if test x$enable_wcap_tools = xyes; then
   WCAP_LIBS="$WCAP_LIBS -lm"
 fi
 
-AC_CHECK_PROG(RSVG_CONVERT, rsvg-convert, rsvg-convert)
-AM_CONDITIONAL(HAVE_RSVG_CONVERT, test -n "$RSVG_CONVERT")
-
 PKG_CHECK_MODULES(SETBACKLIGHT, [libudev libdrm], enable_setbacklight=yes, enable_setbacklight=no)
 AM_CONDITIONAL(BUILD_SETBACKLIGHT, test "x$enable_setbacklight" = "xyes")
 
 if test "x$GCC" = "xyes"; then
 	GCC_CFLAGS="-Wall -Wextra -Wno-unused-parameter \
 		-Wno-missing-field-initializers -g -fvisibility=hidden \
-		-Wstrict-prototypes -Wmissing-prototypes"
+		-Wstrict-prototypes -Wmissing-prototypes -Wsign-compare"
 fi
 AC_SUBST(GCC_CFLAGS)
 
@@ -483,29 +504,11 @@ if test x$wayland_scanner = x; then
 fi
 
 PKG_CHECK_MODULES(WAYLAND_SCANNER, wayland-scanner)
-AC_PATH_PROG(XMLLINT, xmllint)
-AC_ARG_WITH([dtddir],
-	    AS_HELP_STRING([--with-dtddir],
-			   [Directory containing the Wayland
-			    protocol DTD @<:@default=from pkgconfig@:>@]),
-	    [dtddir="$withval"],
-	    [dtddir=$($PKG_CONFIG --variable=pkgdatadir wayland-scanner)])
-AC_SUBST([dtddir])
-AM_CONDITIONAL([HAVE_XMLLINT], [test "x$XMLLINT" != "x" -a "x$dtddir" != "x"])
 
-AC_CONFIG_FILES([Makefile
-		 shared/Makefile
-		 src/Makefile
-		 xwayland/Makefile
-		 desktop-shell/Makefile
-		 src/version.h
-		 src/weston.pc
-		 clients/Makefile
-		 wcap/Makefile
-		 data/Makefile
-		 protocol/Makefile
-		 man/Makefile
-		 tests/Makefile])
+AC_CONFIG_FILES([Makefile src/version.h src/weston.pc])
+
+AM_CONDITIONAL([HAVE_GIT_REPO], [test -f $srcdir/.git/logs/HEAD])
+
 AC_OUTPUT
 
 AC_MSG_RESULT([
@@ -520,6 +523,7 @@ AC_MSG_RESULT([
 	dbus				${enable_dbus}
 
 	Build wcap utility		${enable_wcap_tools}
+	Build Fullscreen Shell		${enable_fullscreen_shell}
 
 	weston-launch utility		${enable_weston_launch}
 	systemd-login support		${have_systemd_login}
@@ -531,6 +535,9 @@ AC_MSG_RESULT([
 	RPI Compositor			${enable_rpi_compositor}
 	FBDEV Compositor		${enable_fbdev_compositor}
 	RDP Compositor			${enable_rdp_compositor}
+	Screen Sharing			${enable_screen_sharing}
+
+	libinput Backend		${enable_libinput_backend}
 
 	Raspberry Pi BCM headers	${have_bcm_host}
 

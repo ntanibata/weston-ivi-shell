@@ -56,6 +56,7 @@
 
 static int option_width;
 static int option_height;
+static int option_scale;
 static int option_count;
 
 struct x11_compositor {
@@ -602,8 +603,8 @@ x11_output_wait_for_map(struct x11_compositor *c, struct x11_output *output)
 			if (configure_notify->width % output->scale != 0 ||
 			    configure_notify->height % output->scale != 0)
 				weston_log("Resolution is not a multiple of screen size, rounding\n");
-			output->mode.width = configure_notify->width / output->scale;
-			output->mode.height = configure_notify->height / output->scale;
+			output->mode.width = configure_notify->width;
+			output->mode.height = configure_notify->height;
 			configured = 1;
 			break;
 		}
@@ -760,7 +761,7 @@ x11_compositor_create_output(struct x11_compositor *c, int x, int y,
 	xcb_screen_iterator_t iter;
 	struct wm_normal_hints normal_hints;
 	struct wl_event_loop *loop;
-	int output_width, output_height;
+	int output_width, output_height, width_mm, height_mm;
 	int ret;
 	uint32_t mask = XCB_CW_EVENT_MASK | XCB_CW_CURSOR;
 	xcb_atom_t atom_list[1];
@@ -875,8 +876,12 @@ x11_compositor_create_output(struct x11_compositor *c, int x, int y,
 	if (configured_name)
 		output->base.name = strdup(configured_name);
 
+	width_mm = width * c->screen->width_in_millimeters /
+		c->screen->width_in_pixels;
+	height_mm = height * c->screen->height_in_millimeters /
+		c->screen->height_in_pixels;
 	weston_output_init(&output->base, &c->base,
-			   x, y, width, height, transform, scale);
+			   x, y, width_mm, height_mm, transform, scale);
 
 	if (c->use_pixman) {
 		if (x11_output_init_shm(c, output,
@@ -889,7 +894,9 @@ x11_compositor_create_output(struct x11_compositor *c, int x, int y,
 		}
 	} else {
 		ret = gl_renderer->output_create(&output->base,
-						 (EGLNativeWindowType) output->window);
+						 (EGLNativeWindowType) output->window,
+						 gl_renderer->opaque_attribs,
+						 NULL);
 		if (ret < 0)
 			return NULL;
 	}
@@ -1478,7 +1485,7 @@ x11_compositor_create(struct wl_display *display,
 	struct weston_config_section *section;
 	xcb_screen_iterator_t s;
 	int i, x = 0, output_count = 0;
-	int width, height, count, scale;
+	int width, height, scale, count;
 	const char *section_name;
 	char *name, *t, *mode;
 	uint32_t transform;
@@ -1534,6 +1541,7 @@ x11_compositor_create(struct wl_display *display,
 
 	width = option_width ? option_width : 1024;
 	height = option_height ? option_height : 640;
+	scale = option_scale ? option_scale : 1;
 	count = option_count ? option_count : 1;
 
 	section = NULL;
@@ -1563,6 +1571,9 @@ x11_compositor_create(struct wl_display *display,
 			height = option_height;
 
 		weston_config_section_get_int(section, "scale", &scale, 1);
+		if (option_scale)
+			scale = option_scale;
+
 		weston_config_section_get_string(section,
 						 "transform", &t, "normal");
 		transform = parse_transform(t, name);
@@ -1586,7 +1597,7 @@ x11_compositor_create(struct wl_display *display,
 	for (i = output_count; i < count; i++) {
 		output = x11_compositor_create_output(c, x, 0, width, height,
 						      fullscreen, no_input, NULL,
-						      WL_OUTPUT_TRANSFORM_NORMAL, 1);
+						      WL_OUTPUT_TRANSFORM_NORMAL, scale);
 		if (output == NULL)
 			goto err_x11_input;
 		x = pixman_region32_extents(&output->base.region)->x2;
@@ -1623,6 +1634,7 @@ backend_init(struct wl_display *display, int *argc, char *argv[],
 	const struct weston_option x11_options[] = {
 		{ WESTON_OPTION_INTEGER, "width", 0, &option_width },
 		{ WESTON_OPTION_INTEGER, "height", 0, &option_height },
+		{ WESTON_OPTION_INTEGER, "scale", 0, &option_scale },
 		{ WESTON_OPTION_BOOLEAN, "fullscreen", 'f', &fullscreen },
 		{ WESTON_OPTION_INTEGER, "output-count", 0, &option_count },
 		{ WESTON_OPTION_BOOLEAN, "no-input", 0, &no_input },

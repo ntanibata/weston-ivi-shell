@@ -30,8 +30,10 @@
 
 struct exposay_surface {
 	struct desktop_shell *shell;
+	struct exposay_output *eoutput;
 	struct weston_surface *surface;
 	struct weston_view *view;
+	struct wl_listener view_destroy_listener;
 	struct wl_list link;
 
 	int x;
@@ -54,6 +56,20 @@ static void exposay_set_state(struct desktop_shell *shell,
                               enum exposay_target_state state,
 			      struct weston_seat *seat);
 static void exposay_check_state(struct desktop_shell *shell);
+
+static void
+exposay_surface_destroy(struct exposay_surface *esurface)
+{
+	wl_list_remove(&esurface->link);
+	wl_list_remove(&esurface->view_destroy_listener.link);
+
+	if (esurface->shell->exposay.focus_current == esurface->view)
+		esurface->shell->exposay.focus_current = NULL;
+	if (esurface->shell->exposay.focus_prev == esurface->view)
+		esurface->shell->exposay.focus_prev = NULL;
+
+	free(esurface);
+}
 
 static void
 exposay_in_flight_inc(struct desktop_shell *shell)
@@ -109,8 +125,7 @@ exposay_animate_out_done(struct weston_view_animation *animation, void *data)
 	struct exposay_surface *esurface = data;
 	struct desktop_shell *shell = esurface->shell;
 
-	wl_list_remove(&esurface->link);
-	free(esurface);
+	exposay_surface_destroy(esurface);
 
 	exposay_in_flight_dec(shell);
 }
@@ -138,8 +153,12 @@ exposay_highlight_surface(struct desktop_shell *shell,
 {
 	struct weston_view *view = esurface->view;
 
+	if (shell->exposay.focus_current == view)
+		return;
+
 	shell->exposay.row_current = esurface->row;
 	shell->exposay.column_current = esurface->column;
+	shell->exposay.cur_output = esurface->eoutput;
 
 	activate(shell, view->surface, shell->exposay.seat);
 	shell->exposay.focus_current = view;
@@ -174,36 +193,46 @@ exposay_pick(struct desktop_shell *shell, int x, int y)
 	}
 }
 
+static void
+handle_view_destroy(struct wl_listener *listener, void *data)
+{
+	struct exposay_surface *esurface = container_of(listener,
+						 struct exposay_surface,
+						 view_destroy_listener);
+
+	exposay_surface_destroy(esurface);
+}
+
 /* Pretty lame layout for now; just tries to make a square.  Should take
  * aspect ratio into account really.  Also needs to be notified of surface
  * addition and removal and adjust layout/animate accordingly. */
 static enum exposay_layout_state
-exposay_layout(struct desktop_shell *shell)
+exposay_layout(struct desktop_shell *shell, struct shell_output *shell_output)
 {
 	struct workspace *workspace = shell->exposay.workspace;
-	struct weston_compositor *compositor = shell->compositor;
-	struct weston_output *output = get_default_output(compositor);
+	struct weston_output *output = shell_output->output;
+	struct exposay_output *eoutput = &shell_output->eoutput;
 	struct weston_view *view;
 	struct exposay_surface *esurface, *highlight = NULL;
 	int w, h;
 	int i;
 	int last_row_removed = 0;
 
-	wl_list_init(&shell->exposay.surface_list);
-
-	shell->exposay.num_surfaces = 0;
+	eoutput->num_surfaces = 0;
 	wl_list_for_each(view, &workspace->layer.view_list, layer_link) {
 		if (!get_shell_surface(view->surface))
 			continue;
-		shell->exposay.num_surfaces++;
+		if (view->output != output)
+			continue;
+		eoutput->num_surfaces++;
 	}
 
-	if (shell->exposay.num_surfaces == 0) {
-		shell->exposay.grid_size = 0;
-		shell->exposay.hpadding_outer = 0;
-		shell->exposay.vpadding_outer = 0;
-		shell->exposay.padding_inner = 0;
-		shell->exposay.surface_size = 0;
+	if (eoutput->num_surfaces == 0) {
+		eoutput->grid_size = 0;
+		eoutput->hpadding_outer = 0;
+		eoutput->vpadding_outer = 0;
+		eoutput->padding_inner = 0;
+		eoutput->surface_size = 0;
 		return EXPOSAY_LAYOUT_OVERVIEW;
 	}
 
@@ -219,36 +248,38 @@ exposay_layout(struct desktop_shell *shell)
 	 * XXX: Surely there has to be a better way to express this maths,
 	 *      right?!
 	 */
-	shell->exposay.grid_size = floor(sqrtf(shell->exposay.num_surfaces));
-	if (pow(shell->exposay.grid_size, 2) != shell->exposay.num_surfaces)
-		shell->exposay.grid_size++;
-	last_row_removed = pow(shell->exposay.grid_size, 2) - shell->exposay.num_surfaces;
+	eoutput->grid_size = floor(sqrtf(eoutput->num_surfaces));
+	if (pow(eoutput->grid_size, 2) != eoutput->num_surfaces)
+		eoutput->grid_size++;
+	last_row_removed = pow(eoutput->grid_size, 2) - eoutput->num_surfaces;
 
-	shell->exposay.hpadding_outer = (output->width / 10);
-	shell->exposay.vpadding_outer = (output->height / 10);
-	shell->exposay.padding_inner = 80;
+	eoutput->hpadding_outer = (output->width / 10);
+	eoutput->vpadding_outer = (output->height / 10);
+	eoutput->padding_inner = 80;
 
-	w = output->width - (shell->exposay.hpadding_outer * 2);
-	w -= shell->exposay.padding_inner * (shell->exposay.grid_size - 1);
-	w /= shell->exposay.grid_size;
+	w = output->width - (eoutput->hpadding_outer * 2);
+	w -= eoutput->padding_inner * (eoutput->grid_size - 1);
+	w /= eoutput->grid_size;
 
-	h = output->height - (shell->exposay.vpadding_outer * 2);
-	h -= shell->exposay.padding_inner * (shell->exposay.grid_size - 1);
-	h /= shell->exposay.grid_size;
+	h = output->height - (eoutput->vpadding_outer * 2);
+	h -= eoutput->padding_inner * (eoutput->grid_size - 1);
+	h /= eoutput->grid_size;
 
-	shell->exposay.surface_size = (w < h) ? w : h;
-	if (shell->exposay.surface_size > (output->width / 2))
-		shell->exposay.surface_size = output->width / 2;
-	if (shell->exposay.surface_size > (output->height / 2))
-		shell->exposay.surface_size = output->height / 2;
+	eoutput->surface_size = (w < h) ? w : h;
+	if (eoutput->surface_size > (output->width / 2))
+		eoutput->surface_size = output->width / 2;
+	if (eoutput->surface_size > (output->height / 2))
+		eoutput->surface_size = output->height / 2;
 
 	i = 0;
 	wl_list_for_each(view, &workspace->layer.view_list, layer_link) {
 		int pad;
 
-		pad = shell->exposay.surface_size + shell->exposay.padding_inner;
+		pad = eoutput->surface_size + eoutput->padding_inner;
 
 		if (!get_shell_surface(view->surface))
+			continue;
+		if (view->output != output)
 			continue;
 
 		esurface = malloc(sizeof(*esurface));
@@ -260,23 +291,27 @@ exposay_layout(struct desktop_shell *shell)
 
 		wl_list_insert(&shell->exposay.surface_list, &esurface->link);
 		esurface->shell = shell;
+		esurface->eoutput = eoutput;
 		esurface->view = view;
 
-		esurface->row = i / shell->exposay.grid_size;
-		esurface->column = i % shell->exposay.grid_size;
+		esurface->view_destroy_listener.notify = handle_view_destroy;
+		wl_signal_add(&view->destroy_signal, &esurface->view_destroy_listener);
 
-		esurface->x = shell->exposay.hpadding_outer;
+		esurface->row = i / eoutput->grid_size;
+		esurface->column = i % eoutput->grid_size;
+
+		esurface->x = output->x + eoutput->hpadding_outer;
 		esurface->x += pad * esurface->column;
-		esurface->y = shell->exposay.vpadding_outer;
+		esurface->y = output->y + eoutput->vpadding_outer;
 		esurface->y += pad * esurface->row;
 
-		if (esurface->row == shell->exposay.grid_size - 1)
-			esurface->x += (shell->exposay.surface_size + shell->exposay.padding_inner) * last_row_removed / 2;
+		if (esurface->row == eoutput->grid_size - 1)
+			esurface->x += (eoutput->surface_size + eoutput->padding_inner) * last_row_removed / 2;
 
 		if (view->surface->width > view->surface->height)
-			esurface->scale = shell->exposay.surface_size / (float) view->surface->width;
+			esurface->scale = eoutput->surface_size / (float) view->surface->width;
 		else
-			esurface->scale = shell->exposay.surface_size / (float) view->surface->height;
+			esurface->scale = eoutput->surface_size / (float) view->surface->height;
 		esurface->width = view->surface->width * esurface->scale;
 		esurface->height = view->surface->height * esurface->scale;
 
@@ -364,7 +399,8 @@ exposay_maybe_move(struct desktop_shell *shell, int row, int column)
 	struct exposay_surface *esurface;
 
 	wl_list_for_each(esurface, &shell->exposay.surface_list, link) {
-		if (esurface->row != row || esurface->column != column)
+		if (esurface->eoutput != shell->exposay.cur_output ||
+		    esurface->row != row || esurface->column != column)
 			continue;
 
 		exposay_highlight_surface(shell, esurface);
@@ -402,10 +438,10 @@ exposay_key(struct weston_keyboard_grab *grab, uint32_t time, uint32_t key,
 		 * has fewer items than all the others. */
 		if (!exposay_maybe_move(shell, shell->exposay.row_current + 1,
 		                        shell->exposay.column_current) &&
-		    shell->exposay.row_current < (shell->exposay.grid_size - 1)) {
+		    shell->exposay.row_current < (shell->exposay.cur_output->grid_size - 1)) {
 			exposay_maybe_move(shell, shell->exposay.row_current + 1,
-					   (shell->exposay.num_surfaces %
-					    shell->exposay.grid_size) - 1);
+					   (shell->exposay.cur_output->num_surfaces %
+					    shell->exposay.cur_output->grid_size) - 1);
 		}
 		break;
 	case KEY_LEFT:
@@ -518,6 +554,8 @@ static enum exposay_layout_state
 exposay_transition_active(struct desktop_shell *shell)
 {
 	struct weston_seat *seat = shell->exposay.seat;
+	struct shell_output *shell_output;
+	bool animate = false;
 
 	shell->exposay.workspace = get_current_workspace(shell);
 	shell->exposay.focus_prev = get_default_view (seat->keyboard->focus);
@@ -537,7 +575,17 @@ exposay_transition_active(struct desktop_shell *shell)
 	weston_pointer_set_focus(seat->pointer, NULL,
 			         seat->pointer->x, seat->pointer->y);
 
-	return exposay_layout(shell);
+	wl_list_for_each(shell_output, &shell->output_list, link) {
+		enum exposay_layout_state state;
+
+		state = exposay_layout(shell, shell_output);
+
+		if (state == EXPOSAY_LAYOUT_ANIMATE_TO_OVERVIEW)
+			animate = true;
+	}
+
+	return animate ? EXPOSAY_LAYOUT_ANIMATE_TO_OVERVIEW
+		       : EXPOSAY_LAYOUT_OVERVIEW;
 }
 
 static void

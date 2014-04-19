@@ -139,6 +139,35 @@ region_global_to_output(struct weston_output *output, pixman_region32_t *region)
 #define D2F(v) pixman_double_to_fixed((double)v)
 
 static void
+transform_apply_viewport(pixman_transform_t *transform,
+			 struct weston_surface *surface)
+{
+	struct weston_buffer_viewport *vp = &surface->buffer_viewport;
+	double src_width, src_height;
+	double src_x, src_y;
+
+	if (vp->buffer.src_width == wl_fixed_from_int(-1)) {
+		if (vp->surface.width == -1)
+			return;
+
+		src_x = 0.0;
+		src_y = 0.0;
+		src_width = surface->width_from_buffer;
+		src_height = surface->height_from_buffer;
+	} else {
+		src_x = wl_fixed_to_double(vp->buffer.src_x);
+		src_y = wl_fixed_to_double(vp->buffer.src_y);
+		src_width = wl_fixed_to_double(vp->buffer.src_width);
+		src_height = wl_fixed_to_double(vp->buffer.src_height);
+	}
+
+	pixman_transform_scale(transform, NULL,
+			       D2F(src_width / surface->width),
+			       D2F(src_height / surface->height));
+	pixman_transform_translate(transform, NULL, D2F(src_x), D2F(src_y));
+}
+
+static void
 repaint_region(struct weston_view *ev, struct weston_output *output,
 	       pixman_region32_t *region, pixman_region32_t *surf_region,
 	       pixman_op_t pixman_op)
@@ -147,10 +176,13 @@ repaint_region(struct weston_view *ev, struct weston_output *output,
 		(struct pixman_renderer *) output->compositor->renderer;
 	struct pixman_surface_state *ps = get_surface_state(ev->surface);
 	struct pixman_output_state *po = get_output_state(output);
+	struct weston_buffer_viewport *vp = &ev->surface->buffer_viewport;
 	pixman_region32_t final_region;
 	float view_x, view_y;
 	pixman_transform_t transform;
 	pixman_fixed_t fw, fh;
+	pixman_image_t *mask_image;
+	pixman_color_t mask = { 0, };
 
 	/* The final region to be painted is the intersection of
 	 * 'region' and 'surf_region'. However, 'region' is in the global
@@ -257,33 +289,12 @@ repaint_region(struct weston_view *ev, struct weston_output *output,
 					   pixman_double_to_fixed ((double)-ev->geometry.y));
 	}
 
-	if (ev->surface->buffer_viewport.viewport_set) {
-		double viewport_x, viewport_y, viewport_width, viewport_height;
-		double ratio_x, ratio_y;
+	transform_apply_viewport(&transform, ev->surface);
 
-		viewport_x = wl_fixed_to_double(ev->surface->buffer_viewport.src_x);
-		viewport_y = wl_fixed_to_double(ev->surface->buffer_viewport.src_y);
-		viewport_width = wl_fixed_to_double(ev->surface->buffer_viewport.src_width);
-		viewport_height = wl_fixed_to_double(ev->surface->buffer_viewport.src_height);
+	fw = pixman_int_to_fixed(ev->surface->width);
+	fh = pixman_int_to_fixed(ev->surface->height);
 
-		ratio_x = viewport_width / ev->surface->buffer_viewport.dst_width;
-		ratio_y = viewport_height / ev->surface->buffer_viewport.dst_height;
-
-		pixman_transform_scale(&transform, NULL,
-				       pixman_double_to_fixed(ratio_x),
-				       pixman_double_to_fixed(ratio_y));
-		pixman_transform_translate(&transform, NULL, pixman_double_to_fixed(viewport_x),
-							     pixman_double_to_fixed(viewport_y));
-	}
-
-	pixman_transform_scale(&transform, NULL,
-			       pixman_double_to_fixed(ev->surface->buffer_viewport.scale),
-			       pixman_double_to_fixed(ev->surface->buffer_viewport.scale));
-
-	fw = pixman_int_to_fixed(pixman_image_get_width(ps->image));
-	fh = pixman_int_to_fixed(pixman_image_get_height(ps->image));
-
-	switch (ev->surface->buffer_viewport.transform) {
+	switch (vp->buffer.transform) {
 	case WL_OUTPUT_TRANSFORM_FLIPPED:
 	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
 	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
@@ -295,7 +306,7 @@ repaint_region(struct weston_view *ev, struct weston_output *output,
 		break;
 	}
 
-	switch (ev->surface->buffer_viewport.transform) {
+	switch (vp->buffer.transform) {
 	default:
 	case WL_OUTPUT_TRANSFORM_NORMAL:
 	case WL_OUTPUT_TRANSFORM_FLIPPED:
@@ -317,9 +328,13 @@ repaint_region(struct weston_view *ev, struct weston_output *output,
 		break;
 	}
 
+	pixman_transform_scale(&transform, NULL,
+			       pixman_double_to_fixed(vp->buffer.scale),
+			       pixman_double_to_fixed(vp->buffer.scale));
+
 	pixman_image_set_transform(ps->image, &transform);
 
-	if (ev->transform.enabled || output->current_scale != ev->surface->buffer_viewport.scale)
+	if (ev->transform.enabled || output->current_scale != vp->buffer.scale)
 		pixman_image_set_filter(ps->image, PIXMAN_FILTER_BILINEAR, NULL, 0);
 	else
 		pixman_image_set_filter(ps->image, PIXMAN_FILTER_NEAREST, NULL, 0);
@@ -327,15 +342,25 @@ repaint_region(struct weston_view *ev, struct weston_output *output,
 	if (ps->buffer_ref.buffer)
 		wl_shm_buffer_begin_access(ps->buffer_ref.buffer->shm_buffer);
 
+	if (ev->alpha < 1.0) {
+		mask.alpha = 0xffff * ev->alpha;
+		mask_image = pixman_image_create_solid_fill(&mask);
+	} else {
+		mask_image = NULL;
+	}
+
 	pixman_image_composite32(pixman_op,
 				 ps->image, /* src */
-				 NULL /* mask */,
+				 mask_image, /* mask */
 				 po->shadow_image, /* dest */
 				 0, 0, /* src_x, src_y */
 				 0, 0, /* mask_x, mask_y */
 				 0, 0, /* dest_x, dest_y */
 				 pixman_image_get_width (po->shadow_image), /* width */
 				 pixman_image_get_height (po->shadow_image) /* height */);
+
+	if (mask_image)
+		pixman_image_unref(mask_image);
 
 	if (ps->buffer_ref.buffer)
 		wl_shm_buffer_end_access(ps->buffer_ref.buffer->shm_buffer);
@@ -384,8 +409,9 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 	}
 
 	/* TODO: Implement repaint_region_complex() using pixman_composite_trapezoids() */
-	if (ev->transform.enabled &&
-	    ev->transform.matrix.type != WESTON_MATRIX_TRANSFORM_TRANSLATE) {
+	if (ev->alpha != 1.0 ||
+	    (ev->transform.enabled &&
+	     ev->transform.matrix.type != WESTON_MATRIX_TRANSFORM_TRANSLATE)) {
 		repaint_region(ev, output, &repaint, NULL, PIXMAN_OP_OVER);
 	} else {
 		/* blended region is whole surface minus opaque region: */
