@@ -668,7 +668,6 @@ BUILT_SOURCES +=					\
 westondatadir = $(datadir)/weston
 dist_westondata_DATA =				\
 	data/wayland.svg			\
-	data/wayland.png			\
 	data/pattern.png			\
 	data/terminal.png			\
 	data/border.png				\
