@@ -720,6 +720,26 @@ nodist_fullscreen_shell_la_SOURCES =			\
 BUILT_SOURCES += $(nodist_fullscreen_shell_la_SOURCES)
 endif
 
+if ENABLE_IVI_SHELL
+
+module_LTLIBRARIES +=				\
+	$(ivi_layout)
+
+ivi_layout = ivi-layout.la
+ivi_layout_la_LDFLAGS = -module -avoid-version
+ivi_layout_la_LIBADD = $(COMPOSITOR_LIBS) libshared.la
+ivi_layout_la_CFLAGS = $(GCC_CFLAGS) $(COMPOSITOR_CFLAGS)
+ivi_layout_la_SOURCES =				\
+	ivi-shell/ivi-layout-export.h		\
+	ivi-shell/ivi-layout-private.h		\
+	ivi-shell/ivi-layout.c			\
+	ivi-shell/ivi-layout-transition.c
+
+BUILT_SOURCES += $(nodist_ivi_layout_la_SOURCES)
+
+endif
+
+
 if ENABLE_SCREEN_SHARING
 
 module_LTLIBRARIES += screen-share.la
