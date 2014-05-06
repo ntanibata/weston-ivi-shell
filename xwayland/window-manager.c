@@ -944,7 +944,8 @@ weston_wm_window_draw_decoration(void *data)
 	cairo_t *cr;
 	int x, y, width, height;
 	int32_t input_x, input_y, input_w, input_h;
-
+	struct weston_shell_interface *shell_interface =
+		&wm->server->compositor->shell_interface;
 	uint32_t flags = 0;
 
 	weston_wm_window_read_properties(window);
@@ -1006,6 +1007,12 @@ weston_wm_window_draw_decoration(void *data)
 
 		pixman_region32_init_rect(&window->surface->pending.input,
 					  input_x, input_y, input_w, input_h);
+		
+		shell_interface->set_margin(window->shsurf,
+					    input_x,
+					    width - input_w - input_x,
+					    input_y,
+					    height - input_h - input_y);
 	}
 }
 
@@ -1199,6 +1206,26 @@ weston_wm_pick_seat(struct weston_wm *wm)
 			    struct weston_seat, link);
 }
 
+static struct weston_seat *
+weston_wm_pick_seat_for_window(struct weston_wm_window *window)
+{
+	struct weston_wm *wm = window->wm;
+	struct weston_seat *seat, *s;
+
+	seat = NULL;
+	wl_list_for_each(s, &wm->server->compositor->seat_list, link) {
+		if (s->pointer != NULL &&
+		    s->pointer->focus == window->view &&
+		    s->pointer->button_count > 0 &&
+		    (seat == NULL ||
+		     s->pointer->grab_serial -
+		     seat->pointer->grab_serial < (1 << 30)))
+			seat = s;
+	}
+
+	return seat;
+}
+
 static void
 weston_wm_window_handle_moveresize(struct weston_wm_window *window,
 				   xcb_client_message_event_t *client_message)
@@ -1215,7 +1242,7 @@ weston_wm_window_handle_moveresize(struct weston_wm_window *window,
 	};
 
 	struct weston_wm *wm = window->wm;
-	struct weston_seat *seat = weston_wm_pick_seat(wm);
+	struct weston_seat *seat = weston_wm_pick_seat_for_window(window);
 	int detail;
 	struct weston_shell_interface *shell_interface =
 		&wm->server->compositor->shell_interface;
@@ -1579,7 +1606,7 @@ weston_wm_handle_button(struct weston_wm *wm, xcb_generic_event_t *event)
 	xcb_button_press_event_t *button = (xcb_button_press_event_t *) event;
 	struct weston_shell_interface *shell_interface =
 		&wm->server->compositor->shell_interface;
-	struct weston_seat *seat = weston_wm_pick_seat(wm);
+	struct weston_seat *seat;
 	struct weston_wm_window *window;
 	enum theme_location location;
 	enum frame_button_state button_state;
@@ -1596,10 +1623,19 @@ weston_wm_handle_button(struct weston_wm *wm, xcb_generic_event_t *event)
 	if (button->detail != 1 && button->detail != 2)
 		return;
 
+	seat = weston_wm_pick_seat_for_window(window);
+
 	button_state = button->response_type == XCB_BUTTON_PRESS ?
 		FRAME_BUTTON_PRESSED : FRAME_BUTTON_RELEASED;
 	button_id = button->detail == 1 ? BTN_LEFT : BTN_RIGHT;
 
+	/* Make sure we're looking at the right location.  The frame
+	 * could have received a motion event from a pointer from a
+	 * different wl_seat, but under X it looks like our core
+	 * pointer moved.  Move the frame pointer to the button press
+	 * location before deciding what to do. */
+	location = frame_pointer_motion(window->frame, NULL,
+					button->event_x, button->event_y);
 	location = frame_pointer_button(window->frame, NULL,
 					button_id, button_state);
 	if (frame_status(window->frame) & FRAME_STATUS_REPAINT)
@@ -2139,8 +2175,7 @@ weston_wm_window_configure(void *data)
 }
 
 static void
-send_configure(struct weston_surface *surface,
-	       uint32_t edges, int32_t width, int32_t height)
+send_configure(struct weston_surface *surface, int32_t width, int32_t height)
 {
 	struct weston_wm_window *window = get_wm_window(surface);
 	struct weston_wm *wm = window->wm;

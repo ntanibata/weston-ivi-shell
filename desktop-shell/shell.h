@@ -199,15 +199,13 @@ struct desktop_shell {
 
 	struct weston_layer minimized_layer;
 
+	struct wl_listener seat_create_listener;
 	struct wl_listener output_create_listener;
 	struct wl_listener output_move_listener;
 	struct wl_list output_list;
 
 	char *client;
 };
-
-void
-set_alpha_if_fullscreen(struct shell_surface *shsurf);
 
 struct weston_output *
 get_default_output(struct weston_compositor *compositor);
@@ -226,7 +224,7 @@ lower_fullscreen_layer(struct desktop_shell *shell);
 
 void
 activate(struct desktop_shell *shell, struct weston_surface *es,
-	 struct weston_seat *seat);
+	 struct weston_seat *seat, bool configure);
 
 void
 exposay_binding(struct weston_seat *seat,
@@ -236,3 +234,11 @@ int
 input_panel_setup(struct desktop_shell *shell);
 void
 input_panel_destroy(struct desktop_shell *shell);
+
+typedef void (*shell_for_each_layer_func_t)(struct desktop_shell *,
+					    struct weston_layer *, void *);
+
+void
+shell_for_each_layer(struct desktop_shell *shell,
+		     shell_for_each_layer_func_t func,
+		     void *data);

@@ -147,6 +147,9 @@ handle_touch_with_coords(struct libinput_device *libinput_device,
 	uint32_t time;
 	int32_t slot;
 
+	if (!device->output)
+		return;
+
 	time = libinput_event_touch_get_time(touch_event);
 	slot = libinput_event_touch_get_seat_slot(touch_event);
 
@@ -185,6 +188,17 @@ handle_touch_up(struct libinput_device *libinput_device,
 	int32_t slot = libinput_event_touch_get_seat_slot(touch_event);
 
 	notify_touch(device->seat, time, slot, 0, 0, WL_TOUCH_UP);
+}
+
+static void
+handle_touch_frame(struct libinput_device *libinput_device,
+		   struct libinput_event_touch *touch_event)
+{
+	struct evdev_device *device =
+		libinput_device_get_user_data(libinput_device);
+	struct weston_seat *seat = device->seat;
+
+	notify_touch_frame(seat);
 }
 
 int
@@ -227,6 +241,11 @@ evdev_device_process_event(struct libinput_event *event)
 	case LIBINPUT_EVENT_TOUCH_UP:
 		handle_touch_up(libinput_device,
 				libinput_event_get_touch_event(event));
+		break;
+	case LIBINPUT_EVENT_TOUCH_FRAME:
+		handle_touch_frame(libinput_device,
+				   libinput_event_get_touch_event(event));
+		break;
 	default:
 		handled = 0;
 		weston_log("unknown libinput event %d\n",
@@ -245,7 +264,7 @@ notify_output_destroy(struct wl_listener *listener, void *data)
 	struct weston_compositor *c = device->seat->compositor;
 	struct weston_output *output;
 
-	if (device->output_name) {
+	if (!device->output_name && !wl_list_empty(&c->output_list)) {
 		output = container_of(c->output_list.next,
 				      struct weston_output, link);
 		evdev_device_set_output(device, output);
@@ -258,6 +277,11 @@ void
 evdev_device_set_output(struct evdev_device *device,
 			struct weston_output *output)
 {
+	if (device->output_destroy_listener.notify) {
+		wl_list_remove(&device->output_destroy_listener.link);
+		device->output_destroy_listener.notify = NULL;
+	}
+
 	device->output = output;
 	device->output_destroy_listener.notify = notify_output_destroy;
 	wl_signal_add(&output->destroy_signal,

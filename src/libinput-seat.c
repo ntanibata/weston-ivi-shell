@@ -84,7 +84,7 @@ device_added(struct udev_input *input, struct libinput_device *libinput_device)
 		wl_list_for_each(output, &c->output_list, link)
 			if (strcmp(output->name, device->output_name) == 0)
 				evdev_device_set_output(device, output);
-	} else if (device->output == NULL) {
+	} else if (device->output == NULL && !wl_list_empty(&c->output_list)) {
 		output = container_of(c->output_list.next,
 				      struct weston_output, link);
 		evdev_device_set_output(device, output);
@@ -251,13 +251,29 @@ udev_input_enable(struct udev_input *input)
 	return 0;
 }
 
+static void
+libinput_log_func(enum libinput_log_priority priority, void *user_data,
+		     const char *format, va_list args)
+{
+	weston_vlog(format, args);
+}
+
 int
 udev_input_init(struct udev_input *input, struct weston_compositor *c, struct udev *udev,
 		const char *seat_id)
 {
+	const char *log_priority = NULL;
+
 	memset(input, 0, sizeof *input);
 
 	input->compositor = c;
+
+	libinput_log_set_handler(&libinput_log_func, NULL);
+
+	log_priority = getenv("WESTON_LIBINPUT_LOG_PRIORITY");
+	if (log_priority) {
+		libinput_log_set_priority(strtol(log_priority, NULL, 10));
+	}
 
 	input->libinput = libinput_udev_create_for_seat(&libinput_interface, input,
 							udev, seat_id);
@@ -298,12 +314,15 @@ notify_output_create(struct wl_listener *listener, void *data)
 	struct evdev_device *device;
 	struct weston_output *output = data;
 
-	wl_list_for_each(device, &seat->devices_list, link)
+	wl_list_for_each(device, &seat->devices_list, link) {
 		if (device->output_name &&
 		    strcmp(output->name, device->output_name) == 0) {
 			evdev_device_set_output(device, output);
-			break;
 		}
+
+		if (device->output_name == NULL && device->output == NULL)
+			evdev_device_set_output(device, output);
+	}
 }
 
 static struct udev_seat *
@@ -313,9 +332,9 @@ udev_seat_create(struct udev_input *input, const char *seat_name)
 	struct udev_seat *seat;
 
 	seat = zalloc(sizeof *seat);
-
 	if (!seat)
 		return NULL;
+
 	weston_seat_init(&seat->base, c, seat_name);
 	seat->base.led_update = udev_seat_led_update;
 

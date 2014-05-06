@@ -2558,6 +2558,8 @@ input_grab(struct input *input, struct widget *widget, uint32_t button)
 {
 	input->grab = widget;
 	input->grab_button = button;
+
+	input_set_focus_widget(input, widget, input->sx, input->sy);
 }
 
 void
@@ -2874,6 +2876,14 @@ keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
 	if (!window || !input->xkb.state)
 		return;
 
+	/* We only use input grabs for pointer events for now, so just
+	 * ignore key presses if a grab is active.  We expand the key
+	 * event delivery mechanism to route events to widgets to
+	 * properly handle key grabs.  In the meantime, this prevents
+	 * key event devlivery while a grab is active. */
+	if (input->grab && input->grab_button == 0)
+		return;
+
 	num_syms = xkb_key_get_syms(input->xkb.state, code, &syms);
 
 	sym = XKB_KEY_NoSymbol;
@@ -2969,9 +2979,12 @@ touch_handle_down(void *data, struct wl_touch *wl_touch,
 		return;
 	}
 
-	widget = window_find_widget(input->touch_focus,
-				    wl_fixed_to_double(x_w),
-				    wl_fixed_to_double(y_w));
+	if (input->grab)
+		widget = input->grab;
+	else
+		widget = window_find_widget(input->touch_focus,
+					    wl_fixed_to_double(x_w),
+					    wl_fixed_to_double(y_w));
 	if (widget) {
 		struct touch_point *tp = xmalloc(sizeof *tp);
 		if (tp) {
@@ -3065,9 +3078,6 @@ touch_handle_frame(void *data, struct wl_touch *wl_touch)
 		if (tp->widget->touch_frame_handler)
 			(*tp->widget->touch_frame_handler)(tp->widget, input, 
 							   tp->widget->user_data);
-
-		wl_list_remove(&tp->link);
-		free(tp);
 	}
 }
 
@@ -4341,6 +4351,17 @@ surface_create(struct window *window)
 	return surface;
 }
 
+static enum window_buffer_type
+get_preferred_buffer_type(struct display *display)
+{
+#ifdef HAVE_CAIRO_EGL
+	if (display->argb_device && !getenv("TOYTOOLKIT_NO_EGL"))
+		return WINDOW_BUFFER_TYPE_EGL_WINDOW;
+#endif
+
+	return WINDOW_BUFFER_TYPE_SHM;
+}
+
 static struct window *
 window_create_internal(struct display *display, int custom)
 {
@@ -4359,14 +4380,7 @@ window_create_internal(struct display *display, int custom)
 	window->custom = custom;
 	window->preferred_format = WINDOW_PREFERRED_FORMAT_NONE;
 
-	if (display->argb_device)
-#ifdef HAVE_CAIRO_EGL
-		surface->buffer_type = WINDOW_BUFFER_TYPE_EGL_WINDOW;
-#else
-		surface->buffer_type = WINDOW_BUFFER_TYPE_SHM;
-#endif
-	else
-		surface->buffer_type = WINDOW_BUFFER_TYPE_SHM;
+	surface->buffer_type = get_preferred_buffer_type(display);
 
 	wl_surface_set_user_data(surface->surface, window);
 	wl_list_insert(display->window_list.prev, &window->link);
@@ -4487,6 +4501,20 @@ menu_button_handler(struct widget *widget,
 }
 
 static void
+menu_touch_up_handler(struct widget *widget,
+					  struct input *input,
+					  uint32_t serial,
+					  uint32_t time,
+					  int32_t id,
+					  void *data)
+{
+	struct menu *menu = data;
+
+	input_ungrab(input);
+	menu_destroy(menu);
+}
+
+static void
 menu_redraw_handler(struct widget *widget, void *data)
 {
 	cairo_t *cr;
@@ -4585,6 +4613,7 @@ window_show_menu(struct display *display,
 	widget_set_leave_handler(menu->widget, menu_leave_handler);
 	widget_set_motion_handler(menu->widget, menu_motion_handler);
 	widget_set_button_handler(menu->widget, menu_button_handler);
+	widget_set_touch_up_handler(menu->widget, menu_touch_up_handler);
 
 	input_grab(input, menu->widget, 0);
 	frame_resize_inside(menu->frame, 200, count * 20);

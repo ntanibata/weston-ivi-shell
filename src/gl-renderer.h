@@ -75,8 +75,8 @@ struct gl_renderer_interface {
 	 * tightly packed.
 	 *
 	 * The top and bottom textures will extend over the sides to the
-	 * full width of the bordered window while.  The right and left
-	 * edges, however, will extend only to the top and bottom of the
+	 * full width of the bordered window.  The right and left edges,
+	 * however, will extend only to the top and bottom of the
 	 * compositor surface.  This is demonstrated by the picture below:
 	 *
 	 * +-----------------------+
@@ -101,4 +101,3 @@ struct gl_renderer_interface {
 	void (*print_egl_error_state)(void);
 };
 
-struct gl_renderer_interface gl_renderer_interface;

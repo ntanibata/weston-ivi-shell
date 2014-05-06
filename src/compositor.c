@@ -675,7 +675,8 @@ weston_surface_to_buffer_float(struct weston_surface *surface,
 	/* first transform coordinates if the scaler is set */
 	scaler_surface_to_buffer(surface, sx, sy, bx, by);
 
-	weston_transformed_coord(surface->width, surface->height,
+	weston_transformed_coord(surface->width_from_buffer,
+				 surface->height_from_buffer,
 				 vp->buffer.transform, vp->buffer.scale,
 				 *bx, *by, bx, by);
 }
@@ -709,7 +710,8 @@ weston_surface_to_buffer_rect(struct weston_surface *surface,
 	rect.x2 = floorf(xf);
 	rect.y2 = floorf(yf);
 
-	return weston_transformed_rect(surface->width, surface->height,
+	return weston_transformed_rect(surface->width_from_buffer,
+				       surface->height_from_buffer,
 				       vp->buffer.transform, vp->buffer.scale,
 				       rect);
 }
@@ -3186,8 +3188,6 @@ WL_EXPORT void
 weston_output_update_matrix(struct weston_output *output)
 {
 	float magnification;
-	struct weston_matrix camera;
-	struct weston_matrix modelview;
 
 	weston_matrix_init(&output->matrix);
 	weston_matrix_translate(&output->matrix,
@@ -3202,14 +3202,11 @@ weston_output_update_matrix(struct weston_output *output)
 
 	if (output->zoom.active) {
 		magnification = 1 / (1 - output->zoom.spring_z.current);
-		weston_matrix_init(&camera);
-		weston_matrix_init(&modelview);
 		weston_output_update_zoom(output);
-		weston_matrix_translate(&camera, output->zoom.trans_x,
-					-output->zoom.trans_y, 0);
-		weston_matrix_invert(&modelview, &camera);
-		weston_matrix_scale(&modelview, magnification, magnification, 1.0);
-		weston_matrix_multiply(&output->matrix, &modelview);
+		weston_matrix_translate(&output->matrix, -output->zoom.trans_x,
+					output->zoom.trans_y, 0);
+		weston_matrix_scale(&output->matrix, magnification,
+				    magnification, 1.0);
 	}
 
 	output->dirty = 0;
@@ -3336,6 +3333,7 @@ weston_output_transform_coordinate(struct weston_output *output,
 {
 	wl_fixed_t tx, ty;
 	wl_fixed_t width, height;
+	float zoom_scale, zx, zy;
 
 	width = wl_fixed_from_int(output->width * output->current_scale - 1);
 	height = wl_fixed_from_int(output->height * output->current_scale - 1);
@@ -3376,8 +3374,23 @@ weston_output_transform_coordinate(struct weston_output *output,
 		break;
 	}
 
-	*x = tx / output->current_scale + wl_fixed_from_int(output->x);
-	*y = ty / output->current_scale + wl_fixed_from_int(output->y);
+	tx /= output->current_scale;
+	ty /= output->current_scale;
+
+	if (output->zoom.active) {
+		zoom_scale = output->zoom.spring_z.current;
+		zx = (wl_fixed_to_double(tx) * (1.0f - zoom_scale) +
+		      output->width / 2.0f *
+		      (zoom_scale + output->zoom.trans_x));
+		zy = (wl_fixed_to_double(ty) * (1.0f - zoom_scale) +
+		      output->height / 2.0f *
+		      (zoom_scale + output->zoom.trans_y));
+		tx = wl_fixed_from_double(zx);
+		ty = wl_fixed_from_double(zy);
+	}
+
+	*x = tx + wl_fixed_from_int(output->x);
+	*y = ty + wl_fixed_from_int(output->y);
 }
 
 static void

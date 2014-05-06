@@ -100,7 +100,7 @@ evdev_flush_pending_event(struct evdev_device *device, uint32_t time)
 		notify_motion(master, time, device->rel.dx, device->rel.dy);
 		device->rel.dx = 0;
 		device->rel.dy = 0;
-		goto handled;
+		break;
 	case EVDEV_ABSOLUTE_MT_DOWN:
 		if (device->output == NULL)
 			break;
@@ -113,7 +113,7 @@ evdev_flush_pending_event(struct evdev_device *device, uint32_t time)
 		master->slot_map |= 1 << seat_slot;
 
 		notify_touch(master, time, seat_slot, x, y, WL_TOUCH_DOWN);
-		goto handled;
+		break;
 	case EVDEV_ABSOLUTE_MT_MOTION:
 		if (device->output == NULL)
 			break;
@@ -123,12 +123,12 @@ evdev_flush_pending_event(struct evdev_device *device, uint32_t time)
 						   &x, &y);
 		seat_slot = device->mt.slots[slot].seat_slot;
 		notify_touch(master, time, seat_slot, x, y, WL_TOUCH_MOTION);
-		goto handled;
+		break;
 	case EVDEV_ABSOLUTE_MT_UP:
 		seat_slot = device->mt.slots[slot].seat_slot;
 		master->slot_map &= ~(1 << seat_slot);
 		notify_touch(master, time, seat_slot, 0, 0, WL_TOUCH_UP);
-		goto handled;
+		break;
 	case EVDEV_ABSOLUTE_TOUCH_DOWN:
 		if (device->output == NULL)
 			break;
@@ -141,7 +141,7 @@ evdev_flush_pending_event(struct evdev_device *device, uint32_t time)
 		device->abs.seat_slot = seat_slot;
 		master->slot_map |= 1 << seat_slot;
 		notify_touch(master, time, seat_slot, x, y, WL_TOUCH_DOWN);
-		goto handled;
+		break;
 	case EVDEV_ABSOLUTE_MOTION:
 		if (device->output == NULL)
 			break;
@@ -156,17 +156,16 @@ evdev_flush_pending_event(struct evdev_device *device, uint32_t time)
 				     x, y, WL_TOUCH_MOTION);
 		else if (device->seat_caps & EVDEV_SEAT_POINTER)
 			notify_motion_absolute(master, time, x, y);
-		goto handled;
+		break;
 	case EVDEV_ABSOLUTE_TOUCH_UP:
 		seat_slot = device->abs.seat_slot;
 		master->slot_map &= ~(1 << seat_slot);
 		notify_touch(master, time, seat_slot, 0, 0, WL_TOUCH_UP);
-		goto handled;
+		break;
+	default:
+		assert(0 && "Unknown pending event type");
 	}
 
-	assert(0 && "Unknown pending event type");
-
-handled:
 	device->pending_event = EVDEV_NONE;
 }
 
@@ -602,7 +601,7 @@ notify_output_destroy(struct wl_listener *listener, void *data)
 	struct weston_compositor *c = device->seat->compositor;
 	struct weston_output *output;
 
-	if (device->output_name) {
+	if (!device->output_name && !wl_list_empty(&c->output_list)) {
 		output = container_of(c->output_list.next,
 				      struct weston_output, link);
 		evdev_device_set_output(device, output);
@@ -615,6 +614,11 @@ void
 evdev_device_set_output(struct evdev_device *device,
 			struct weston_output *output)
 {
+	if (device->output_destroy_listener.notify) {
+		wl_list_remove(&device->output_destroy_listener.link);
+		device->output_destroy_listener.notify = NULL;
+	}
+
 	device->output = output;
 	device->output_destroy_listener.notify = notify_output_destroy;
 	wl_signal_add(&output->destroy_signal,

@@ -82,8 +82,7 @@ struct weston_mode {
 };
 
 struct weston_shell_client {
-	void (*send_configure)(struct weston_surface *surface,
-			       uint32_t edges, int32_t width, int32_t height);
+	void (*send_configure)(struct weston_surface *surface, int32_t width, int32_t height);
 };
 
 struct weston_shell_interface {
@@ -111,7 +110,9 @@ struct weston_shell_interface {
 		      struct weston_seat *ws, uint32_t edges);
 	void (*set_title)(struct shell_surface *shsurf,
 	                  const char *title);
-
+	void (*set_margin)(struct shell_surface *shsurf,
+			   int32_t left, int32_t right,
+			   int32_t top, int32_t bottom);
 };
 
 struct weston_animation {
@@ -278,6 +279,7 @@ struct weston_touch_grab_interface {
 			int touch_id,
 			wl_fixed_t sx,
 			wl_fixed_t sy);
+	void (*frame)(struct weston_touch_grab *grab);
 	void (*cancel)(struct weston_touch_grab *grab);
 };
 
@@ -907,9 +909,10 @@ struct weston_surface {
 	} pending;
 
 	/*
-	 * If non-NULL, this function will be called on surface::attach after
-	 * a new buffer has been set up for this surface. The integer params
-	 * are the sx and sy paramerters supplied to surface::attach .
+	 * If non-NULL, this function will be called on
+	 * wl_surface::commit after a new buffer has been set up for
+	 * this surface. The integer params are the sx and sy
+	 * parameters supplied to wl_surface::attach.
 	 */
 	void (*configure)(struct weston_surface *es, int32_t sx, int32_t sy);
 	void *configure_private;
@@ -1008,6 +1011,8 @@ notify_keyboard_focus_out(struct weston_seat *seat);
 void
 notify_touch(struct weston_seat *seat, uint32_t time, int touch_id,
 	     wl_fixed_t x, wl_fixed_t y, int touch_type);
+void
+notify_touch_frame(struct weston_seat *seat);
 
 void
 weston_layer_init(struct weston_layer *layer, struct wl_list *below);

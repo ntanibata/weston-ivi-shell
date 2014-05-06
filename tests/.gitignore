@@ -1,3 +1,9 @@
-wcap-decode
-wcap-snapshot
-
+*.log
+*.test
+*.trs
+*.weston
+logs
+matrix-test
+setbacklight
+test-client
+test-text-client
