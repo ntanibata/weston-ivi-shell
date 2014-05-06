@@ -721,7 +721,8 @@ endif
 if ENABLE_IVI_SHELL
 
 module_LTLIBRARIES +=				\
-	$(ivi_shell)
+	$(ivi_shell)				\
+	$(ivi_layout)
 
 ivi_shell = ivi-shell.la
 ivi_shell_la_LDFLAGS = -module -avoid-version
@@ -736,6 +737,20 @@ nodist_ivi_shell_la_SOURCES =			\
 	protocol/ivi-application-server-protocol.h
 
 BUILT_SOURCES += $(nodist_ivi_shell_la_SOURCES)
+
+ivi_layout = ivi-layout.la
+ivi_layout_la_LDFLAGS = -module -avoid-version
+ivi_layout_la_LIBADD = $(COMPOSITOR_LIBS) $(IVI_SHELL_LIBS) libshared.la
+ivi_layout_la_CFLAGS = $(GCC_CFLAGS) $(COMPOSITOR_CFLAGS) $(IVI_SHELL_CFLAGS)
+ivi_layout_la_SOURCES =				\
+	ivi-shell/ivi-layout.h			\
+	ivi-shell/ivi-layout-export.h		\
+	ivi-shell/ivi-layout.c
+nodist_ivi_layout_la_SOURCES =			\
+	protocol/ivi-application-protocol.c		\
+	protocol/ivi-application-server-protocol.h
+
+BUILT_SOURCES += $(nodist_ivi_layout_la_SOURCES)
 
 endif
 
