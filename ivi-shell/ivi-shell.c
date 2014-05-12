@@ -269,6 +269,29 @@ bind_ivi_application(struct wl_client *client,
                                    shell, NULL);
 }
 
+struct weston_view *
+get_default_view(struct weston_surface *surface)
+{
+    struct ivi_shell_surface *shsurf;
+    struct weston_view *view;
+
+    if (!surface || wl_list_empty(&surface->views))
+        return NULL;
+
+    shsurf = get_ivi_shell_surface(surface);
+    if (shsurf && shsurf->layout_surface) {
+        view = ivi_layout->get_weston_view(shsurf->layout_surface);
+        if (view)
+            return view;
+    }
+
+    wl_list_for_each(view, &surface->views, surface_link)
+        if (weston_view_is_mapped(view))
+            return view;
+
+    return container_of(surface->views.next, struct weston_view, surface_link);
+}
+
 /**
  * Initialization/destruction method of ivi-shell
  */
@@ -278,6 +301,8 @@ shell_destroy(struct wl_listener *listener, void *data)
     struct ivi_shell *shell =
         container_of(listener, struct ivi_shell, destroy_listener);
     struct ivi_shell_surface *ivisurf, *next;
+
+    input_panel_destroy(shell);
 
     wl_list_for_each_safe(ivisurf, next, &shell->ivi_surface_list, link) {
         wl_list_remove(&ivisurf->link);
@@ -293,6 +318,9 @@ init_ivi_shell(struct weston_compositor *compositor, struct ivi_shell *shell)
     shell->compositor = compositor;
 
     wl_list_init(&shell->ivi_surface_list);
+
+    weston_layer_init(&shell->panel_layer, &compositor->cursor_layer.link);
+    weston_layer_init(&shell->input_panel_layer, NULL);
 }
 
 static int
@@ -368,6 +396,9 @@ module_init(struct weston_compositor *compositor,
 
     shell->destroy_listener.notify = shell_destroy;
     wl_signal_add(&compositor->destroy_signal, &shell->destroy_listener);
+
+    if (input_panel_setup(shell) < 0)
+        return -1;
 
     if (wl_global_create(compositor->wl_display, &ivi_application_interface, 1,
                          shell, bind_ivi_application) == NULL) {
