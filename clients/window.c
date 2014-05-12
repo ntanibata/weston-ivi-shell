@@ -1392,7 +1392,7 @@ surface_create_surface(struct surface *surface, uint32_t flags)
 
 	if (display->ivi_application)
 	{
-		if (!surface->toysurface) {
+		if (!surface->toysurface && strcmp(surface->window->title,"Virtual keyboard")!=0) {
 			uint32_t id_ivisurf = IVI_SURFACE_ID + (uint32_t)getpid();
 			surface->window->ivi_surface =
 				ivi_application_surface_create(display->ivi_application,
@@ -1509,7 +1509,8 @@ surface_destroy(struct surface *surface)
 
 	if (surface->window->display->ivi_application)
 	{
-		ivi_surface_destroy(surface->window->ivi_surface);
+		if(strcmp(surface->window->title,"Virtual keyboard")!=0)
+			ivi_surface_destroy(surface->window->ivi_surface);
 		ivi_application_destroy(surface->window->display->ivi_application);
 	}
 

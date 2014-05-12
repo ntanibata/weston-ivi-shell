@@ -771,7 +771,8 @@ ivi_shell_la_CFLAGS = $(GCC_CFLAGS) $(COMPOSITOR_CFLAGS) $(IVI_SHELL_CFLAGS)
 ivi_shell_la_SOURCES =				\
 	ivi-shell/ivi-shell.h			\
 	ivi-shell/ivi-shell.c			\
-	ivi-shell/ivi-layout.h
+	ivi-shell/ivi-layout.h			\
+	ivi-shell/input-panel-ivi.c
 nodist_ivi_shell_la_SOURCES =			\
 	protocol/ivi-application-protocol.c		\
 	protocol/ivi-application-server-protocol.h
