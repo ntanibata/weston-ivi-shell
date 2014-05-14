@@ -1149,7 +1149,7 @@ wayland_output_create_for_parent_output(struct wayland_compositor *c,
 	if (poutput->current_mode) {
 		mode = poutput->current_mode;
 	} else if (poutput->preferred_mode) {
-		mode = poutput->current_mode;
+		mode = poutput->preferred_mode;
 	} else if (!wl_list_empty(&poutput->mode_list)) {
 		mode = container_of(poutput->mode_list.next,
 				    struct weston_mode, link);
@@ -1424,8 +1424,10 @@ input_handle_keymap(void *data, struct wl_keyboard *keyboard, uint32_t format,
 	struct xkb_keymap *keymap;
 	char *map_str;
 
-	if (!data)
-		goto error;
+	if (!data) {
+		close(fd);
+		return;
+	}
 
 	if (format == WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1) {
 		map_str = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
@@ -1723,8 +1725,11 @@ wayland_compositor_register_output(struct wayland_compositor *c, uint32_t id)
 	output->id = id;
 	output->global = wl_registry_bind(c->parent.registry, id,
 					  &wl_output_interface, 1);
-	if (!output->global)
+	if (!output->global) {
+		free(output);
 		return;
+	}
+
 	wl_output_add_listener(output->global, &output_listener, output);
 
 	output->scale = 0;

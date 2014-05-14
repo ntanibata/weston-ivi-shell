@@ -731,7 +731,7 @@ restore_focus_state(struct desktop_shell *shell, struct workspace *ws)
 	wl_list_for_each_safe(seat, next_seat, &pending_seat_list, link) {
 		wl_list_insert(&shell->compositor->seat_list, &seat->link);
 
-		if (state->seat->keyboard == NULL)
+		if (seat->keyboard == NULL)
 			continue;
 
 		weston_keyboard_set_focus(seat->keyboard, NULL);
@@ -1027,7 +1027,16 @@ finish_workspace_change_animation(struct desktop_shell *shell,
 				  struct workspace *from,
 				  struct workspace *to)
 {
+	struct weston_view *view;
+
 	weston_compositor_schedule_repaint(shell->compositor);
+
+	/* Views that extend past the bottom of the output are still
+	 * visible after the workspace animation ends but before its layer
+	 * is hidden. In that case, we need to damage below those views so
+	 * that the screen is properly repainted. */
+	wl_list_for_each(view, &from->layer.view_list, layer_link)
+		weston_view_damage_below(view);
 
 	wl_list_remove(&shell->workspaces.animation.link);
 	workspace_deactivate_transforms(from);
@@ -1444,7 +1453,7 @@ surface_touch_move(struct shell_surface *shsurf, struct weston_seat *seat)
 	if (!shsurf)
 		return -1;
 
-	if (shsurf->state.fullscreen)
+	if (shsurf->state.fullscreen || shsurf->state.maximized)
 		return 0;
 
 	move = malloc(sizeof *move);
@@ -2794,6 +2803,19 @@ set_xwayland(struct shell_surface *shsurf, int x, int y, uint32_t flags)
 	shell_surface_set_parent(shsurf, NULL);
 
 	shsurf->type = SHELL_SURFACE_XWAYLAND;
+	shsurf->state_changed = true;
+}
+
+static void
+shell_interface_set_fullscreen(struct shell_surface *shsurf,
+			       uint32_t method,
+			       uint32_t framerate,
+			       struct weston_output *output)
+{
+	surface_clear_next_states(shsurf);
+	set_fullscreen(shsurf, method, framerate, output);
+
+	shsurf->next_state.fullscreen = true;
 	shsurf->state_changed = true;
 }
 
@@ -4477,6 +4499,8 @@ lower_fullscreen_layer(struct desktop_shell *shell)
 			/* Hide the black view */
 			wl_list_remove(&shsurf->fullscreen.black_view->layer_link);
 			wl_list_init(&shsurf->fullscreen.black_view->layer_link);
+			weston_view_damage_below(shsurf->fullscreen.black_view);
+
 		}
 
 		/* Lower the view to the workspace layer */
@@ -6113,7 +6137,7 @@ module_init(struct weston_compositor *ec,
 	ec->shell_interface.get_primary_view = get_primary_view;
 	ec->shell_interface.set_toplevel = set_toplevel;
 	ec->shell_interface.set_transient = set_transient;
-	ec->shell_interface.set_fullscreen = set_fullscreen;
+	ec->shell_interface.set_fullscreen = shell_interface_set_fullscreen;
 	ec->shell_interface.set_xwayland = set_xwayland;
 	ec->shell_interface.move = shell_interface_move;
 	ec->shell_interface.resize = surface_resize;

@@ -1,6 +1,6 @@
 m4_define([weston_major_version], [1])
 m4_define([weston_minor_version], [4])
-m4_define([weston_micro_version], [92])
+m4_define([weston_micro_version], [93])
 m4_define([weston_version],
           [weston_major_version.weston_minor_version.weston_micro_version])
 
@@ -222,7 +222,7 @@ if test x$enable_rdp_compositor = xyes; then
   CPPFLAGS="$SAVED_CPPFLAGS"
 fi
 
-AC_ARG_ENABLE([screen-sharing], [--enable-screen-sharing],,
+AC_ARG_ENABLE([screen-sharing], [  --enable-screen-sharing],,
               enable_screen_sharing=no)
 AM_CONDITIONAL([ENABLE_SCREEN_SHARING],
                [test x$enable_screen_sharing = xyes])

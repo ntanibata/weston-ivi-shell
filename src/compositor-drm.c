@@ -2558,6 +2558,18 @@ planes_binding(struct weston_seat *seat, uint32_t time, uint32_t key, void *data
 
 #ifdef BUILD_VAAPI_RECORDER
 static void
+recorder_destroy(struct drm_output *output)
+{
+	vaapi_recorder_destroy(output->recorder);
+	output->recorder = NULL;
+
+	output->base.disable_planes--;
+
+	wl_list_remove(&output->recorder_frame_listener.link);
+	weston_log("[libva recorder] done\n");
+}
+
+static void
 recorder_frame_notify(struct wl_listener *listener, void *data)
 {
 	struct drm_output *output;
@@ -2579,7 +2591,12 @@ recorder_frame_notify(struct wl_listener *listener, void *data)
 		return;
 	}
 
-	vaapi_recorder_frame(output->recorder, fd, output->current->stride);
+	ret = vaapi_recorder_frame(output->recorder, fd,
+				   output->current->stride);
+	if (ret < 0) {
+		weston_log("[libva recorder] aborted: %m\n");
+		recorder_destroy(output);
+	}
 }
 
 static void *
@@ -2611,6 +2628,12 @@ recorder_binding(struct weston_seat *seat, uint32_t time, uint32_t key,
 			      struct drm_output, base.link);
 
 	if (!output->recorder) {
+		if (output->format != GBM_FORMAT_XRGB8888) {
+			weston_log("failed to start vaapi recorder: "
+				   "output format not supported\n");
+			return;
+		}
+
 		width = output->base.current_mode->width;
 		height = output->base.current_mode->height;
 
@@ -2631,13 +2654,7 @@ recorder_binding(struct weston_seat *seat, uint32_t time, uint32_t key,
 
 		weston_log("[libva recorder] initialized\n");
 	} else {
-		vaapi_recorder_destroy(output->recorder);
-		output->recorder = NULL;
-
-		output->base.disable_planes--;
-
-		wl_list_remove(&output->recorder_frame_listener.link);
-		weston_log("[libva recorder] done\n");
+		recorder_destroy(output);
 	}
 }
 #else
