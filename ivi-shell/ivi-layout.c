@@ -163,6 +163,11 @@ struct ivi_layout_surface {
         struct wl_list link;
         struct wl_list list_layer;
     } order;
+
+    struct {
+        ivi_controller_surface_content_callback callback;
+        void* userdata;
+    } content_observer;
 };
 
 struct ivi_layout_layer {
@@ -2631,8 +2636,13 @@ ivi_layout_surfaceSetNativeContent(struct weston_surface *surface,
         ivisurf->view = NULL;
     }
 
-    if (surface == NULL)
+    if (surface == NULL) {
+        if (ivisurf->content_observer.callback) {
+            (*(ivisurf->content_observer.callback))(ivisurf,
+                                    0, ivisurf->content_observer.userdata);
+        }
         return 0;
+    }
 
     ivisurf->surface = surface;
     ivisurf->surface_destroy_listener.notify =
@@ -2656,7 +2666,26 @@ ivi_layout_surfaceSetNativeContent(struct weston_surface *surface,
         }
     }
 
+    if (ivisurf->content_observer.callback) {
+        (*(ivisurf->content_observer.callback))(ivisurf,
+                                     1, ivisurf->content_observer.userdata);
+    }
+
     return 0;
+}
+
+WL_EXPORT int32_t
+ivi_layout_surfaceSetContentObserver(struct ivi_layout_surface *ivisurf,
+                                     ivi_controller_surface_content_callback callback,
+                                     void* userdata)
+{
+    int32_t ret = -1;
+    if (ivisurf != NULL) {
+        ivisurf->content_observer.callback = callback;
+        ivisurf->content_observer.userdata = userdata;
+        ret = 0;
+    }
+    return ret;
 }
 
 static struct ivi_layout_surface*

@@ -146,6 +146,10 @@ typedef void(*surfaceRemoveNotificationFunc)(struct ivi_layout_surface *ivisurf,
 typedef void(*surfaceConfigureNotificationFunc)(struct ivi_layout_surface *ivisurf,
                                             void *userdata);
 
+typedef void(*ivi_controller_surface_content_callback)(struct ivi_layout_surface *ivisurf,
+                                            int32_t content,
+                                            void *userdata);
+
 /**
  * \brief to be called by ivi-shell in order to set initail view of
  * weston_surface.
@@ -324,6 +328,17 @@ ivi_layout_surfaceSetNativeContent(struct weston_surface *wl_surface,
                                       uint32_t height,
                                       uint32_t id_surface);
 */
+
+/**
+ * \brief Set an observer callback for surface content status change.
+ *
+ * \return  0 if the method call was successful
+ * \return -1 if the method call was failed
+ */
+int32_t
+ivi_layout_surfaceSetContentObserver(struct ivi_layout_surface *ivisurf,
+                                     ivi_controller_surface_content_callback callback,
+                                     void* userdata);
 
 /**
  * \brief initialize ivi_layout_surface dest/source width and height
