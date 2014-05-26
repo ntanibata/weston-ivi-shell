@@ -132,15 +132,12 @@ static void
 surface_destroy(struct wl_client *client, struct wl_resource *resource)
 {
     struct ivi_shell_surface *ivisurf = wl_resource_get_user_data(resource);
-
     if (ivisurf != NULL) {
         ivisurf->surface->configure = NULL;
         ivisurf->surface->configure_private = NULL;
         ivisurf->surface = NULL;
         ivi_layout->surfaceSetNativeContent(NULL, 0, 0, ivisurf->id_surface);
     }
-
-    wl_resource_destroy(resource);
 }
 
 static const struct ivi_surface_interface surface_implementation = {

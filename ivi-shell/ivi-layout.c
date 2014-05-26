@@ -349,6 +349,9 @@ remove_orderlayer_from_screen(struct ivi_layout_layer *ivilayer)
         if (!wl_list_empty(&link_scrn->link)) {
             wl_list_remove(&link_scrn->link);
         }
+        if (!wl_list_empty(&link_scrn->link_to_screen)) {
+            wl_list_remove(&link_scrn->link_to_screen);
+        }
         free(link_scrn);
     }
     wl_list_init(&ivilayer->list_screen);
@@ -838,6 +841,7 @@ commit_list_layer(struct ivi_layout *layout)
             wl_list_insert(&ivilayer->order.list_surface,
                            &ivisurf->order.link);
             add_ordersurface_to_layer(ivisurf, ivilayer);
+            ivisurf->event_mask = IVI_NOTIFICATION_ADD;
         }
     }
 }
@@ -869,6 +873,7 @@ commit_list_screen(struct ivi_layout *layout)
                 wl_list_insert(&iviscrn->order.list_layer,
                                &ivilayer->order.link);
                 add_orderlayer_to_screen(ivilayer, iviscrn);
+                ivilayer->event_mask = IVI_NOTIFICATION_ADD;
             }
             iviscrn->event_mask = 0;
         }
@@ -1956,7 +1961,7 @@ ivi_layout_layerSetRenderOrder(struct ivi_layout_layer *ivilayer,
     for (i = 0; i < number; i++) {
         id_surface = &pSurface[i]->id_surface;
 
-        wl_list_for_each(ivisurf, &layout->list_surface, link) {
+        wl_list_for_each_safe(ivisurf, next, &layout->list_surface, pending.link) {
             if (*id_surface != ivisurf->id_surface) {
                 continue;
             }
@@ -2630,7 +2635,6 @@ ivi_layout_surfaceSetNativeContent(struct weston_surface *surface,
         }
 
         wl_list_remove(&ivisurf->surface_destroy_listener.link);
-        weston_view_destroy(ivisurf->view);
 
         ivisurf->surface = NULL;
         ivisurf->view = NULL;
