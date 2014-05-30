@@ -55,6 +55,7 @@
 
 #include "ivi-layout-export.h"
 #include "ivi-hmi-controller-server-protocol.h"
+#include "ivi-layout-transition.h"
 
 /*****************************************************************************
  *  structure, globals
@@ -73,58 +74,9 @@ struct link_layer {
     struct wl_list link;
 };
 
-struct link_animation {
-    struct hmi_controller_animation *animation;
-    struct wl_list link;
-};
-
-struct hmi_controller_animation;
-typedef void (*hmi_controller_animation_frame_func)(void *animation, uint32_t timestamp);
-typedef void (*hmi_controller_animation_frame_user_func)(void *animation);
-typedef void (*hmi_controller_animation_destroy_func)(struct hmi_controller_animation *animation);
-
-struct move_animation_user_data {
-    struct ivi_layout_layer* layer;
-    struct animation_set *anima_set;
-    struct hmi_controller *hmi_ctrl;
-};
-
-struct hmi_controller_animation {
-    void *user_data;
-    uint32_t  time_start;
-    uint32_t  is_done;
-    hmi_controller_animation_frame_func frame_func;
-    hmi_controller_animation_frame_user_func frame_user_func;
-    hmi_controller_animation_destroy_func destroy_func;
-};
-
-struct hmi_controller_animation_fade {
-    struct hmi_controller_animation base;
-    double start;
-    double end;
-    struct weston_spring spring;
-};
-
-struct hmi_controller_animation_move {
-    struct hmi_controller_animation base;
-    double pos;
-    double pos_start;
-    double pos_end;
-    double v0;
-    double a;
-    double time_end;
-};
-
 struct hmi_controller_fade {
     uint32_t isFadeIn;
-    struct hmi_controller_animation_fade *animation;
-    struct animation_set *anima_set;
     struct wl_list layer_list;
-};
-
-struct animation_set {
-    struct wl_event_source  *event_source;
-    struct wl_list          animation_list;
 };
 
 struct
@@ -134,6 +86,7 @@ hmi_server_setting {
     uint32_t    workspace_background_layer_id;
     uint32_t    workspace_layer_id;
     uint32_t    panel_height;
+    uint32_t    transition_duration;
     char       *ivi_homescreen;
 };
 
@@ -146,9 +99,8 @@ struct hmi_controller
     struct hmi_controller_layer         workspace_layer;
     enum ivi_hmi_controller_layout_mode layout_mode;
 
-    struct animation_set                    *anima_set;
     struct hmi_controller_fade              workspace_fade;
-    struct hmi_controller_animation_move    *workspace_swipe_animation;
+
     int32_t                                 workspace_count;
     struct wl_array                     ui_widgets;
     int32_t                             is_initialized;
@@ -243,10 +195,14 @@ mode_divided_into_tiling(struct hmi_controller *hmi_ctrl,
     int32_t surface_x = 0;
     int32_t surface_y = 0;
     struct ivi_layout_surface *ivisurf  = NULL;
-    int32_t ret = 0;
+
+    struct ivi_layout_surface *surfaces[1024] = {}; //FIXME
+    struct ivi_layout_surface *new_order[1024] = {}; //FIXME
+
+    const uint32_t duration = hmi_ctrl->hmi_setting->transition_duration;
 
     uint32_t i = 0;
-    uint32_t num = 1;
+    uint32_t surf_num = 0;
     for (i = 0; i < surface_length; i++) {
         ivisurf = ppSurface[i];
 
@@ -254,6 +210,16 @@ mode_divided_into_tiling(struct hmi_controller *hmi_ctrl,
         if (is_surf_in_uiWidget(hmi_ctrl, ivisurf)) {
             continue;
         }
+
+        surfaces[surf_num++] = ivisurf;
+    }
+
+    static uint32_t si = 0;
+    uint32_t num = 1;
+    for(i=0; i < surf_num; i++){
+
+        ivisurf = surfaces[(i + si) % surf_num];
+        new_order[i] = ivisurf;
 
         if (num <= 8) {
             if (num < 5) {
@@ -264,20 +230,28 @@ mode_divided_into_tiling(struct hmi_controller *hmi_ctrl,
                 surface_x = (int32_t)((num - 5) * (surface_width));
                 surface_y = (int32_t)surface_height;
             }
-            ret = ivi_layout_surfaceSetDestinationRectangle(ivisurf, surface_x, surface_y,
-                                                            surface_width, surface_height);
-            assert(!ret);
 
-            ret = ivi_layout_surfaceSetVisibility(ivisurf, 1);
-            assert(!ret);
+            ivi_layout_transition_move_resize_view(ivisurf, surface_x, surface_y,
+                                                      surface_width, surface_height,
+                                                      duration);
+
+            ivi_layout_transition_visibility_on(ivisurf, duration);
 
             num++;
             continue;
         }
 
-        ret = ivi_layout_surfaceSetVisibility(ivisurf, 0);
-        assert(!ret);
+        ivi_layout_transition_visibility_off(ivisurf, duration);
     }
+
+    if(surf_num > 0){
+        ivi_layout_transition_layer_render_order(layer->ivilayer,
+                                                    new_order,
+                                                    surf_num,
+                                                    duration);
+    }
+
+    si++;
 }
 
 static void
@@ -291,6 +265,7 @@ mode_divided_into_sidebyside(struct hmi_controller *hmi_ctrl,
     struct ivi_layout_surface *ivisurf  = NULL;
     int32_t ret = 0;
 
+    const uint32_t duration = hmi_ctrl->hmi_setting->transition_duration;
     uint32_t i = 0;
     uint32_t num = 1;
     for (i = 0; i < surface_length; i++) {
@@ -302,29 +277,29 @@ mode_divided_into_sidebyside(struct hmi_controller *hmi_ctrl,
         }
 
         if (num == 1) {
-            ret = ivi_layout_surfaceSetDestinationRectangle(ivisurf, 0, 0,
-                                                surface_width, surface_height);
-            assert(!ret);
+            ivi_layout_transition_move_resize_view(ivisurf, 0, 0,
+                                                      surface_width, surface_height,
+                                                      duration);
 
-            ret = ivi_layout_surfaceSetVisibility(ivisurf, 1);
-            assert(!ret);
+
+            ivi_layout_transition_visibility_on(ivisurf, duration);
 
             num++;
             continue;
         }
         else if (num == 2) {
-            ret = ivi_layout_surfaceSetDestinationRectangle(ivisurf, surface_width, 0,
-                                                surface_width, surface_height);
-            assert(!ret);
 
-            ret = ivi_layout_surfaceSetVisibility(ivisurf, 1);
-            assert(!ret);
+            ivi_layout_transition_move_resize_view(ivisurf, surface_width, 0,
+                                                      surface_width, surface_height,
+                                                      duration);
+            ivi_layout_transition_visibility_on(ivisurf, duration);
 
             num++;
             continue;
         }
 
-        ivi_layout_surfaceSetVisibility(ivisurf, 0);
+        ivi_layout_transition_visibility_off(ivisurf, duration);
+
         assert(!ret);
     }
 }
@@ -338,8 +313,8 @@ mode_fullscreen_someone(struct hmi_controller *hmi_ctrl,
     const uint32_t  surface_width  = layer->width;
     const uint32_t  surface_height = layer->height;
     struct ivi_layout_surface *ivisurf  = NULL;
-    int32_t ret = 0;
 
+    const uint32_t duration = hmi_ctrl->hmi_setting->transition_duration;
     uint32_t i = 0;
     for (i = 0; i < surface_length; i++) {
         ivisurf = ppSurface[i];
@@ -349,13 +324,13 @@ mode_fullscreen_someone(struct hmi_controller *hmi_ctrl,
             continue;
         }
 
-        ret = ivi_layout_surfaceSetDestinationRectangle(ivisurf, 0, 0,
-                                            surface_width, surface_height);
-        assert(!ret);
+        ivi_layout_transition_move_resize_view(ivisurf, 0, 0,
+                                                  surface_width, surface_height,
+                                                  duration);
 
-        ret = ivi_layout_surfaceSetVisibility(ivisurf, 1);
-        assert(!ret);
+        ivi_layout_transition_visibility_on(ivisurf, duration);
     }
+
 }
 
 static void
@@ -369,7 +344,8 @@ mode_random_replace(struct hmi_controller *hmi_ctrl,
     uint32_t surface_x = 0;
     uint32_t surface_y = 0;
     struct ivi_layout_surface *ivisurf  = NULL;
-    int32_t ret = 0;
+
+    const uint32_t duration = hmi_ctrl->hmi_setting->transition_duration;
 
     uint32_t i = 0;
     for (i = 0; i < surface_length; i++) {
@@ -383,13 +359,13 @@ mode_random_replace(struct hmi_controller *hmi_ctrl,
         surface_x = rand() % (layer->width - surface_width);
         surface_y = rand() % (layer->height - surface_height);
 
-        ret = ivi_layout_surfaceSetDestinationRectangle(ivisurf, surface_x, surface_y,
-                                                  surface_width, surface_height);
-        assert(!ret);
+        ivi_layout_transition_move_resize_view(ivisurf, surface_x, surface_y,
+                                                  surface_width, surface_height,
+                                                  duration);
 
-        ret = ivi_layout_surfaceSetVisibility(ivisurf, 1);
-        assert(!ret);
+        ivi_layout_transition_visibility_on(ivisurf, duration);
     }
+
 }
 
 static int32_t
@@ -466,280 +442,27 @@ switch_mode(struct hmi_controller *hmi_ctrl,
 }
 
 /**
- * Internal method for animation
+ * Internal method for transition
  */
-static void
-hmi_controller_animation_frame(
-    struct hmi_controller_animation *animation, uint32_t timestamp)
-{
-    if (0 == animation->time_start) {
-        animation->time_start = timestamp;
-    }
-
-    animation->frame_func(animation, timestamp);
-    animation->frame_user_func(animation);
-}
-
-static int
-animation_set_do_anima(void* data)
-{
-    struct animation_set *anima_set = data;
-    uint32_t fps = 30;
-
-    if (wl_list_empty(&anima_set->animation_list)) {
-        wl_event_source_timer_update(anima_set->event_source, 0);
-        return 1;
-    }
-
-    wl_event_source_timer_update(anima_set->event_source, 1000 / fps);
-
-    struct timespec timestamp = {0};
-    clock_gettime(CLOCK_MONOTONIC, &timestamp);
-    uint32_t msec = (1e+3 * timestamp.tv_sec + 1e-6 * timestamp.tv_nsec);
-
-    struct link_animation *link_animation = NULL;
-    struct link_animation *next = NULL;
-
-    wl_list_for_each_safe(link_animation, next, &anima_set->animation_list, link) {
-        hmi_controller_animation_frame(link_animation->animation, msec);
-    }
-
-    ivi_layout_commitChanges();
-    return 1;
-}
-
-static struct animation_set *
-animation_set_create(struct weston_compositor* ec)
-{
-    struct animation_set *anima_set = MEM_ALLOC(sizeof(*anima_set));
-
-    wl_list_init(&anima_set->animation_list);
-
-    struct wl_event_loop *loop = wl_display_get_event_loop(ec->wl_display);
-    anima_set->event_source = wl_event_loop_add_timer(loop, animation_set_do_anima, anima_set);
-    wl_event_source_timer_update(anima_set->event_source, 0);
-
-    return anima_set;
-}
 
 static void
-animation_set_add_animation(struct animation_set *anima_set,
-                            struct hmi_controller_animation *anima)
-{
-    struct link_animation *link_anima = NULL;
-
-    link_anima = MEM_ALLOC(sizeof(*link_anima));
-    if (NULL == link_anima) {
-        return;
-    }
-
-    link_anima->animation = anima;
-    wl_list_insert(&anima_set->animation_list, &link_anima->link);
-    wl_event_source_timer_update(anima_set->event_source, 1);
-}
-
-static void
-animation_set_remove_animation(struct animation_set *anima_set,
-                               struct hmi_controller_animation *anima)
-{
-    struct link_animation *link_animation = NULL;
-    struct link_animation *next = NULL;
-
-    wl_list_for_each_safe(link_animation, next, &anima_set->animation_list, link) {
-        if (link_animation->animation == anima) {
-            wl_list_remove(&link_animation->link);
-            free(link_animation);
-            break;
-        }
-    }
-}
-
-static void
-hmi_controller_animation_spring_frame(
-    struct hmi_controller_animation_fade *animation, uint32_t timestamp)
-{
-    if (0 == animation->spring.timestamp) {
-        animation->spring.timestamp = timestamp;
-    }
-
-    weston_spring_update(&animation->spring, timestamp);
-    animation->base.is_done = weston_spring_done(&animation->spring);
-}
-
-static void
-hmi_controller_animation_move_frame(
-    struct hmi_controller_animation_move *animation, uint32_t timestamp)
-{
-    double s = animation->pos_start;
-    double t = timestamp - animation->base.time_start;
-    double v0 = animation->v0;
-    double a = animation->a;
-    double time_end = animation->time_end;
-
-    if (time_end <= t) {
-        animation->pos = animation->pos_end;
-        animation->base.is_done = 1;
-    } else {
-        animation->pos = v0 * t + 0.5 * a * t * t + s;
-    }
-}
-
-static void
-hmi_controller_animation_destroy(struct hmi_controller_animation *animation)
-{
-    if (animation->destroy_func) {
-        animation->destroy_func(animation);
-    }
-
-    free(animation);
-}
-
-static void
-hmi_controller_fade_animation_destroy(struct hmi_controller_animation *animation)
-{
-    struct hmi_controller_fade *fade = animation->user_data;
-    animation_set_remove_animation(fade->anima_set, animation);
-    fade->animation = NULL;
-    animation->user_data = NULL;
-}
-
-static struct hmi_controller_animation_fade *
-hmi_controller_animation_fade_create(double start, double end, double k,
-    hmi_controller_animation_frame_user_func frame_user_func, void* user_data,
-    hmi_controller_animation_destroy_func destroy_func)
-{
-    struct hmi_controller_animation_fade* animation = MEM_ALLOC(sizeof(*animation));
-
-    animation->base.frame_user_func = frame_user_func;
-    animation->base.user_data = user_data;
-    animation->base.frame_func =
-        (hmi_controller_animation_frame_func)hmi_controller_animation_spring_frame;
-    animation->base.destroy_func = destroy_func;
-
-    animation->start = start;
-    animation->end = end;
-    weston_spring_init(&animation->spring, k, start, end);
-    animation->spring.friction = 1400;
-    animation->spring.previous = -(end - start) * 0.03;
-
-    return animation;
-}
-
-static struct hmi_controller_animation_move *
-hmi_controller_animation_move_create(
-    double pos_start, double pos_end, double v_start, double v_end,
-    hmi_controller_animation_frame_user_func frame_user_func, void* user_data,
-    hmi_controller_animation_destroy_func destroy_func)
-{
-    struct hmi_controller_animation_move* animation = MEM_ALLOC(sizeof(*animation));
-
-    animation->base.frame_user_func = frame_user_func;
-    animation->base.user_data = user_data;
-    animation->base.frame_func =
-        (hmi_controller_animation_frame_func)hmi_controller_animation_move_frame;
-    animation->base.destroy_func = destroy_func;
-
-    animation->pos_start = pos_start;
-    animation->pos_end = pos_end;
-    animation->v0 = v_start;
-    animation->pos = pos_start;
-
-    double dx = (pos_end - pos_start);
-
-    if (1e-3 < fabs(dx)) {
-        animation->a = 0.5 * (v_end * v_end - v_start * v_start) / dx;
-        if (1e-6 < fabs(animation->a)) {
-            animation->time_end = (v_end - v_start) / animation->a;
-
-        } else {
-            animation->a = 0;
-            animation->time_end = fabs(dx / animation->v0);
-        }
-
-    } else {
-        animation->time_end = 0;
-    }
-
-    return animation;
-}
-
-static double
-hmi_controller_animation_fade_alpha_get(struct hmi_controller_animation_fade* animation)
-{
-    if (animation->spring.current > 0.999) {
-        return 1.0;
-    } else if (animation->spring.current < 0.001 ) {
-        return 0.0;
-    } else {
-        return animation->spring.current;
-    }
-}
-
-static uint32_t
-hmi_controller_animation_is_done(struct hmi_controller_animation *animation)
-{
-    return animation->is_done;
-}
-
-static void
-hmi_controller_fade_update(struct hmi_controller_animation_fade *animation, double end)
-{
-    animation->spring.target = end;
-}
-
-static void
-hmi_controller_anima_fade_user_frame(struct hmi_controller_animation_fade *animation)
-{
-    double alpha = hmi_controller_animation_fade_alpha_get(animation);
-    alpha = wl_fixed_from_double(alpha);
-    struct hmi_controller_fade *fade = animation->base.user_data;
-    struct link_layer *linklayer = NULL;
-    int32_t is_done = hmi_controller_animation_is_done(&animation->base);
-    int32_t is_visible = !is_done || fade->isFadeIn;
-
-    wl_list_for_each(linklayer, &fade->layer_list, link) {
-        ivi_layout_layerSetOpacity(linklayer->layout_layer, alpha);
-        ivi_layout_layerSetVisibility(linklayer->layout_layer, is_visible);
-    }
-
-    if (is_done) {
-        hmi_controller_animation_destroy(&animation->base);
-    }
-}
-
-static void
-hmi_controller_anima_move_user_frame(struct hmi_controller_animation_move *animation)
-{
-    struct move_animation_user_data* user_data = animation->base.user_data;
-    struct ivi_layout_layer *layer = user_data->layer;
-    int32_t is_done = hmi_controller_animation_is_done(&animation->base);
-
-    int32_t pos[2] = {0};
-    ivi_layout_layerGetPosition(layer, pos);
-
-    pos[0] = (int32_t)animation->pos;
-    ivi_layout_layerSetPosition(layer, pos);
-
-    if (is_done) {
-        hmi_controller_animation_destroy(&animation->base);
-    }
-}
-
-static void
-hmi_controller_fade_run(uint32_t isFadeIn, struct hmi_controller_fade *fade)
+hmi_controller_fade_run(struct hmi_controller* hmi_ctrl, uint32_t isFadeIn, struct hmi_controller_fade *fade)
 {
     double tint = isFadeIn ? 1.0 : 0.0;
     fade->isFadeIn = isFadeIn;
 
-    if (fade->animation) {
-        hmi_controller_fade_update(fade->animation, tint);
-    } else {
-        fade->animation = hmi_controller_animation_fade_create(
-            1.0 - tint, tint, 300.0,
-            (hmi_controller_animation_frame_user_func)hmi_controller_anima_fade_user_frame,
-            fade, hmi_controller_fade_animation_destroy);
+    struct link_layer* linklayer = NULL;
 
-        animation_set_add_animation(fade->anima_set, &fade->animation->base);
+    const uint32_t duration = hmi_ctrl->hmi_setting->transition_duration;
+
+    wl_list_for_each(linklayer, &fade->layer_list, link){
+        ivi_layout_transition_fade_layer(linklayer->layout_layer,
+                                            isFadeIn,
+                                            1.0 - tint, tint,
+                                            NULL, NULL,
+                                            duration);
+
+
     }
 }
 
@@ -833,6 +556,10 @@ hmi_server_setting_create(void)
     weston_config_section_get_uint(
         shellSection, "application-layer-id", &setting->application_layer_id, 4000);
 
+    weston_config_section_get_uint(
+        shellSection, "transition-duration",
+        &setting->transition_duration, 300);
+
     setting->panel_height = 70;
 
     weston_config_section_get_string(
@@ -925,9 +652,6 @@ hmi_controller_create(struct weston_compositor *ec)
     ivi_layout_layerSetOpacity(hmi_ctrl->workspace_layer.ivilayer, 0);
     ivi_layout_layerSetVisibility(hmi_ctrl->workspace_layer.ivilayer, 0);
 
-    /* set up animation to workspace background and workspace */
-    hmi_ctrl->anima_set = animation_set_create(ec);
-
     wl_list_init(&hmi_ctrl->workspace_fade.layer_list);
     tmp_link_layer = MEM_ALLOC(sizeof(*tmp_link_layer));
     tmp_link_layer->layout_layer = hmi_ctrl->workspace_layer.ivilayer;
@@ -935,7 +659,6 @@ hmi_controller_create(struct weston_compositor *ec)
     tmp_link_layer = MEM_ALLOC(sizeof(*tmp_link_layer));
     tmp_link_layer->layout_layer = hmi_ctrl->workspace_background_layer.ivilayer;
     wl_list_insert(&hmi_ctrl->workspace_fade.layer_list, &tmp_link_layer->link);
-    hmi_ctrl->workspace_fade.anima_set = hmi_ctrl->anima_set;
 
     ivi_layout_addNotificationCreateSurface(set_notification_create_surface, hmi_ctrl);
     ivi_layout_addNotificationRemoveSurface(set_notification_remove_surface, hmi_ctrl);
@@ -1447,19 +1170,6 @@ range_val(int32_t val, int32_t min, int32_t max)
 }
 
 static void
-hmi_controller_move_animation_destroy(struct hmi_controller_animation *animation)
-{
-    struct move_animation_user_data *user_data = animation->user_data;
-    if (animation == &user_data->hmi_ctrl->workspace_swipe_animation->base) {
-        user_data->hmi_ctrl->workspace_swipe_animation = NULL;
-    }
-
-    animation_set_remove_animation(user_data->anima_set, animation);
-    free(animation->user_data);
-    animation->user_data = NULL;
-}
-
-static void
 move_workspace_grab_end(struct move_grab *move, struct wl_resource* resource,
                         wl_fixed_t grab_x, struct ivi_layout_layer *layer)
 {
@@ -1505,6 +1215,7 @@ move_workspace_grab_end(struct move_grab *move, struct wl_resource* resource,
     page_no = range_val(page_no, 0, hmi_ctrl->workspace_count - 1);
     double end_pos = -page_no * width;
 
+/*
     double dst = fabs(end_pos - pos[0]);
     double max_time = 0.5 * 1e+3;
     double v = dst / max_time;
@@ -1520,23 +1231,12 @@ move_workspace_grab_end(struct move_grab *move, struct wl_resource* resource,
     } else {
         v0 = -v;
     }
+*/
 
-    struct move_animation_user_data *animation_user_data = NULL;
-    animation_user_data = MEM_ALLOC(sizeof(*animation_user_data));
-    animation_user_data->layer = layer;
-    animation_user_data->anima_set = hmi_ctrl->anima_set;
-    animation_user_data->hmi_ctrl = hmi_ctrl;
-
-    struct hmi_controller_animation_move* animation = NULL;
-    animation = hmi_controller_animation_move_create(
-        pos[0], end_pos, v0, v0,
-        (hmi_controller_animation_frame_user_func)hmi_controller_anima_move_user_frame,
-        animation_user_data, hmi_controller_move_animation_destroy);
-
-    hmi_ctrl->workspace_swipe_animation = animation;
-    animation_set_add_animation(hmi_ctrl->anima_set, &animation->base);
-
+    const uint32_t duration = hmi_ctrl->hmi_setting->transition_duration;
     ivi_hmi_controller_send_workspace_end_control(resource, move->is_moved);
+    ivi_layout_transition_move_layer(layer, end_pos, pos[1], duration);
+    ivi_layout_commitChanges();
 }
 
 static void
@@ -1814,13 +1514,11 @@ ivi_hmi_controller_workspace_control(struct wl_client *client,
         return;
     }
 
-    if (hmi_ctrl->workspace_swipe_animation) {
-        hmi_controller_animation_destroy(&hmi_ctrl->workspace_swipe_animation->base);
-    }
-
     struct ivi_layout_layer *layer = hmi_ctrl->workspace_layer.ivilayer;
     struct pointer_move_grab *pnt_move_grab = NULL;
     struct touch_move_grab *tch_move_grab = NULL;
+
+    ivi_layout_transition_move_layer_cancel(layer);
 
     switch (device) {
     case HMI_GRAB_DEVICE_POINTER:
@@ -1870,8 +1568,10 @@ ivi_hmi_controller_home(struct wl_client *client,
         (IVI_HMI_CONTROLLER_HOME_OFF == home && hmi_ctrl->workspace_fade.isFadeIn)) {
 
         uint32_t isFadeIn = !hmi_ctrl->workspace_fade.isFadeIn;
-        hmi_controller_fade_run(isFadeIn, &hmi_ctrl->workspace_fade);
+        hmi_controller_fade_run(hmi_ctrl, isFadeIn, &hmi_ctrl->workspace_fade);
     }
+
+    ivi_layout_commitChanges();
 }
 
 /**

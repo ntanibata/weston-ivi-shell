@@ -55,6 +55,7 @@
 #include "compositor.h"
 #include "ivi-layout.h"
 #include "ivi-layout-export.h"
+#include "ivi-layout-private.h"
 
 enum ivi_layout_surface_orientation {
     IVI_LAYOUT_SURFACE_ORIENTATION_0_DEGREES   = 0,
@@ -130,70 +131,6 @@ struct link_surfaceConfigureNotification {
 
 struct ivi_layout;
 
-struct ivi_layout_surface {
-    struct wl_list link;
-    struct wl_list list_notification;
-    struct wl_list list_layer;
-    uint32_t update_count;
-    uint32_t id_surface;
-
-    struct ivi_layout *layout;
-    struct weston_surface *surface;
-    struct weston_view *view;
-
-    uint32_t buffer_width;
-    uint32_t buffer_height;
-
-    struct wl_listener surface_destroy_listener;
-    struct weston_transform surface_rotation;
-    struct weston_transform layer_rotation;
-    struct weston_transform surface_pos;
-    struct weston_transform layer_pos;
-    struct weston_transform scaling;
-    struct ivi_layout_SurfaceProperties prop;
-    int32_t pixelformat;
-    uint32_t event_mask;
-
-    struct {
-        struct ivi_layout_SurfaceProperties prop;
-        struct wl_list link;
-    } pending;
-
-    struct {
-        struct wl_list link;
-        struct wl_list list_layer;
-    } order;
-
-    struct {
-        ivi_controller_surface_content_callback callback;
-        void* userdata;
-    } content_observer;
-};
-
-struct ivi_layout_layer {
-    struct wl_list link;
-    struct wl_list list_notification;
-    struct wl_list list_screen;
-    struct wl_list link_to_surface;
-    uint32_t id_layer;
-
-    struct ivi_layout *layout;
-
-    struct ivi_layout_LayerProperties prop;
-    uint32_t event_mask;
-
-    struct {
-        struct ivi_layout_LayerProperties prop;
-        struct wl_list list_surface;
-        struct wl_list link;
-    } pending;
-
-    struct {
-        struct wl_list list_surface;
-        struct wl_list link;
-    } order;
-};
-
 struct ivi_layout_screen {
     struct wl_list link;
     struct wl_list link_to_layer;
@@ -215,30 +152,9 @@ struct ivi_layout_screen {
     } order;
 };
 
-struct ivi_layout {
-    struct weston_compositor *compositor;
-
-    struct wl_list list_surface;
-    struct wl_list list_layer;
-    struct wl_list list_screen;
-
-    struct {
-        struct wl_list list_create;
-        struct wl_list list_remove;
-    } layer_notification;
-
-    struct {
-        struct wl_list list_create;
-        struct wl_list list_remove;
-        struct wl_list list_configure;
-    } surface_notification;
-
-    struct weston_layer layout_layer;
-};
-
 static struct ivi_layout ivilayout = {0};
 
-static struct ivi_layout *
+struct ivi_layout *
 get_instance(void)
 {
     return &ivilayout;
@@ -708,7 +624,7 @@ update_surface_position(struct ivi_layout_surface *ivisurf)
     weston_view_update_transform(view);
 
 #if 0
-    /* disable zoom animation */
+    /* disable zoom transition */
     weston_zoom_run(es, 0.0, 1.0, NULL, NULL);
 #endif
 
@@ -965,6 +881,21 @@ commit_list_screen(struct ivi_layout *layout)
 
         break;
     }
+}
+
+static void
+commit_transition(struct ivi_layout* layout)
+{
+    if(wl_list_empty(&layout->pending_transition_list)){
+        return;
+    }
+
+    wl_list_insert_list(&layout->transitions->transition_list,
+                        &layout->pending_transition_list);
+
+    wl_list_init(&layout->pending_transition_list);
+
+    wl_event_source_timer_update(layout->transitions->event_source, 1);
 }
 
 static void
@@ -2700,6 +2631,8 @@ ivi_layout_commitChanges(void)
     commit_list_layer(layout);
     commit_list_screen(layout);
 
+    commit_transition(layout);
+
     commit_changes(layout);
     send_prop(layout);
     weston_compositor_schedule_repaint(layout->compositor);
@@ -2955,6 +2888,10 @@ ivi_layout_initWithCompositor(struct weston_compositor *ec)
     else
         wl_list_remove(&ec->cursor_layer.link);
     weston_config_destroy(config);
+
+    layout->transitions = ivi_layout_transition_set_create(ec);
+    wl_list_init(&layout->pending_transition_list);
+
 }
 
 
