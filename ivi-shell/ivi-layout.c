@@ -277,6 +277,9 @@ remove_link_to_surface(struct ivi_layout_layer *ivilayer)
         if (!wl_list_empty(&link->link_to_layer)) {
             wl_list_remove(&link->link_to_layer);
         }
+        if (!wl_list_empty(&link->link)) {
+            wl_list_remove(&link->link);
+        }
         free(link);
     }
 
@@ -1357,7 +1360,6 @@ ivi_layout_surfaceRemove(struct ivi_layout_surface *ivisurf)
         wl_list_remove(&ivisurf->link);
     }
     remove_ordersurface_from_layer(ivisurf);
-    ivi_layout_surfaceRemoveNotification(ivisurf);
 
     wl_list_for_each(notification,
             &layout->surface_notification.list_remove, link) {
@@ -1365,6 +1367,7 @@ ivi_layout_surfaceRemove(struct ivi_layout_surface *ivisurf)
             notification->callback(ivisurf, notification->userdata);
         }
     }
+    ivi_layout_surfaceRemoveNotification(ivisurf);
 
     free(ivisurf);
 
@@ -1729,6 +1732,7 @@ ivi_layout_layerRemove(struct ivi_layout_layer *ivilayer)
     }
     remove_orderlayer_from_screen(ivilayer);
     remove_link_to_surface(ivilayer);
+    ivi_layout_layerRemoveNotification(ivilayer);
 
     free(ivilayer);
 
