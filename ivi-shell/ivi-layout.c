@@ -1357,6 +1357,7 @@ ivi_layout_surfaceRemove(struct ivi_layout_surface *ivisurf)
         wl_list_remove(&ivisurf->link);
     }
     remove_ordersurface_from_layer(ivisurf);
+    ivi_layout_surfaceRemoveNotification(ivisurf);
 
     wl_list_for_each(notification,
             &layout->surface_notification.list_remove, link) {
@@ -2676,6 +2677,8 @@ ivi_layout_surfaceSetNativeContent(struct weston_surface *surface,
             (*(ivisurf->content_observer.callback))(ivisurf,
                                     0, ivisurf->content_observer.userdata);
         }
+
+        ivi_layout_surfaceRemoveNotification(ivisurf);
         return 0;
     }
 
