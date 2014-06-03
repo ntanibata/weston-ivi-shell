@@ -138,6 +138,8 @@ surface_destroy(struct wl_client *client, struct wl_resource *resource)
         ivisurf->surface = NULL;
         ivi_layout->surfaceSetNativeContent(NULL, 0, 0, ivisurf->id_surface);
     }
+
+    wl_resource_destroy(resource);
 }
 
 static const struct ivi_surface_interface surface_implementation = {
