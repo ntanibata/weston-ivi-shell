@@ -325,6 +325,9 @@ remove_ordersurface_from_layer(struct ivi_layout_surface *ivisurf)
         if (!wl_list_empty(&link_layer->link)) {
             wl_list_remove(&link_layer->link);
         }
+        if (!wl_list_empty(&link_layer->link_to_layer)) {
+            wl_list_remove(&link_layer->link_to_layer);
+        }
         free(link_layer);
     }
     wl_list_init(&ivisurf->list_layer);
