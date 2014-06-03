@@ -870,6 +870,20 @@ commit_list_screen(struct ivi_layout *layout)
     struct ivi_layout_surface *ivisurf  = NULL;
 
     wl_list_for_each(iviscrn, &layout->list_screen, link) {
+        if (iviscrn->event_mask & IVI_NOTIFICATION_REMOVE) {
+            wl_list_for_each_safe(ivilayer, next,
+                     &iviscrn->order.list_layer, order.link) {
+                remove_orderlayer_from_screen(ivilayer);
+
+                if (!wl_list_empty(&ivilayer->order.link)) {
+                    wl_list_remove(&ivilayer->order.link);
+                }
+
+                wl_list_init(&ivilayer->order.link);
+                ivilayer->event_mask |= IVI_NOTIFICATION_REMOVE;
+            }
+        }
+
         if (iviscrn->event_mask & IVI_NOTIFICATION_ADD) {
             wl_list_for_each_safe(ivilayer, next,
                      &iviscrn->order.list_layer, order.link) {
@@ -888,10 +902,11 @@ commit_list_screen(struct ivi_layout *layout)
                 wl_list_insert(&iviscrn->order.list_layer,
                                &ivilayer->order.link);
                 add_orderlayer_to_screen(ivilayer, iviscrn);
-                ivilayer->event_mask = IVI_NOTIFICATION_ADD;
+                ivilayer->event_mask |= IVI_NOTIFICATION_ADD;
             }
-            iviscrn->event_mask = 0;
         }
+
+        iviscrn->event_mask = 0;
 
         /* Clear view list of layout layer */
         wl_list_init(&layout->layout_layer.view_list);
@@ -2308,6 +2323,7 @@ ivi_layout_screenSetRenderOrder(struct ivi_layout_screen *iviscrn,
     wl_list_init(&iviscrn->pending.list_layer);
 
     if (pLayer == NULL) {
+        iviscrn->event_mask |= IVI_NOTIFICATION_REMOVE;
         return 0;
     }
 
