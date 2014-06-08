@@ -416,6 +416,18 @@ westonsurface_destroy_from_ivisurface(struct wl_listener *listener, void *data)
 
     ivisurf = container_of(listener, struct ivi_layout_surface,
                            surface_destroy_listener);
+
+    wl_list_init(&ivisurf->surface_rotation.link);
+    wl_list_init(&ivisurf->layer_rotation.link);
+    wl_list_init(&ivisurf->surface_pos.link);
+    wl_list_init(&ivisurf->layer_pos.link);
+    wl_list_init(&ivisurf->scaling.link);
+
+    if (!wl_list_empty(&ivisurf->view->layer_link)) {
+        wl_list_remove(&ivisurf->view->layer_link);
+        wl_list_init(&ivisurf->view->layer_link);
+    }
+
     ivisurf->surface = NULL;
     ivisurf->view = NULL;
     ivi_layout_surfaceRemove(ivisurf);
@@ -2673,6 +2685,19 @@ ivi_layout_surfaceSetNativeContent(struct weston_surface *surface,
         wl_list_remove(&ivisurf->surface_destroy_listener.link);
 
         ivisurf->surface = NULL;
+
+        wl_list_remove(&ivisurf->surface_rotation.link);
+        wl_list_remove(&ivisurf->layer_rotation.link);
+        wl_list_remove(&ivisurf->surface_pos.link);
+        wl_list_remove(&ivisurf->layer_pos.link);
+        wl_list_remove(&ivisurf->scaling.link);
+        wl_list_init(&ivisurf->surface_rotation.link);
+        wl_list_init(&ivisurf->layer_rotation.link);
+        wl_list_init(&ivisurf->surface_pos.link);
+        wl_list_init(&ivisurf->layer_pos.link);
+        wl_list_init(&ivisurf->scaling.link);
+
+        weston_view_destroy(ivisurf->view);
         ivisurf->view = NULL;
     }
 
