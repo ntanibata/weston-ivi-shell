@@ -992,6 +992,42 @@ send_prop(struct ivi_layout *layout)
     }
 }
 
+static void
+clear_surface_pending_list(struct ivi_layout_layer *ivilayer)
+{
+    struct ivi_layout_surface *surface_link = NULL;
+    struct ivi_layout_surface *surface_next = NULL;
+
+    wl_list_for_each_safe(surface_link, surface_next,
+                          &ivilayer->pending.list_surface, pending.link) {
+        if (!wl_list_empty(&surface_link->pending.link)) {
+            wl_list_remove(&surface_link->pending.link);
+        }
+
+        wl_list_init(&surface_link->pending.link);
+    }
+
+    ivilayer->event_mask |= IVI_NOTIFICATION_REMOVE;
+}
+
+static void
+clear_surface_order_list(struct ivi_layout_layer *ivilayer)
+{
+    struct ivi_layout_surface *surface_link = NULL;
+    struct ivi_layout_surface *surface_next = NULL;
+
+    wl_list_for_each_safe(surface_link, surface_next,
+                          &ivilayer->order.list_surface, order.link) {
+        if (!wl_list_empty(&surface_link->order.link)) {
+            wl_list_remove(&surface_link->order.link);
+        }
+
+        wl_list_init(&surface_link->order.link);
+    }
+
+    ivilayer->event_mask |= IVI_NOTIFICATION_REMOVE;
+}
+
 /**
  * Exported APIs of ivi-layout library are implemented from here.
  * Brief of APIs is described in ivi-layout-export.h.
@@ -1732,6 +1768,9 @@ ivi_layout_layerRemove(struct ivi_layout_layer *ivilayer)
             notification->callback(ivilayer, notification->userdata);
         }
     }
+
+    clear_surface_pending_list(ivilayer);
+    clear_surface_order_list(ivilayer);
 
     if (!wl_list_empty(&ivilayer->pending.link)) {
         wl_list_remove(&ivilayer->pending.link);
