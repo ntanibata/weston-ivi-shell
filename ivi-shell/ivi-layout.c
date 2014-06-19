@@ -1001,11 +1001,11 @@ send_prop(struct ivi_layout *layout)
     struct ivi_layout_layer   *ivilayer = NULL;
     struct ivi_layout_surface *ivisurf  = NULL;
 
-    wl_list_for_each(ivilayer, &layout->list_layer, link) {
+    wl_list_for_each_reverse(ivilayer, &layout->list_layer, link) {
         send_layer_prop(ivilayer);
     }
 
-    wl_list_for_each(ivisurf, &layout->list_surface, link) {
+    wl_list_for_each_reverse(ivisurf, &layout->list_surface, link) {
         send_surface_prop(ivisurf);
     }
 }
@@ -2059,6 +2059,13 @@ ivi_layout_layerSetRenderOrder(struct ivi_layout_layer *ivilayer,
     }
 
     if (pSurface == NULL) {
+        wl_list_for_each_safe(ivisurf, next, &ivilayer->pending.list_surface, pending.link) {
+            if (!wl_list_empty(&ivisurf->pending.link)) {
+                wl_list_remove(&ivisurf->pending.link);
+            }
+
+            wl_list_init(&ivisurf->pending.link);
+        }
         ivilayer->event_mask |= IVI_NOTIFICATION_REMOVE;
         return 0;
     }
@@ -2398,6 +2405,14 @@ ivi_layout_screenSetRenderOrder(struct ivi_layout_screen *iviscrn,
     wl_list_init(&iviscrn->pending.list_layer);
 
     if (pLayer == NULL) {
+        wl_list_for_each_safe(ivilayer, next, &iviscrn->pending.list_layer, pending.link) {
+            if (!wl_list_empty(&ivilayer->pending.link)) {
+                wl_list_remove(&ivilayer->pending.link);
+            }
+
+            wl_list_init(&ivilayer->pending.link);
+        }
+
         iviscrn->event_mask |= IVI_NOTIFICATION_REMOVE;
         return 0;
     }
