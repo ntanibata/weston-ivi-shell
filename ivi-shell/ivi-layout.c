@@ -849,29 +849,47 @@ commit_list_layer(struct ivi_layout *layout)
             continue;
         }
 
-        wl_list_for_each_safe(ivisurf, next,
-            &ivilayer->order.list_surface, order.link) {
-            remove_ordersurface_from_layer(ivisurf);
+        if (ivilayer->event_mask & IVI_NOTIFICATION_REMOVE) {
+            wl_list_for_each_safe(ivisurf, next,
+                &ivilayer->order.list_surface, order.link) {
+                remove_ordersurface_from_layer(ivisurf);
 
-            if (!wl_list_empty(&ivisurf->order.link)) {
-                wl_list_remove(&ivisurf->order.link);
+                if (!wl_list_empty(&ivisurf->order.link)) {
+                    wl_list_remove(&ivisurf->order.link);
+                }
+
+                wl_list_init(&ivisurf->order.link);
+                ivisurf->event_mask |= IVI_NOTIFICATION_REMOVE;
             }
 
-            wl_list_init(&ivisurf->order.link);
+            wl_list_init(&ivilayer->order.list_surface);
         }
 
-        wl_list_init(&ivilayer->order.list_surface);
-        wl_list_for_each(ivisurf, &ivilayer->pending.list_surface,
-                              pending.link) {
-            if(!wl_list_empty(&ivisurf->order.link)){
-                wl_list_remove(&ivisurf->order.link);
+        if (ivilayer->event_mask & IVI_NOTIFICATION_ADD) {
+            wl_list_for_each_safe(ivisurf, next,
+                &ivilayer->order.list_surface, order.link) {
+                remove_ordersurface_from_layer(ivisurf);
+
+                if (!wl_list_empty(&ivisurf->order.link)) {
+                    wl_list_remove(&ivisurf->order.link);
+                }
+
                 wl_list_init(&ivisurf->order.link);
             }
 
-            wl_list_insert(&ivilayer->order.list_surface,
-                           &ivisurf->order.link);
-            add_ordersurface_to_layer(ivisurf, ivilayer);
-            ivisurf->event_mask = IVI_NOTIFICATION_ADD;
+            wl_list_init(&ivilayer->order.list_surface);
+            wl_list_for_each(ivisurf, &ivilayer->pending.list_surface,
+                                  pending.link) {
+                if(!wl_list_empty(&ivisurf->order.link)){
+                    wl_list_remove(&ivisurf->order.link);
+                    wl_list_init(&ivisurf->order.link);
+                }
+
+                wl_list_insert(&ivilayer->order.list_surface,
+                               &ivisurf->order.link);
+                add_ordersurface_to_layer(ivisurf, ivilayer);
+                ivisurf->event_mask |= IVI_NOTIFICATION_ADD;
+            }
         }
     }
 }
@@ -2041,6 +2059,7 @@ ivi_layout_layerSetRenderOrder(struct ivi_layout_layer *ivilayer,
     }
 
     if (pSurface == NULL) {
+        ivilayer->event_mask |= IVI_NOTIFICATION_REMOVE;
         return 0;
     }
 
@@ -2629,7 +2648,7 @@ ivi_layout_layerRemoveSurface(struct ivi_layout_layer *ivilayer,
         }
     }
 
-    ivilayer->event_mask |= IVI_NOTIFICATION_REMOVE;
+    remsurf->event_mask |= IVI_NOTIFICATION_REMOVE;
 
     return 0;
 }
