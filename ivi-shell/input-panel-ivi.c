@@ -45,7 +45,7 @@ struct input_panel_surface {
 	struct wl_listener surface_destroy_listener;
 
 	struct weston_output *output;
-	uint32_t panel;
+	int32_t panel;
 };
 
 static void
@@ -305,7 +305,7 @@ unbind_input_panel(struct wl_resource *resource)
 
 static void
 bind_input_panel(struct wl_client *client,
-	      void *data, uint32_t version, uint32_t id)
+             void *data, uint32_t version, uint32_t id)
 {
 	struct ivi_shell *shell = data;
 	struct wl_resource *resource;
