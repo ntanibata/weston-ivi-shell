@@ -722,7 +722,8 @@ if ENABLE_IVI_SHELL
 
 module_LTLIBRARIES +=				\
 	$(ivi_shell)				\
-	$(ivi_layout)
+	$(ivi_layout)				\
+        $(hmi_controller)
 
 ivi_shell = ivi-shell.la
 ivi_shell_la_LDFLAGS = -module -avoid-version
@@ -738,6 +739,7 @@ nodist_ivi_shell_la_SOURCES =			\
 
 BUILT_SOURCES += $(nodist_ivi_shell_la_SOURCES)
 
+
 ivi_layout = ivi-layout.la
 ivi_layout_la_LDFLAGS = -module -avoid-version
 ivi_layout_la_LIBADD = $(COMPOSITOR_LIBS) $(IVI_SHELL_LIBS) libshared.la
@@ -751,6 +753,22 @@ nodist_ivi_layout_la_SOURCES =			\
 	protocol/ivi-application-server-protocol.h
 
 BUILT_SOURCES += $(nodist_ivi_layout_la_SOURCES)
+
+hmi_controller = hmi-controller.la
+hmi_controller_la_LDFLAGS = -module -avoid-version
+hmi_controller_la_LIBADD = $(CLIENT_LIBS) $(IVI_SHELL_LIBS) libshared-cairo.la
+hmi_controller_la_CFLAGS = $(GCC_CFLAGS) $(IVI_SHELL_CFLAGS)
+hmi_controller_la_SOURCES =				\
+	ivi-shell/ivi-layout-export.h			\
+	ivi-shell/hmi-controller.c
+nodist_hmi_controller_la_SOURCES =			\
+	protocol/ivi-application-protocol.c		\
+	protocol/ivi-application-client-protocol.h	\
+	protocol/ivi-hmi-controller-protocol.c		\
+	protocol/ivi-hmi-controller-client-protocol.h	\
+	protocol/ivi-hmi-controller-server-protocol.h
+
+BUILT_SOURCES += $(nodist_hmi_controller_la_SOURCES)
 
 endif
 
