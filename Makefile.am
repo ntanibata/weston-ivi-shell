@@ -364,6 +364,11 @@ libexec_PROGRAMS +=				\
 	weston-keyboard				\
 	weston-simple-im
 
+if ENABLE_IVI_SHELL
+libexec_PROGRAMS +=				\
+	weston-ivi-shell-user-interface
+endif
+
 demo_clients =					\
 	weston-flower				\
 	weston-image				\
@@ -588,6 +593,16 @@ nodist_weston_desktop_shell_SOURCES =			\
 weston_desktop_shell_LDADD = libtoytoolkit.la
 weston_desktop_shell_CFLAGS = $(AM_CFLAGS) $(CLIENT_CFLAGS)
 
+if ENABLE_IVI_SHELL
+weston_ivi_shell_user_interface_SOURCES = clients/ivi-shell-user-interface.c
+nodist_weston_ivi_shell_user_interface_SOURCES =			\
+	protocol/ivi-hmi-controller-client-protocol.h			\
+	protocol/ivi-hmi-controller-protocol.c				\
+        protocol/ivi-application-protocol.c
+weston_ivi_shell_user_interface_LDADD = libtoytoolkit.la
+weston_ivi_shell_user_interface_CFLAGS = $(AM_CFLAGS) $(CLIENT_CFLAGS)
+endif
+
 if BUILD_FULL_GL_CLIENTS
 demo_clients += weston-gears
 weston_gears_SOURCES = clients/gears.c
@@ -722,7 +737,8 @@ if ENABLE_IVI_SHELL
 
 module_LTLIBRARIES +=				\
 	$(ivi_layout)				\
-	$(ivi_shell)
+	$(ivi_shell)				\
+        $(hmi_controller)
 
 ivi_layout = ivi-layout.la
 ivi_layout_la_LDFLAGS = -module -avoid-version
@@ -753,6 +769,22 @@ nodist_ivi_shell_la_SOURCES =			\
 	protocol/ivi-application-server-protocol.h
 
 BUILT_SOURCES += $(nodist_ivi_shell_la_SOURCES)
+
+hmi_controller = hmi-controller.la
+hmi_controller_la_LDFLAGS = -module -avoid-version
+hmi_controller_la_LIBADD = $(CLIENT_LIBS) $(IVI_SHELL_LIBS) libshared-cairo.la
+hmi_controller_la_CFLAGS = $(GCC_CFLAGS) $(IVI_SHELL_CFLAGS)
+hmi_controller_la_SOURCES =				\
+	ivi-shell/ivi-layout-export.h			\
+	ivi-shell/hmi-controller.c
+nodist_hmi_controller_la_SOURCES =			\
+	protocol/ivi-application-protocol.c		\
+	protocol/ivi-application-client-protocol.h	\
+	protocol/ivi-hmi-controller-protocol.c		\
+	protocol/ivi-hmi-controller-client-protocol.h	\
+	protocol/ivi-hmi-controller-server-protocol.h
+
+BUILT_SOURCES += $(nodist_hmi_controller_la_SOURCES)
 
 endif
 
