@@ -73,12 +73,9 @@ cp %{SOURCE1001} .
     --disable-fullscreen-shell \
     --disable-desktop-shell \
     --disable-simple-clients \
-    --enable-ivi-shell \
-    #eol
+    --enable-ivi-shell
 
-#make %{?_smp_mflags} V=1
-
-make V=1
+%__make %{?_smp_mflags}
 
 
 %install
@@ -113,8 +110,6 @@ cp -rfva data/* %{buildroot}/%{_datadir}/weston/
 %_datadir/weston/*
 
 
-%exclude %_bindir/weston
-%exclude %_libdir/weston/desktop-shell.so
 %files devel
 %manifest %{name}.manifest
 %_includedir/weston/ivi-layout-export.h
