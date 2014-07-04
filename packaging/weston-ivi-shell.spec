@@ -71,6 +71,8 @@ cp %{SOURCE1001} .
     --disable-demo-clients-install \
     --disable-libinput-backend \
     --disable-fullscreen-shell \
+    --disable-desktop-shell \
+    --disable-simple-clients \
     --enable-ivi-shell \
     #eol
 
@@ -111,6 +113,8 @@ cp -rfva data/* %{buildroot}/%{_datadir}/weston/
 %_datadir/weston/*
 
 
+%exclude %_bindir/weston
+%exclude %_libdir/weston/desktop-shell.so
 %files devel
 %manifest %{name}.manifest
 %_includedir/weston/ivi-layout-export.h
@@ -124,3 +128,4 @@ cp -rfva data/* %{buildroot}/%{_datadir}/weston/
 %manifest %{name}.manifest
 %config %{weston_config_dir}/weston.ini
 
+%exclude %_libdir/pkgconfig/weston.pc
