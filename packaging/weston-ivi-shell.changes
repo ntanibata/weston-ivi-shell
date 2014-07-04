@@ -1,0 +1,28 @@
+* Tue Jun 24 2014 Ossama Othman <ossama.othman@intel.com> 1aa3fe8
+- Update to latest version that supports Weston 1.5.
+
+* Mon Mar 31 2014 Ossama Othman <ossama.othman@intel.com> 12c5de3
+- Bug fix: Similar bug of IVI-2969. it doesn't display a layer when the layer is switched from one screen to another screen.
+- Bug fix: TIVI-2969. it doesn't display a surface when the surface is switched from one layer to another layer.
+- Bug fix: TIVI-2966. Supporting wl_shell_info again
+- Fix a bug: the input panel (weston-keyboard) displayed above a pointer cursor.
+- packaging: Avoid conflicting installation of wl_shell client examples.
+- Update for rpmbuild to package new samples and weston.ini with version 0.1.3 add following client example as https://bugs.tizen.org/jira/browse/TIVI-2970 weston-simple-shm weston-simple-egl weston-flower weston-smoke weston-clickdot weston-editor weston-dnd weston-terminal
+- Add new ivi examples: dnd and editor
+- Add image of Demo application: Navigation
+- Add clients: dnd and keyboard to verify correspoding protocols.
+- Applying feedback from Wayland Mailing list and Bug fixes.
+- Apply review comment from Wayland Mailing list regarding protocols
+
+* Tue Mar 11 2014 Ossama Othman <ossama.othman@intel.com> accepted/tizen/ivi/20140311.203321@8fe6470
+- Pulled in changes that were missed during the last rebase.
+- Added a 'config' subpackage that contains sample homescreen config.
+- Update to latest upstream to address misplaced home button.
+- Initial package for Tizen IVI.
+
+* Thu Feb 27 2014 Ossama Othman <ossama.othman@intel.com> 3331500
+- Change image size to avoid what is used as cursor on DRM backend.
+
+* Mon Feb 24 2014 Ossama Othman <ossama.othman@intel.com> 8ba5f92
+- Initial package for Tizen IVI.
+
