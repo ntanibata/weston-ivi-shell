@@ -54,6 +54,8 @@
 #include "compositor.h"
 #include "ivi-layout.h"
 #include "ivi-layout-export.h"
+#include "ivi-layout-private.h"
+
 
 enum ivi_layout_surface_orientation {
     IVI_LAYOUT_SURFACE_ORIENTATION_0_DEGREES   = 0,
@@ -92,66 +94,6 @@ struct listener_layoutNotification {
 
 struct ivi_layout;
 
-struct ivi_layout_surface {
-    struct wl_list link;
-    struct wl_signal property_changed;
-    struct wl_list list_layer;
-    int32_t update_count;
-    uint32_t id_surface;
-
-    struct ivi_layout *layout;
-    struct weston_surface *surface;
-
-    struct wl_listener surface_destroy_listener;
-    struct weston_transform surface_rotation;
-    struct weston_transform layer_rotation;
-    struct weston_transform surface_pos;
-    struct weston_transform layer_pos;
-    struct weston_transform scaling;
-    struct ivi_layout_SurfaceProperties prop;
-    int32_t pixelformat;
-    uint32_t event_mask;
-
-    struct {
-        struct ivi_layout_SurfaceProperties prop;
-        struct wl_list link;
-    } pending;
-
-    struct {
-        struct wl_list link;
-        struct wl_list list_layer;
-    } order;
-
-    struct {
-        ivi_controller_surface_content_callback callback;
-        void* userdata;
-    } content_observer;
-};
-
-struct ivi_layout_layer {
-    struct wl_list link;
-    struct wl_signal property_changed;
-    struct wl_list list_screen;
-    struct wl_list link_to_surface;
-    uint32_t id_layer;
-
-    struct ivi_layout *layout;
-
-    struct ivi_layout_LayerProperties prop;
-    uint32_t event_mask;
-
-    struct {
-        struct ivi_layout_LayerProperties prop;
-        struct wl_list list_surface;
-        struct wl_list link;
-    } pending;
-
-    struct {
-        struct wl_list list_surface;
-        struct wl_list link;
-    } order;
-};
-
 struct ivi_layout_screen {
     struct wl_list link;
     struct wl_list link_to_layer;
@@ -173,28 +115,6 @@ struct ivi_layout_screen {
     } order;
 };
 
-struct ivi_layout {
-    struct weston_compositor *compositor;
-
-    struct wl_list list_surface;
-    struct wl_list list_layer;
-    struct wl_list list_screen;
-
-    struct {
-        struct wl_signal created;
-        struct wl_signal removed;
-    } layer_notification;
-
-    struct {
-        struct wl_signal created;
-        struct wl_signal removed;
-        struct wl_signal configure_changed;
-    } surface_notification;
-
-    struct weston_layer layout_layer;
-    struct wl_signal warning_signal;
-};
-
 struct ivi_layout_notificationCallback {
     void *callback;
     void *data;
@@ -207,7 +127,7 @@ struct shellWarningArgs {
 
 static struct ivi_layout ivilayout = {0};
 
-static struct ivi_layout *
+struct ivi_layout *
 get_instance(void)
 {
     return &ivilayout;
@@ -715,7 +635,7 @@ update_surface_position(struct ivi_layout_surface *ivisurf)
     weston_view_update_transform(view);
 
 #if 0
-    /* disable zoom animation */
+    /* disable zoom transition */
     weston_zoom_run(es, 0.0, 1.0, NULL, NULL);
 #endif
 
@@ -854,7 +774,79 @@ commit_list_surface(struct ivi_layout *layout)
     struct ivi_layout_surface *ivisurf = NULL;
 
     wl_list_for_each(ivisurf, &layout->list_surface, link) {
-        ivisurf->prop = ivisurf->pending.prop;
+        if(ivisurf->pending.prop.transitionType == IVI_LAYOUT_TRANSITION_VIEW_DEFAULT){
+            ivi_layout_transition_move_resize_view(ivisurf,
+                                                   ivisurf->pending.prop.destX,
+                                                   ivisurf->pending.prop.destY,
+                                                   ivisurf->pending.prop.destWidth,
+                                                   ivisurf->pending.prop.destHeight,
+                                                   ivisurf->pending.prop.transitionDuration);
+
+            if(ivisurf->pending.prop.visibility)
+            {
+                ivi_layout_transition_visibility_on(ivisurf, ivisurf->pending.prop.transitionDuration);
+            }
+            else
+            {
+                ivi_layout_transition_visibility_off(ivisurf, ivisurf->pending.prop.transitionDuration);
+            }
+
+            int32_t destX = ivisurf->prop.destX;
+            int32_t destY = ivisurf->prop.destY;
+            int32_t destWidth = ivisurf->prop.destWidth;
+            int32_t destHeight = ivisurf->prop.destHeight;
+
+            ivisurf->prop = ivisurf->pending.prop;
+            ivisurf->prop.destX = destX;
+            ivisurf->prop.destY = destY;
+            ivisurf->prop.destWidth = destWidth;
+            ivisurf->prop.destHeight = destHeight;
+            ivisurf->prop.transitionType = IVI_LAYOUT_TRANSITION_NONE;
+            ivisurf->pending.prop.transitionType = IVI_LAYOUT_TRANSITION_NONE;
+
+        }
+        else if(ivisurf->pending.prop.transitionType == IVI_LAYOUT_TRANSITION_VIEW_DEST_RECT_ONLY){
+            ivi_layout_transition_move_resize_view(ivisurf,
+                                                   ivisurf->pending.prop.destX,
+                                                   ivisurf->pending.prop.destY,
+                                                   ivisurf->pending.prop.destWidth,
+                                                   ivisurf->pending.prop.destHeight,
+                                                   ivisurf->pending.prop.transitionDuration);
+
+            int32_t destX = ivisurf->prop.destX;
+            int32_t destY = ivisurf->prop.destY;
+            int32_t destWidth = ivisurf->prop.destWidth;
+            int32_t destHeight = ivisurf->prop.destHeight;
+
+            ivisurf->prop = ivisurf->pending.prop;
+            ivisurf->prop.destX = destX;
+            ivisurf->prop.destY = destY;
+            ivisurf->prop.destWidth = destWidth;
+            ivisurf->prop.destHeight = destHeight;
+
+            ivisurf->prop.transitionType = IVI_LAYOUT_TRANSITION_NONE;
+            ivisurf->pending.prop.transitionType = IVI_LAYOUT_TRANSITION_NONE;
+
+        }
+        else if(ivisurf->pending.prop.transitionType == IVI_LAYOUT_TRANSITION_VIEW_FADE_ONLY){
+            if(ivisurf->pending.prop.visibility)
+            {
+                ivi_layout_transition_visibility_on(ivisurf, ivisurf->pending.prop.transitionDuration);
+            }
+            else
+            {
+                ivi_layout_transition_visibility_off(ivisurf, ivisurf->pending.prop.transitionDuration);
+            }
+
+            ivisurf->prop = ivisurf->pending.prop;
+            ivisurf->prop.transitionType = IVI_LAYOUT_TRANSITION_NONE;
+            ivisurf->pending.prop.transitionType = IVI_LAYOUT_TRANSITION_NONE;
+        }
+        else{
+            ivisurf->prop = ivisurf->pending.prop;
+            ivisurf->prop.transitionType = IVI_LAYOUT_TRANSITION_NONE;
+            ivisurf->pending.prop.transitionType = IVI_LAYOUT_TRANSITION_NONE;
+        }
     }
 }
 
@@ -866,6 +858,19 @@ commit_list_layer(struct ivi_layout *layout)
     struct ivi_layout_surface *next     = NULL;
 
     wl_list_for_each(ivilayer, &layout->list_layer, link) {
+        if(ivilayer->pending.prop.transitionType == IVI_LAYOUT_TRANSITION_LAYER_MOVE)
+        {
+            ivi_layout_transition_move_layer(ivilayer, ivilayer->pending.prop.destX, ivilayer->pending.prop.destY, ivilayer->pending.prop.transitionDuration);
+        }
+        else if(ivilayer->pending.prop.transitionType == IVI_LAYOUT_TRANSITION_LAYER_FADE)
+        {
+            ivi_layout_transition_fade_layer(ivilayer,ivilayer->pending.prop.isFadeIn,
+                                             ivilayer->pending.prop.startAlpha,ivilayer->pending.prop.endAlpha,
+                                             NULL, NULL,
+                                             ivilayer->pending.prop.transitionDuration);
+        }
+        ivilayer->pending.prop.transitionType = IVI_LAYOUT_TRANSITION_NONE;
+
         ivilayer->prop = ivilayer->pending.prop;
 
         if (!(ivilayer->event_mask &
@@ -996,6 +1001,21 @@ commit_list_screen(struct ivi_layout *layout)
 
         break;
     }
+}
+
+static void
+commit_transition(struct ivi_layout* layout)
+{
+    if(wl_list_empty(&layout->pending_transition_list)){
+        return;
+    }
+
+    wl_list_insert_list(&layout->transitions->transition_list,
+                        &layout->pending_transition_list);
+
+    wl_list_init(&layout->pending_transition_list);
+
+    wl_event_source_timer_update(layout->transitions->event_source, 1);
 }
 
 static void
@@ -2401,8 +2421,12 @@ ivi_layout_surfaceSetDestinationRectangle(struct ivi_layout_surface *ivisurf,
     }
 
     prop = &ivisurf->pending.prop;
+    prop->startX = prop->destX;
+    prop->startY = prop->destY;
     prop->destX = x;
     prop->destY = y;
+    prop->startWidth = prop->destWidth;
+    prop->startHeight = prop->destHeight;
     prop->destWidth = width;
     prop->destHeight = height;
 
@@ -2804,6 +2828,8 @@ ivi_layout_commitChanges(void)
     commit_list_layer(layout);
     commit_list_screen(layout);
 
+    commit_transition(layout);
+
     commit_changes(layout);
     send_prop(layout);
     weston_compositor_schedule_repaint(layout->compositor);
@@ -3055,6 +3081,10 @@ ivi_layout_initWithCompositor(struct weston_compositor *ec)
     else
         wl_list_remove(&ec->cursor_layer.link);
     weston_config_destroy(config);
+
+    layout->transitions = ivi_layout_transition_set_create(ec);
+    wl_list_init(&layout->pending_transition_list);
+
 }
 
 
