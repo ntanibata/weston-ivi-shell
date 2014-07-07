@@ -52,57 +52,6 @@ extern "C" {
 #include "compositor.h"
 #include "ivi-layout.h"
 
-struct ivi_layout_SurfaceProperties
-{
-    float    opacity;
-    int32_t sourceX;
-    int32_t sourceY;
-    int32_t sourceWidth;
-    int32_t sourceHeight;
-    int32_t origSourceWidth;
-    int32_t origSourceHeight;
-    int32_t  destX;
-    int32_t  destY;
-    int32_t destWidth;
-    int32_t destHeight;
-    int32_t orientation;
-    int32_t visibility;
-    int32_t frameCounter;
-    int32_t drawCounter;
-    int32_t updateCounter;
-    int32_t pixelformat;
-    int32_t nativeSurface;
-    int32_t inputDevicesAcceptance;
-    int32_t chromaKeyEnabled;
-    int32_t chromaKeyRed;
-    int32_t chromaKeyGreen;
-    int32_t chromaKeyBlue;
-    int32_t  creatorPid;
-};
-
-struct ivi_layout_LayerProperties
-{
-    float    opacity;
-    int32_t sourceX;
-    int32_t sourceY;
-    int32_t sourceWidth;
-    int32_t sourceHeight;
-    int32_t origSourceWidth;
-    int32_t origSourceHeight;
-    int32_t  destX;
-    int32_t  destY;
-    int32_t destWidth;
-    int32_t destHeight;
-    int32_t orientation;
-    int32_t visibility;
-    int32_t type;
-    int32_t chromaKeyEnabled;
-    int32_t chromaKeyRed;
-    int32_t chromaKeyGreen;
-    int32_t chromaKeyBlue;
-    int32_t  creatorPid;
-};
-
 struct ivi_layout_layer;
 struct ivi_layout_screen;
 
@@ -119,6 +68,17 @@ enum ivi_layout_notification_mask {
     IVI_NOTIFICATION_ADD         = (1 << 9),
     IVI_NOTIFICATION_REMOVE      = (1 << 10),
     IVI_NOTIFICATION_ALL         = 0xFFFF
+};
+
+enum ivi_layout_transition_type{
+    IVI_LAYOUT_TRANSITION_NONE,
+    IVI_LAYOUT_TRANSITION_VIEW_DEFAULT,
+    IVI_LAYOUT_TRANSITION_VIEW_DEST_RECT_ONLY,
+    IVI_LAYOUT_TRANSITION_VIEW_FADE_ONLY,
+    IVI_LAYOUT_TRANSITION_LAYER_FADE,
+    IVI_LAYOUT_TRANSITION_LAYER_MOVE,
+    IVI_LAYOUT_TRANSITION_LAYER_VIEW_ORDER,
+    IVI_LAYOUT_TRANSITION_MAX,
 };
 
 typedef void(*shellWarningNotificationFunc)(uint32_t id_surface,
@@ -947,6 +907,24 @@ ivi_layout_surfaceSetSourceRectangle(struct ivi_layout_surface *ivisurf,
  */
 struct weston_output *
 ivi_layout_screenGetOutput(struct ivi_layout_screen *);
+
+int32_t
+ivi_layout_layerSetTransition(struct ivi_layout_layer *ivilayer,
+                              enum ivi_layout_transition_type type,
+                              uint32_t duration);
+
+int32_t
+ivi_layout_layerSetFadeInfo(struct ivi_layout_layer* layer,
+                                    uint32_t is_fade_in,
+                                    double start_alpha, double end_alpha);
+
+int32_t
+ivi_layout_surfaceSetTransition(struct ivi_layout_surface *ivisurf,
+                                enum ivi_layout_transition_type type,
+                                uint32_t duration);
+
+int32_t
+ivi_layout_surfaceSetTransitionDuration(struct ivi_layout_surface *ivisurf,uint32_t duration);
 
 /**
  * \brief Commit all changes and execute all enqueued commands since last commit.

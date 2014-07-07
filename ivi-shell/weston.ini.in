@@ -13,6 +13,8 @@ workspace-background-layer-id=2000
 workspace-layer-id=3000
 application-layer-id=4000
 
+transition-duration=300
+
 background-image=@abs_top_builddir@/data/background.png
 background-id=1001
 panel-image=@abs_top_builddir@/data/panel.png

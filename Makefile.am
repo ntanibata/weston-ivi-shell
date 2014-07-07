@@ -787,7 +787,9 @@ ivi_layout_la_CFLAGS = $(GCC_CFLAGS) $(COMPOSITOR_CFLAGS) $(IVI_SHELL_CFLAGS)
 ivi_layout_la_SOURCES =				\
 	ivi-shell/ivi-layout.h			\
 	ivi-shell/ivi-layout-export.h		\
-	ivi-shell/ivi-layout.c
+	ivi-shell/ivi-layout.c			\
+	ivi-shell/ivi-layout-transition.h	\
+	ivi-shell/ivi-layout-transition.c
 nodist_ivi_layout_la_SOURCES =			\
 	protocol/ivi-application-protocol.c		\
 	protocol/ivi-application-server-protocol.h

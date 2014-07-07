@@ -153,6 +153,7 @@ hmi_homescreen_setting {
 
     char     *cursor_theme;
     int32_t  cursor_size;
+    uint32_t transition_duration;
 };
 
 volatile int gRun = 0;

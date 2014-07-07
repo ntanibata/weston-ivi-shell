@@ -52,6 +52,70 @@ extern "C" {
 #include "compositor.h"
 
 struct ivi_layout_surface;
+struct ivi_layout_layer;
+struct ivi_layout_screen;
+
+struct ivi_layout_SurfaceProperties
+{
+    float    opacity;
+    uint32_t sourceX;
+    uint32_t sourceY;
+    uint32_t sourceWidth;
+    uint32_t sourceHeight;
+    uint32_t origSourceWidth;
+    uint32_t origSourceHeight;
+    int32_t  startX;
+    int32_t  startY;
+    uint32_t startWidth;
+    uint32_t startHeight;
+    int32_t  destX;
+    int32_t  destY;
+    uint32_t destWidth;
+    uint32_t destHeight;
+    uint32_t orientation;
+    uint32_t visibility;
+    uint32_t frameCounter;
+    uint32_t drawCounter;
+    uint32_t updateCounter;
+    uint32_t pixelformat;
+    uint32_t nativeSurface;
+    uint32_t inputDevicesAcceptance;
+    uint32_t chromaKeyEnabled;
+    uint32_t chromaKeyRed;
+    uint32_t chromaKeyGreen;
+    uint32_t chromaKeyBlue;
+    int32_t  creatorPid;
+    int32_t  transitionType;
+    uint32_t transitionDuration;
+};
+
+struct ivi_layout_LayerProperties
+{
+    float    opacity;
+    uint32_t sourceX;
+    uint32_t sourceY;
+    uint32_t sourceWidth;
+    uint32_t sourceHeight;
+    uint32_t origSourceWidth;
+    uint32_t origSourceHeight;
+    int32_t  destX;
+    int32_t  destY;
+    uint32_t destWidth;
+    uint32_t destHeight;
+    uint32_t orientation;
+    uint32_t visibility;
+    uint32_t type;
+    uint32_t chromaKeyEnabled;
+    uint32_t chromaKeyRed;
+    uint32_t chromaKeyGreen;
+    uint32_t chromaKeyBlue;
+    int32_t  creatorPid;
+    int32_t  transitionType;
+    uint32_t transitionDuration;
+    double   startAlpha;
+    double   endAlpha;
+    uint32_t isFadeIn;
+};
 
 enum ivi_layout_warning_flag {
     IVI_WARNING_INVALID_WL_SURFACE,
