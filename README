@@ -14,6 +14,18 @@ ivi-shell proposes two features
   starts to move, the wl_surface drawn by Car navigation is expected to
   move top of surfaces.
 
+How to compile:
+same as weston. To disable, use option: --disable-ivi-shell for configure.
+
+How to configure weston.ini:
+reference ini file will be generated in <build_dir>/ivi-shell.
+
+How to run:
+same as weston. exec weston.
+
+How to use UI:
+http://lists.freedesktop.org/archives/wayland-devel/attachments/20140625/abbfc064/attachment-0001.png
+
 -----------------------------
 Weston
 
