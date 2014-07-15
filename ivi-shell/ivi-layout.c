@@ -1576,8 +1576,10 @@ ivi_layout_getScreenResolution(struct ivi_layout_screen *iviscrn,
     }
 
     output   = iviscrn->output;
-    *pWidth  = output->current_mode->width;
-    *pHeight = output->current_mode->height;
+    weston_log("ivi-shell uses %s as a screen.\n", output->name);
+    *pWidth  = output->width;
+    *pHeight = output->height;
+    weston_log("ivi-shell: screen resolution is (%i,%i).\n", *pWidth,*pHeight);
 
     return 0;
 }
