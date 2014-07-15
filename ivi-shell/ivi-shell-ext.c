@@ -209,12 +209,12 @@ shell_surface_configure(struct weston_surface *es,
 
 static void
 send_configure(struct weston_surface *surface,
-               uint32_t edges, int32_t width, int32_t height)
+               /* uint32_t edges, */ int32_t width, int32_t height)
 {
     struct shell_surface *shsurf = get_shell_surface(surface);
 
     wl_shell_surface_send_configure(shsurf->resource,
-                                    edges, width, height);
+                                    0 /* edges */, width, height);
 }
 
 static const struct weston_shell_client shell_client = {

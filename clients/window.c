@@ -138,6 +138,7 @@ struct display {
 	int has_rgb565;
 	int seat_version;
 	struct ivi_application *ivi_application;
+        struct wl_shell *shell;
 };
 
 struct window_output {
@@ -248,6 +249,7 @@ struct window {
 	struct surface *main_surface;
 	struct xdg_surface *xdg_surface;
 	struct xdg_popup *xdg_popup;
+        struct wl_shell_surface *shell_surface;
 
 	struct window *transient_for;
 	struct ivi_surface *ivi_surface;
@@ -1390,6 +1392,17 @@ surface_create_surface(struct surface *surface, uint32_t flags)
 				fprintf(stderr, "Failed to create ivi_client_surface\n");
 				abort();
 			}
+
+                        surface->window->shell_surface =
+                            wl_shell_get_shell_surface(display->shell, surface->surface);
+                        if (surface->window->shell_surface == NULL)
+                            fprintf(stderr, "could not obtain shell_surface\n");
+                        else {
+                            if (surface->window->title)
+                                wl_shell_surface_set_title(surface->window->shell_surface,
+                                                           surface->window->title);
+
+                        }
 		}
 	}
 
@@ -4278,6 +4291,8 @@ window_set_title(struct window *window, const char *title)
 	}
 	if (window->xdg_surface)
 		xdg_surface_set_title(window->xdg_surface, title);
+        if (window->shell_surface)
+                wl_shell_surface_set_title(window->shell_surface, title);
 }
 
 const char *
@@ -5128,6 +5143,11 @@ registry_handle_global(void *data, struct wl_registry *registry, uint32_t id,
 		d->ivi_application =
 			wl_registry_bind(registry, id,
 					 &ivi_application_interface, 1);
+	}
+	else if (strcmp(interface, "wl_shell") == 0) {
+		d->shell =
+			wl_registry_bind(registry, id,
+					 &wl_shell_interface, 1);
 	}
 
 	if (d->global_handler)
