@@ -42,6 +42,8 @@
 #include <dlfcn.h>
 #include <limits.h>
 
+#include <wayland-server.h>
+
 #include "ivi-shell.h"
 #include "ivi-shell-ext.h"
 #include "ivi-application-server-protocol.h"
@@ -377,6 +379,42 @@ send_wl_shell_info(int32_t pid, const char *window_title)
 
     wl_resource_for_each(resource, &shell->client_list) {
         ivi_application_send_wl_shell_info(resource, pid, window_title);
+    }
+}
+
+WL_EXPORT void
+get_wl_shell_info(struct ivi_layout_surface *layout_surface, uint32_t id_surface,
+                  int32_t *pid_ret, const char **window_title_ret)
+{
+    struct weston_surface *surface;
+    struct wl_array shsurflist;
+    struct shell_surface **shsurface;
+    pid_t pid;
+    uid_t uid;
+    gid_t gid;
+
+    *pid_ret = 0;
+    *window_title_ret = "";
+
+    if (layout_surface != NULL && id_surface > 0) {
+        surface = ivi_layout->get_weston_surface(layout_surface);
+
+        if (surface != NULL && surface->resource != NULL && surface->resource->client != NULL) {
+            wl_client_get_credentials(surface->resource->client, &pid, &uid, &gid);
+
+            *pid_ret = pid;
+
+            ivi_shell_get_shell_surfaces(&shsurflist);
+
+            wl_array_for_each(shsurface, &shsurflist) {
+                if (surface == shell_surface_get_surface(*shsurface)) {
+                    *window_title_ret = shell_surface_get_title(*shsurface);
+                    break;
+                }
+            }
+
+            wl_array_release(&shsurflist);
+        }
     }
 }
 
