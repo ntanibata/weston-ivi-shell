@@ -372,13 +372,22 @@ ivi_shell_setting_create(struct ivi_shell_setting *dest)
 }
 
 WL_EXPORT void
-send_wl_shell_info(int32_t pid, const char *window_title)
+send_wl_shell_info(int32_t pid, const char *window_title, struct weston_surface *surface)
 {
     struct ivi_shell *shell = get_instance();
     struct wl_resource *resource;
+    uint32_t id_surface = 0;
+    struct ivi_shell_surface *ivisurf;
+
+    wl_list_for_each(ivisurf, &shell->ivi_surface_list, link) {
+        if (surface == ivisurf->surface) {
+            id_surface = ivisurf->id_surface;
+            break;
+        }
+    }
 
     wl_resource_for_each(resource, &shell->client_list) {
-        ivi_application_send_wl_shell_info(resource, pid, window_title);
+        ivi_application_send_wl_shell_info(resource, pid, window_title, id_surface);
     }
 }
 

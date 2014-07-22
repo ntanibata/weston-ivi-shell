@@ -350,7 +350,7 @@ shell_surface_set_title(struct wl_client *client,
         shsurf->title = strdup("");
     }
 
-    send_wl_shell_info(shsurf->pid, shsurf->title);
+    send_wl_shell_info(shsurf->pid, shsurf->title, shsurf->surface);
 }
 
 static void
@@ -498,7 +498,7 @@ shell_get_shell_surface(struct wl_client   *client,
     shsurf->pid = pid;
     wl_list_insert(&shell->list_shell_surface, &shsurf->link);
 
-    send_wl_shell_info(shsurf->pid, shsurf->title);
+    send_wl_shell_info(shsurf->pid, shsurf->title, shsurf->surface);
 }
 
 static const struct wl_shell_interface shell_implementation = {
