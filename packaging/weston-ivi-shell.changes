@@ -1,3 +1,8 @@
+* Tue Aug 12 2014 Ossama Othman <ossama.othman@intel.com> accepted/tizen/ivi/20140701.104524-1-gf53cf2f
+- packaging: ship weston-ivi-shell-user-interface and resources
+- packaging: share protocol file and stubs
+- Build weston-clients to weston-ivi-shell
+
 * Tue Jun 24 2014 Ossama Othman <ossama.othman@intel.com> 1aa3fe8
 - Update to latest version that supports Weston 1.5.
 

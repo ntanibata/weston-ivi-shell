@@ -35,10 +35,18 @@ Requires:  %{name} = %{version}-%{release}
 This package provides header files and other developer releated files
 for package %{name}.
 
+%package clients
+Summary: Sample clients for package %{name}
+Group:   Graphics & UI Framework/Development
+%description clients
+This package provides a set of example ivi wayland clients useful for
+validating the functionality of wayland with very little dependencies
+on other system components.
+
 %package config
 Summary:    Tizen IVI Weston configuration for package %{name}
 Group:      Automotive/Configuration
-Requires:   weston-clients
+Requires:   weston-ivi-shell-clients
 Requires:   weekeyboard
 Requires:   genivi-shell
 Conflicts:  weston-ivi-config
@@ -55,7 +63,6 @@ cp %{SOURCE1001} .
 # unrelated.
 %autogen \
     --disable-static \
-    --disable-egl \
     --disable-libunwind \
     --disable-xwayland \
     --disable-xwayland-test \
@@ -66,9 +73,10 @@ cp %{SOURCE1001} .
     --disable-wayland-compositor \
     --disable-headless-compositor \
     --disable-weston-launch \
+    --enable-simple-clients \
     --enable-clients \
     --disable-wcap-tools \
-    --disable-demo-clients-install \
+    --enable-demo-clients-install \
     --disable-libinput-backend \
     --disable-fullscreen-shell \
     --disable-desktop-shell \
@@ -80,6 +88,26 @@ cp %{SOURCE1001} .
 
 %install
 %make_install
+
+# install example clients
+%define ivi_shell_client_dir %{_bindir}/ivi
+mkdir -p %{buildroot}%{ivi_shell_client_dir}
+install -m 755 weston-calibrator %{buildroot}%{ivi_shell_client_dir}
+install -m 755 weston-simple-touch %{buildroot}%{ivi_shell_client_dir}
+install -m 755 weston-simple-shm %{buildroot}%{ivi_shell_client_dir}
+install -m 755 weston-simple-egl %{buildroot}%{ivi_shell_client_dir}
+install -m 755 weston-flower %{buildroot}%{ivi_shell_client_dir}
+install -m 755 weston-image %{buildroot}%{ivi_shell_client_dir}
+install -m 755 weston-cliptest %{buildroot}%{ivi_shell_client_dir}
+install -m 755 weston-dnd %{buildroot}%{ivi_shell_client_dir}
+install -m 755 weston-editor %{buildroot}%{ivi_shell_client_dir}
+install -m 755 weston-smoke %{buildroot}%{ivi_shell_client_dir}
+install -m 755 weston-resizor %{buildroot}%{ivi_shell_client_dir}
+install -m 755 weston-eventdemo %{buildroot}%{ivi_shell_client_dir}
+install -m 755 weston-clickdot %{buildroot}%{ivi_shell_client_dir}
+install -m 755 weston-subsurfaces %{buildroot}%{ivi_shell_client_dir}
+install -m 755 weston-transformed %{buildroot}%{ivi_shell_client_dir}
+install -m 755 weston-fullscreen %{buildroot}%{ivi_shell_client_dir}
 
 install -d %{buildroot}/%{_datadir}/%{name}/protocol/
 
@@ -105,10 +133,14 @@ cp -rfva data/* %{buildroot}/%{_datadir}/weston/
 %manifest %{name}.manifest
 %defattr(-,root,root)
 %license COPYING
-%_libdir/weston
+%_libdir/weston/ivi-shell.so
+%_libdir/weston/ivi-layout.so
+%_libdir/weston/hmi-controller.so
 %_libexecdir/weston-ivi-shell-user-interface
 %_datadir/weston/*
 
+%exclude %_bindir/weston
+%exclude %_libdir/weston/desktop-shell.so
 
 %files devel
 %manifest %{name}.manifest
@@ -119,6 +151,24 @@ cp -rfva data/* %{buildroot}/%{_datadir}/weston/
 %_includedir/weston/ivi-layout-transition.h
 %{_datadir}/%{name}/protocol/*
 
+%files clients
+%manifest %{name}.manifest
+%{ivi_shell_client_dir}/weston-simple-touch
+%{ivi_shell_client_dir}/weston-simple-shm
+%{ivi_shell_client_dir}/weston-simple-egl
+%{ivi_shell_client_dir}/weston-flower
+%{ivi_shell_client_dir}/weston-image
+%{ivi_shell_client_dir}/weston-cliptest
+%{ivi_shell_client_dir}/weston-dnd
+%{ivi_shell_client_dir}/weston-editor
+%{ivi_shell_client_dir}/weston-smoke
+%{ivi_shell_client_dir}/weston-resizor
+%{ivi_shell_client_dir}/weston-eventdemo
+%{ivi_shell_client_dir}/weston-clickdot
+%{ivi_shell_client_dir}/weston-subsurfaces
+%{ivi_shell_client_dir}/weston-transformed
+%{ivi_shell_client_dir}/weston-fullscreen
+%{ivi_shell_client_dir}/weston-calibrator
 
 %files config
 %manifest %{name}.manifest
