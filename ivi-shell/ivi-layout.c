@@ -2866,6 +2866,13 @@ ivi_layout_surfaceConfigure(struct ivi_layout_surface *ivisurf,
     ivisurf->surface->width_from_buffer  = width;
     ivisurf->surface->height_from_buffer = height;
 
+    if (ivisurf->prop.sourceWidth == 0 || ivisurf->prop.sourceHeight == 0) {
+        ivisurf->pending.prop.sourceWidth = width;
+        ivisurf->pending.prop.sourceHeight = height;
+        ivisurf->prop.sourceWidth = width;
+        ivisurf->prop.sourceHeight = height;
+    }
+
     wl_signal_emit(&layout->surface_notification.configure_changed, ivisurf);
 }
 
