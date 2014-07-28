@@ -2658,6 +2658,86 @@ ivi_layout_screenGetOutput(struct ivi_layout_screen *iviscrn)
     return iviscrn->output;
 }
 
+WL_EXPORT struct weston_surface *
+ivi_layout_surfaceGetWestonSurface(struct ivi_layout_surface *ivisurf)
+{
+    return ivisurf != NULL ? ivisurf->surface : NULL;
+}
+
+static int32_t
+surfaceGetBitPerPixel(struct ivi_layout_surface *ivisurf)
+{
+    int32_t bpp = 0;
+
+    if (ivisurf == NULL) {
+        return bpp;
+    }
+
+    switch (ivisurf->pixelformat) {
+    case IVI_LAYOUT_SURFACE_PIXELFORMAT_R_8:
+        bpp = 8;
+        break;
+
+    case IVI_LAYOUT_SURFACE_PIXELFORMAT_RGB_888:
+        bpp = 24;
+        break;
+
+    case IVI_LAYOUT_SURFACE_PIXELFORMAT_RGBA_8888:
+        bpp = 32;
+        break;
+
+    case IVI_LAYOUT_SURFACE_PIXELFORMAT_RGB_565:
+        bpp = 16;
+        break;
+
+    case IVI_LAYOUT_SURFACE_PIXELFORMAT_RGBA_5551:
+        bpp = 16;
+        break;
+
+    case IVI_LAYOUT_SURFACE_PIXELFORMAT_RGBA_6661:
+        bpp = 0;  // 19
+        break;
+
+    case IVI_LAYOUT_SURFACE_PIXELFORMAT_RGBA_4444:
+        bpp = 16;
+        break;
+
+    case IVI_LAYOUT_SURFACE_PIXELFORMAT_UNKNOWN:
+    default:
+        bpp = 0;
+        break;
+    }
+
+    return bpp;
+}
+
+WL_EXPORT int32_t
+ivi_layout_surfaceGetSize(struct ivi_layout_surface *ivisurf, int32_t *width, int32_t *height, int32_t *stride)
+{
+    if (ivisurf == NULL) {
+        return -1;
+    }
+
+    if (width != NULL) {
+        *width = ivisurf->prop.sourceWidth;
+    }
+
+    if (height != NULL) {
+        *height = ivisurf->prop.sourceHeight;
+    }
+
+    if (stride != NULL) {
+        int32_t bpp = surfaceGetBitPerPixel(ivisurf);
+        if ((bpp == 0) ||(bpp % 8 != 0)) {
+            return -1;
+        }
+
+        *stride = ivisurf->prop.sourceWidth * (bpp / 8);
+    }
+
+    return 0;
+}
+
 WL_EXPORT int32_t
 ivi_layout_SetOptimizationMode(uint32_t id, int32_t mode)
 {

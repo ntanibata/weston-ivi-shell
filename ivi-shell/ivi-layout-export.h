@@ -908,6 +908,12 @@ ivi_layout_surfaceSetSourceRectangle(struct ivi_layout_surface *ivisurf,
 struct weston_output *
 ivi_layout_screenGetOutput(struct ivi_layout_screen *);
 
+struct weston_surface *
+ivi_layout_surfaceGetWestonSurface(struct ivi_layout_surface *ivisurf);
+
+int32_t
+ivi_layout_surfaceGetSize(struct ivi_layout_surface *ivisurf, int32_t *width, int32_t *height, int32_t *stride);
+
 int32_t
 ivi_layout_layerSetTransition(struct ivi_layout_layer *ivilayer,
                               enum ivi_layout_transition_type type,
