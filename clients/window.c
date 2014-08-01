@@ -24,6 +24,7 @@
 #include "config.h"
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -137,6 +138,8 @@ struct display {
 
 	int has_rgb565;
 	int seat_version;
+
+	bool create_ivi_surface;
 	struct ivi_application *ivi_application;
         struct wl_shell *shell;
 };
@@ -1381,28 +1384,30 @@ surface_create_surface(struct surface *surface, uint32_t flags)
 	struct display *display = surface->window->display;
 	struct rectangle allocation = surface->allocation;
 
-	if (display->ivi_application)
-	{
+	if (display->ivi_application) {
 		if (!surface->toysurface && strcmp(surface->window->title,"Virtual keyboard")!=0) {
-			uint32_t id_ivisurf = IVI_SURFACE_ID + (uint32_t)getpid();
-			surface->window->ivi_surface =
-				ivi_application_surface_create(display->ivi_application,
-							       id_ivisurf, surface->surface);
-			if (surface->window->ivi_surface == NULL) {
-				fprintf(stderr, "Failed to create ivi_client_surface\n");
-				abort();
+			if (display->create_ivi_surface) {
+				uint32_t id_ivisurf = IVI_SURFACE_ID + (uint32_t)getpid();
+				surface->window->ivi_surface =
+					ivi_application_surface_create(display->ivi_application,
+					                               id_ivisurf, surface->surface);
+				if (surface->window->ivi_surface == NULL) {
+					fprintf(stderr, "Failed to create ivi_client_surface\n");
+					abort();
+                                }
+                                fprintf(stderr, "created IVI surface %u\n", id_ivisurf);
 			}
 
-                        surface->window->shell_surface =
-                            wl_shell_get_shell_surface(display->shell, surface->surface);
-                        if (surface->window->shell_surface == NULL)
-                            fprintf(stderr, "could not obtain shell_surface\n");
-                        else {
-                            if (surface->window->title)
-                                wl_shell_surface_set_title(surface->window->shell_surface,
-                                                           surface->window->title);
-
-                        }
+			surface->window->shell_surface =
+				wl_shell_get_shell_surface(display->shell, surface->surface);
+			if (surface->window->shell_surface == NULL)
+				fprintf(stderr, "could not obtain shell_surface\n");
+			else {
+				if (surface->window->title) {
+					wl_shell_surface_set_title(surface->window->shell_surface,
+					                           surface->window->title);
+				}
+			}
 		}
 	}
 
@@ -1511,7 +1516,7 @@ surface_destroy(struct surface *surface)
 
 	if (surface->window->display->ivi_application)
 	{
-		if(strcmp(surface->window->title,"Virtual keyboard")!=0)
+		if(surface->window->ivi_surface && strcmp(surface->window->title,"Virtual keyboard"))
 			ivi_surface_destroy(surface->window->ivi_surface);
 		ivi_application_destroy(surface->window->display->ivi_application);
 	}
@@ -5143,6 +5148,11 @@ registry_handle_global(void *data, struct wl_registry *registry, uint32_t id,
 		d->ivi_application =
 			wl_registry_bind(registry, id,
 					 &ivi_application_interface, 1);
+		if (!d->create_ivi_surface) {
+			fprintf(stderr, "ivi_application_interface is supported but IVI surface(s) "
+			        "will not be created\n"
+			        "due to command line option --no-ivi-surface\n");
+		}
 	}
 	else if (strcmp(interface, "wl_shell") == 0) {
 		d->shell =
@@ -5335,8 +5345,19 @@ struct display *
 display_create(int *argc, char *argv[])
 {
 	struct display *d;
+        bool create_ivi_surface;
+        int i;
 
 	wl_log_set_handler_client(log_handler);
+
+        create_ivi_surface = true;
+
+	for (i = 0;  i < *argc;  i++) {
+		if (!strcmp(argv[i], "--no-ivi-surface")) {
+			create_ivi_surface = false;
+                        break;
+		}
+	}
 
 	d = zalloc(sizeof *d);
 	if (d == NULL)
@@ -5369,6 +5390,8 @@ display_create(int *argc, char *argv[])
 
 	d->workspace = 0;
 	d->workspace_count = 1;
+
+	d->create_ivi_surface = create_ivi_surface;
 
 	d->registry = wl_display_get_registry(d->display);
 	wl_registry_add_listener(d->registry, &registry_listener, d);
