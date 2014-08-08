@@ -930,6 +930,15 @@ commit_list_screen(struct ivi_layout *layout)
     struct ivi_layout_layer   *ivilayer = NULL;
     struct ivi_layout_layer   *next     = NULL;
     struct ivi_layout_surface *ivisurf  = NULL;
+    struct weston_view        *view, *n;
+
+    /* clear view list of layout layer */
+    wl_list_for_each_safe(view, n, &layout->layout_layer.view_list, layer_link)
+    {
+        wl_list_remove(&view->layer_link);
+        wl_list_init(&view->layer_link);
+    }
+
 
     wl_list_for_each(iviscrn, &layout->list_screen, link) {
         if (iviscrn->event_mask & IVI_NOTIFICATION_REMOVE) {
@@ -970,9 +979,7 @@ commit_list_screen(struct ivi_layout *layout)
 
         iviscrn->event_mask = 0;
 
-        /* Clear view list of layout layer */
-        wl_list_init(&layout->layout_layer.view_list);
-
+        /* rebuild view list of layout layer */
         wl_list_for_each(ivilayer, &iviscrn->order.list_layer, order.link) {
 
             if (ivilayer->prop.visibility == 0)
@@ -998,8 +1005,6 @@ commit_list_screen(struct ivi_layout *layout)
                 ivisurf->surface->output = iviscrn->output;
             }
         }
-
-        break;
     }
 }
 
