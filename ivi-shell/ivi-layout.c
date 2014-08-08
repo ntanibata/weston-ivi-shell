@@ -2282,7 +2282,7 @@ ivi_layout_layerSetRenderOrder(struct ivi_layout_layer *ivilayer,
     for (i = 0; i < number; i++) {
         id_surface = &pSurface[i]->id_surface;
 
-        wl_list_for_each_safe(ivisurf, next, &layout->list_surface, pending.link) {
+        wl_list_for_each_safe(ivisurf, next, &layout->list_surface, link) {
             if (*id_surface != ivisurf->id_surface) {
                 continue;
             }
