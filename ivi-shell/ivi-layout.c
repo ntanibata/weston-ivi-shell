@@ -923,6 +923,8 @@ commit_list_layer(struct ivi_layout *layout)
     }
 }
 
+
+
 static void
 commit_list_screen(struct ivi_layout *layout)
 {
@@ -994,15 +996,23 @@ commit_list_screen(struct ivi_layout *layout)
                     }
                 }
 
-                if (ivisurf->prop.visibility == 0)
-                    continue;
-                if (ivisurf->surface == NULL || tmpview == NULL)
+                if (ivisurf->surface == NULL || ivisurf->view == NULL)
                     continue;
 
-                wl_list_insert(&layout->layout_layer.view_list,
-                               &tmpview->layer_link);
+                if (ivilayer->prop.visibility == 0 ||
+                    ivisurf->prop.visibility == 0)
+                {
+                    weston_view_unmap(ivisurf->view);
+                }
+                else {
+                    wl_list_insert(&layout->layout_layer.view_list,
+                                   &ivisurf->view->layer_link);
 
-                ivisurf->surface->output = iviscrn->output;
+                    if (!weston_view_is_mapped(ivisurf->view)) {
+                        weston_view_geometry_dirty(ivisurf->view);
+                        weston_view_update_transform(ivisurf->view);
+                    }
+                }
             }
         }
     }
