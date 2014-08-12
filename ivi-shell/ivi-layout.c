@@ -984,9 +984,6 @@ commit_list_screen(struct ivi_layout *layout)
         /* rebuild view list of layout layer */
         wl_list_for_each(ivilayer, &iviscrn->order.list_layer, order.link) {
 
-            if (ivilayer->prop.visibility == 0)
-                continue;
-
             wl_list_for_each(ivisurf, &ivilayer->order.list_surface, order.link) {
                 struct weston_view *tmpview = NULL;
                 wl_list_for_each(tmpview, &ivisurf->surface->views, surface_link)
@@ -1008,7 +1005,9 @@ commit_list_screen(struct ivi_layout *layout)
                     wl_list_insert(&layout->layout_layer.view_list,
                                    &ivisurf->view->layer_link);
 
-                    if (!weston_view_is_mapped(ivisurf->view)) {
+                    if (!weston_view_is_mapped(ivisurf->view) ||
+                        (ivilayer->event_mask & IVI_NOTIFICATION_ADD))
+                    {
                         weston_view_geometry_dirty(ivisurf->view);
                         weston_view_update_transform(ivisurf->view);
                     }
