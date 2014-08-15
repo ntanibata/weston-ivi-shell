@@ -2461,8 +2461,20 @@ ivi_layout_SetKeyboardFocusOn(struct ivi_layout_surface *ivisurf)
 WL_EXPORT int32_t
 ivi_layout_GetKeyboardFocusSurfaceId(struct ivi_layout_surface **pSurfaceId)
 {
-    /* TODO */
-    (void)pSurfaceId;
+    struct wl_list *surface_list = &get_instance()->list_surface;
+    struct ivi_layout_surface *current_surf;
+
+    if (surface_list == NULL) {
+        weston_log("%s: surface list is NULL\n", __FUNCTION__);
+        return -1;
+    }
+
+    wl_list_for_each(current_surf, surface_list, link) {
+        if (current_surf->prop.hasKeyboardFocus != 0) {
+            *pSurfaceId = current_surf;
+            break;
+        }
+    }
 
     return 0;
 }
