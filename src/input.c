@@ -1555,8 +1555,8 @@ pointer_cursor_surface_configure(struct weston_surface *es,
 	empty_region(&es->input);
 
 	if (!weston_surface_is_mapped(es)) {
-		wl_list_insert(&es->compositor->cursor_layer.view_list,
-			       &pointer->sprite->layer_link);
+		weston_layer_entry_insert(&es->compositor->cursor_layer.view_list,
+					  &pointer->sprite->layer_link);
 		weston_view_update_transform(pointer->sprite);
 	}
 }
@@ -1721,6 +1721,12 @@ seat_get_keyboard(struct wl_client *client, struct wl_resource *resource,
 	wl_resource_set_implementation(cr, &keyboard_interface,
 				       seat, unbind_resource);
 
+	if (wl_resource_get_version(cr) >= WL_KEYBOARD_REPEAT_INFO_SINCE_VERSION) {
+		wl_keyboard_send_repeat_info(cr,
+					     seat->compositor->kb_repeat_rate,
+					     seat->compositor->kb_repeat_delay);
+	}
+
 	if (seat->compositor->use_xkbcommon) {
 		wl_keyboard_send_keymap(cr, WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1,
 					keyboard->xkb_info->keymap_fd,
@@ -1813,7 +1819,7 @@ bind_seat(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 	enum wl_seat_capability caps = 0;
 
 	resource = wl_resource_create(client,
-				      &wl_seat_interface, MIN(version, 3), id);
+				      &wl_seat_interface, MIN(version, 4), id);
 	wl_list_insert(&seat->base_resource_list, wl_resource_get_link(resource));
 	wl_resource_set_implementation(resource, &seat_interface, data,
 				       unbind_resource);
@@ -1826,7 +1832,7 @@ bind_seat(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 		caps |= WL_SEAT_CAPABILITY_TOUCH;
 
 	wl_seat_send_capabilities(resource, caps);
-	if (version >= 2)
+	if (version >= WL_SEAT_NAME_SINCE_VERSION)
 		wl_seat_send_name(resource, seat->seat_name);
 }
 
@@ -2207,7 +2213,7 @@ weston_seat_init(struct weston_seat *seat, struct weston_compositor *ec,
 	wl_signal_init(&seat->destroy_signal);
 	wl_signal_init(&seat->updated_caps_signal);
 
-	seat->global = wl_global_create(ec->wl_display, &wl_seat_interface, 3,
+	seat->global = wl_global_create(ec->wl_display, &wl_seat_interface, 4,
 					seat, bind_seat);
 
 	seat->compositor = ec;

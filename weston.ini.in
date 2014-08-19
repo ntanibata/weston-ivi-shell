@@ -38,7 +38,7 @@ icon=/usr/share/icons/gnome/24x24/apps/arts.png
 path=@abs_top_builddir@/weston-flower
 
 [screensaver]
-# Uncomment path to disable screensaver
+# Comment path to disable screensaver
 path=@libexecdir@/weston-screensaver
 duration=600
 
@@ -59,9 +59,15 @@ path=@libexecdir@/weston-keyboard
 #[output]
 #name=X1
 #mode=1024x768
-#transform=flipped-270
+#transform=flipped-90
+
+#[libinput]
+#enable_tap=true
 
 #[touchpad]
 #constant_accel_factor = 50
 #min_accel_factor = 0.16
 #max_accel_factor = 1.0
+
+[screen-share]
+command=@bindir@/weston --backend=rdp-backend.so --shell=fullscreen-shell.so --no-clients-resize

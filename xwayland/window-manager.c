@@ -1007,12 +1007,9 @@ weston_wm_window_draw_decoration(void *data)
 
 		pixman_region32_init_rect(&window->surface->pending.input,
 					  input_x, input_y, input_w, input_h);
-		
-		shell_interface->set_margin(window->shsurf,
-					    input_x,
-					    width - input_w - input_x,
-					    input_y,
-					    height - input_h - input_y);
+
+		shell_interface->set_window_geometry(window->shsurf,
+						     input_x, input_y, input_w, input_h);
 	}
 }
 
@@ -1374,14 +1371,17 @@ weston_wm_window_handle_surface_id(struct weston_wm_window *window,
 	 * hasn't been created yet.  In that case put the window on
 	 * the unpaired window list and continue when the surface gets
 	 * created. */
-	window->surface_id = client_message->data.data32[0];
-	resource = wl_client_get_object(wm->server->client,
-					window->surface_id);
-	if (resource)
+	uint32_t id = client_message->data.data32[0];
+	resource = wl_client_get_object(wm->server->client, id);
+	if (resource) {
+		window->surface_id = 0;
 		xserver_map_shell_surface(window,
 					  wl_resource_get_user_data(resource));
-	else
+	}
+	else {
+		window->surface_id = id;
 		wl_list_insert(&wm->unpaired_window_list, &window->link);
+	}
 }
 
 static void
@@ -1402,6 +1402,12 @@ weston_wm_handle_client_message(struct weston_wm *wm,
 	       client_message->data.data32[3],
 	       client_message->data.data32[4],
 	       client_message->window);
+
+	/* The window may get created and destroyed before we actually
+	 * handle the message.  If it doesn't exist, bail.
+	 */
+	if (!window)
+		return;
 
 	if (client_message->type == wm->atom.net_wm_moveresize)
 		weston_wm_window_handle_moveresize(window, client_message);

@@ -239,12 +239,13 @@ struct window {
 	window_close_handler_t close_handler;
 	window_fullscreen_handler_t fullscreen_handler;
 	window_output_handler_t output_handler;
+	window_state_changed_handler_t state_changed_handler;
 
 	struct surface *main_surface;
 	struct xdg_surface *xdg_surface;
 	struct xdg_popup *xdg_popup;
 
-	struct window *transient_for;
+	struct window *parent;
 
 	struct window_frame *frame;
 
@@ -333,6 +334,11 @@ struct input {
 		xkb_mod_mask_t shift_mask;
 	} xkb;
 
+	int32_t repeat_rate_sec;
+	int32_t repeat_rate_nsec;
+	int32_t repeat_delay_sec;
+	int32_t repeat_delay_nsec;
+
 	struct task repeat_task;
 	int repeat_timer_fd;
 	uint32_t repeat_sym;
@@ -362,8 +368,8 @@ struct window_frame {
 };
 
 struct menu {
+	void *user_data;
 	struct window *window;
-	struct window *parent;
 	struct widget *widget;
 	struct input *input;
 	struct frame *frame;
@@ -2120,12 +2126,6 @@ frame_resize_handler(struct widget *widget,
 		interior.width = width;
 		interior.height = height;
 	} else {
-		if (widget->window->maximized) {
-			frame_set_flag(frame->frame, FRAME_FLAG_MAXIMIZED);
-		} else {
-			frame_unset_flag(frame->frame, FRAME_FLAG_MAXIMIZED);
-		}
-
 		frame_resize(frame->frame, width, height);
 		frame_interior(frame->frame, &interior.x, &interior.y,
 			       &interior.width, &interior.height);
@@ -2193,12 +2193,6 @@ frame_redraw_handler(struct widget *widget, void *data)
 	if (window->fullscreen)
 		return;
 
-	if (window->focused) {
-		frame_set_flag(frame->frame, FRAME_FLAG_ACTIVE);
-	} else {
-		frame_unset_flag(frame->frame, FRAME_FLAG_ACTIVE);
-	}
-
 	cr = widget_cairo_create(widget);
 
 	frame_repaint(frame->frame, cr);
@@ -2239,61 +2233,19 @@ frame_get_pointer_image_for_location(struct window_frame *frame,
 	}
 }
 
-static void
-frame_menu_func(struct window *window,
-		struct input *input, int index, void *data)
-{
-	struct display *display;
-
-	switch (index) {
-	case 0: /* close */
-		window_close(window);
-		break;
-	case 1: /* move to workspace above */
-		display = window->display;
-		if (display->workspace > 0)
-			workspace_manager_move_surface(
-				display->workspace_manager,
-				window->main_surface->surface,
-				display->workspace - 1);
-		break;
-	case 2: /* move to workspace below */
-		display = window->display;
-		if (display->workspace < display->workspace_count - 1)
-			workspace_manager_move_surface(
-				display->workspace_manager,
-				window->main_surface->surface,
-				display->workspace + 1);
-		break;
-	case 3: /* fullscreen */
-		/* we don't have a way to get out of fullscreen for now */
-		if (window->fullscreen_handler)
-			window->fullscreen_handler(window, window->user_data);
-		break;
-	}
-}
-
 void
 window_show_frame_menu(struct window *window,
 		       struct input *input, uint32_t time)
 {
 	int32_t x, y;
-	int count;
 
-	static const char *entries[] = {
-		"Close",
-		"Move to workspace above", "Move to workspace below",
-		"Fullscreen"
-	};
-
-	if (window->fullscreen_handler)
-		count = ARRAY_LENGTH(entries);
-	else
-		count = ARRAY_LENGTH(entries) - 1;
-
-	input_get_position(input, &x, &y);
-	window_show_menu(window->display, input, time, window,
-			 x - 10, y - 10, frame_menu_func, entries, count);
+	if (window->xdg_surface) {
+		input_get_position(input, &x, &y);
+		xdg_surface_show_window_menu(window->xdg_surface,
+					     input_get_seat(input),
+					     window->display->serial,
+					     x - 10, y - 10);
+	}
 }
 
 static int
@@ -2379,7 +2331,6 @@ frame_handle_status(struct window_frame *frame, struct input *input,
 	if ((status & FRAME_STATUS_RESIZE) && window->xdg_surface) {
 		input_ungrab(input);
 
-		window->resizing = 1;
 		xdg_surface_resize(window->xdg_surface,
 				   input_get_seat(input),
 				   window->display->serial,
@@ -2614,12 +2565,6 @@ pointer_handle_enter(void *data, struct wl_pointer *pointer,
 	input->display->serial = serial;
 	input->pointer_enter_serial = serial;
 	input->pointer_focus = window;
-
-	if (window->resizing) {
-		window->resizing = 0;
-		/* Schedule a redraw to free the pool */
-		window_schedule_redraw(window);
-	}
 
 	input->sx = sx;
 	input->sy = sy;
@@ -2924,10 +2869,10 @@ keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
 		input->repeat_sym = sym;
 		input->repeat_key = key;
 		input->repeat_time = time;
-		its.it_interval.tv_sec = 0;
-		its.it_interval.tv_nsec = 25 * 1000 * 1000;
-		its.it_value.tv_sec = 0;
-		its.it_value.tv_nsec = 400 * 1000 * 1000;
+		its.it_interval.tv_sec = input->repeat_rate_sec;
+		its.it_interval.tv_nsec = input->repeat_rate_nsec;
+		its.it_value.tv_sec = input->repeat_delay_sec;
+		its.it_value.tv_nsec = input->repeat_delay_nsec;
 		timerfd_settime(input->repeat_timer_fd, 0, &its, NULL);
 	}
 }
@@ -2959,12 +2904,44 @@ keyboard_handle_modifiers(void *data, struct wl_keyboard *keyboard,
 		input->modifiers |= MOD_SHIFT_MASK;
 }
 
+static void
+set_repeat_info(struct input *input, int32_t rate, int32_t delay)
+{
+	input->repeat_rate_sec = input->repeat_rate_nsec = 0;
+	input->repeat_delay_sec = input->repeat_delay_nsec = 0;
+
+	/* a rate of zero disables any repeating, regardless of the delay's
+	 * value */
+	if (rate == 0)
+		return;
+
+	if (rate == 1)
+		input->repeat_rate_sec = 1;
+	else
+		input->repeat_rate_nsec = 1000000000 / rate;
+
+	input->repeat_delay_sec = delay / 1000;
+	delay -= (input->repeat_delay_sec * 1000);
+	input->repeat_delay_nsec = delay * 1000 * 1000;
+}
+
+static void
+keyboard_handle_repeat_info(void *data, struct wl_keyboard *keyboard,
+			    int32_t rate, int32_t delay)
+{
+	struct input *input = data;
+
+	set_repeat_info(input, rate, delay);
+}
+
 static const struct wl_keyboard_listener keyboard_listener = {
 	keyboard_handle_keymap,
 	keyboard_handle_enter,
 	keyboard_handle_leave,
 	keyboard_handle_key,
 	keyboard_handle_modifiers,
+	keyboard_handle_repeat_info
+
 };
 
 static void
@@ -3847,53 +3824,82 @@ widget_schedule_resize(struct widget *widget, int32_t width, int32_t height)
 	window_schedule_resize(widget->window, width, height);
 }
 
-static void
-handle_surface_configure(void *data, struct xdg_surface *xdg_surface,
-			 int32_t width, int32_t height)
+static int
+window_get_shadow_margin(struct window *window)
 {
-	struct window *window = data;
-
-	window_schedule_resize(window, width, height);
+	if (window->frame && !window->fullscreen)
+		return frame_get_shadow_margin(window->frame->frame);
+	else
+		return 0;
 }
 
 static void
-handle_surface_change_state(void *data, struct xdg_surface *xdg_surface,
-			    uint32_t state,
-			    uint32_t value,
-			    uint32_t serial)
+handle_surface_configure(void *data, struct xdg_surface *xdg_surface,
+			 int32_t width, int32_t height,
+			 struct wl_array *states, uint32_t serial)
 {
 	struct window *window = data;
+	uint32_t *p;
 
-	switch (state) {
-	case XDG_SURFACE_STATE_MAXIMIZED:
-		window->maximized = value;
-		break;
-	case XDG_SURFACE_STATE_FULLSCREEN:
-		window->fullscreen = value;
-		break;
+	window->maximized = 0;
+	window->fullscreen = 0;
+	window->resizing = 0;
+	window->focused = 0;
+
+	wl_array_for_each(p, states) {
+		uint32_t state = *p;
+		switch (state) {
+		case XDG_SURFACE_STATE_MAXIMIZED:
+			window->maximized = 1;
+			break;
+		case XDG_SURFACE_STATE_FULLSCREEN:
+			window->fullscreen = 1;
+			break;
+		case XDG_SURFACE_STATE_RESIZING:
+			window->resizing = 1;
+			break;
+		case XDG_SURFACE_STATE_ACTIVATED:
+			window->focused = 1;
+			break;
+		default:
+			/* Unknown state */
+			break;
+		}
 	}
 
-	if (!window->fullscreen && !window->maximized)
+	if (window->frame) {
+		if (window->maximized) {
+			frame_set_flag(window->frame->frame, FRAME_FLAG_MAXIMIZED);
+		} else {
+			frame_unset_flag(window->frame->frame, FRAME_FLAG_MAXIMIZED);
+		}
+
+		if (window->focused) {
+			frame_set_flag(window->frame->frame, FRAME_FLAG_ACTIVE);
+		} else {
+			frame_unset_flag(window->frame->frame, FRAME_FLAG_ACTIVE);
+		}
+	}
+
+	if (width > 0 && height > 0) {
+		/* The width / height params are for window geometry,
+		 * but window_schedule_resize takes allocation. Add
+		 * on the shadow margin to get the difference. */
+		int margin = window_get_shadow_margin(window);
+
+		window_schedule_resize(window,
+				       width + margin * 2,
+				       height + margin * 2);
+	} else {
 		window_schedule_resize(window,
 				       window->saved_allocation.width,
 				       window->saved_allocation.height);
+	}
 
-	xdg_surface_ack_change_state(xdg_surface, state, value, serial);
-	window_schedule_redraw(window);
-}
+	xdg_surface_ack_configure(window->xdg_surface, serial);
 
-static void
-handle_surface_activated(void *data, struct xdg_surface *xdg_surface)
-{
-	struct window *window = data;
-	window->focused = 1;
-}
-
-static void
-handle_surface_deactivated(void *data, struct xdg_surface *xdg_surface)
-{
-	struct window *window = data;
-	window->focused = 0;
+	if (window->state_changed_handler)
+		window->state_changed_handler(window, window->user_data);
 }
 
 static void
@@ -3905,47 +3911,53 @@ handle_surface_delete(void *data, struct xdg_surface *xdg_surface)
 
 static const struct xdg_surface_listener xdg_surface_listener = {
 	handle_surface_configure,
-	handle_surface_change_state,
-	handle_surface_activated,
-	handle_surface_deactivated,
 	handle_surface_delete,
 };
 
 static void
-window_sync_transient_for(struct window *window)
+window_sync_parent(struct window *window)
 {
 	struct wl_surface *parent_surface;
 
 	if (!window->xdg_surface)
 		return;
 
-	if (window->transient_for)
-		parent_surface = window->transient_for->main_surface->surface;
+	if (window->parent)
+		parent_surface = window->parent->main_surface->surface;
 	else
 		parent_surface = NULL;
 
-	xdg_surface_set_transient_for(window->xdg_surface, parent_surface);
+	xdg_surface_set_parent(window->xdg_surface, parent_surface);
 }
 
 static void
-window_sync_margin(struct window *window)
+window_get_geometry(struct window *window, struct rectangle *geometry)
 {
-	int margin;
+	if (window->frame && !window->fullscreen)
+		frame_input_rect(window->frame->frame,
+				 &geometry->x,
+				 &geometry->y,
+				 &geometry->width,
+				 &geometry->height);
+	else
+		window_get_allocation(window, geometry);
+}
+
+static void
+window_sync_geometry(struct window *window)
+{
+	struct rectangle geometry;
 
 	if (!window->xdg_surface)
 		return;
 
-	if (!window->frame)
-		return;
+	window_get_geometry(window, &geometry);
 
-	margin = frame_get_shadow_margin(window->frame->frame);
-
-	/* Shadow size is the same on every side. */
-	xdg_surface_set_margin(window->xdg_surface,
-				     margin,
-				     margin,
-				     margin,
-				     margin);
+	xdg_surface_set_window_geometry(window->xdg_surface,
+					geometry.x,
+					geometry.y,
+					geometry.width,
+					geometry.height);
 }
 
 static void
@@ -3955,8 +3967,8 @@ window_flush(struct window *window)
 
 	if (!window->custom) {
 		if (window->xdg_surface) {
-			window_sync_transient_for(window);
-			window_sync_margin(window);
+			window_sync_parent(window);
+			window_sync_geometry(window);
 		}
 	}
 
@@ -4145,10 +4157,10 @@ window_set_fullscreen(struct window *window, int fullscreen)
 	if (window->fullscreen == fullscreen)
 		return;
 
-	xdg_surface_request_change_state(window->xdg_surface,
-					 XDG_SURFACE_STATE_FULLSCREEN,
-					 fullscreen ? 1 : 0,
-					 0);
+	if (fullscreen)
+		xdg_surface_set_fullscreen(window->xdg_surface, NULL);
+	else
+		xdg_surface_unset_fullscreen(window->xdg_surface);
 }
 
 int
@@ -4166,10 +4178,16 @@ window_set_maximized(struct window *window, int maximized)
 	if (window->maximized == maximized)
 		return;
 
-	xdg_surface_request_change_state(window->xdg_surface,
-					 XDG_SURFACE_STATE_MAXIMIZED,
-					 maximized ? 1 : 0,
-					 0);
+	if (maximized)
+		xdg_surface_set_maximized(window->xdg_surface);
+	else
+		xdg_surface_unset_maximized(window->xdg_surface);
+}
+
+int
+window_is_resizing(struct window *window)
+{
+	return window->resizing;
 }
 
 void
@@ -4238,6 +4256,13 @@ window_set_output_handler(struct window *window,
 			  window_output_handler_t handler)
 {
 	window->output_handler = handler;
+}
+
+void
+window_set_state_changed_handler(struct window *window,
+				 window_state_changed_handler_t handler)
+{
+	window->state_changed_handler = handler;
 }
 
 void
@@ -4428,17 +4453,17 @@ window_create_custom(struct display *display)
 }
 
 void
-window_set_transient_for(struct window *window,
-			 struct window *parent_window)
+window_set_parent(struct window *window,
+		  struct window *parent_window)
 {
-	window->transient_for = parent_window;
-	window_sync_transient_for(window);
+	window->parent = parent_window;
+	window_sync_parent(window);
 }
 
 struct window *
-window_get_transient_for(struct window *window)
+window_get_parent(struct window *window)
 {
-	return window->transient_for;
+	return window->parent;
 }
 
 static void
@@ -4502,8 +4527,7 @@ menu_button_handler(struct widget *widget,
 	    (menu->release_count > 0 || time - menu->time > 500)) {
 		/* Either relase after press-drag-release or
 		 * click-motion-click. */
-		menu->func(menu->parent, input,
-			   menu->current, menu->parent->user_data);
+		menu->func(menu->user_data, input, menu->current);
 		input_ungrab(input);
 		menu_destroy(menu);
 	} else if (state == WL_POINTER_BUTTON_STATE_RELEASED) {
@@ -4579,31 +4603,28 @@ static const struct xdg_popup_listener xdg_popup_listener = {
 	handle_popup_popup_done,
 };
 
-void
-window_show_menu(struct display *display,
-		 struct input *input, uint32_t time, struct window *parent,
-		 int32_t x, int32_t y,
-		 menu_func_t func, const char **entries, int count)
+static struct menu *
+create_menu(struct display *display,
+	    struct input *input, uint32_t time,
+	    menu_func_t func, const char **entries, int count,
+	    void *user_data)
 {
 	struct window *window;
 	struct menu *menu;
-	int32_t ix, iy;
 
 	menu = malloc(sizeof *menu);
 	if (!menu)
-		return;
+		return NULL;
 
-	window = window_create_internal(parent->display, 0);
+	window = window_create_internal(display, 0);
 	if (!window) {
 		free(menu);
-		return;
+		return NULL;
 	}
 
 	menu->window = window;
-	menu->parent = parent;
+	menu->user_data = user_data;
 	menu->widget = window_add_widget(menu->window, menu);
-	window_set_buffer_scale (menu->window, window_get_buffer_scale (parent));
-	window_set_buffer_transform (menu->window, window_get_buffer_transform (parent));
 	menu->frame = frame_create(window->display->theme, 0, 0,
 				   FRAME_BUTTON_NONE, NULL);
 	fail_on_null(menu->frame);
@@ -4614,8 +4635,6 @@ window_show_menu(struct display *display,
 	menu->time = time;
 	menu->func = func;
 	menu->input = input;
-	window->x = x;
-	window->y = y;
 
 	input_ungrab(input);
 
@@ -4631,6 +4650,47 @@ window_show_menu(struct display *display,
 	frame_set_flag(menu->frame, FRAME_FLAG_ACTIVE);
 	window_schedule_resize(window, frame_width(menu->frame),
 			       frame_height(menu->frame));
+
+	return menu;
+}
+
+struct window *
+window_create_menu(struct display *display,
+		   struct input *input, uint32_t time,
+		   menu_func_t func, const char **entries, int count,
+		   void *user_data)
+{
+	struct menu *menu;
+	menu = create_menu(display, input, time, func, entries, count, user_data);
+
+	if (menu == NULL)
+		return NULL;
+
+	return menu->window;
+}
+
+void
+window_show_menu(struct display *display,
+		 struct input *input, uint32_t time, struct window *parent,
+		 int32_t x, int32_t y,
+		 menu_func_t func, const char **entries, int count)
+{
+	struct menu *menu;
+	struct window *window;
+	int32_t ix, iy;
+
+	menu = create_menu(display, input, time, func, entries, count, parent);
+
+	if (menu == NULL)
+		return;
+
+	window = menu->window;
+
+	window_set_buffer_scale (menu->window, window_get_buffer_scale (parent));
+	window_set_buffer_transform (menu->window, window_get_buffer_transform (parent));
+
+	window->x = x;
+	window->y = y;
 
 	frame_interior(menu->frame, &ix, &iy, NULL, NULL);
 
@@ -4946,7 +5006,7 @@ display_add_input(struct display *d, uint32_t id)
 	input = xzalloc(sizeof *input);
 	input->display = d;
 	input->seat = wl_registry_bind(d->registry, id, &wl_seat_interface,
-				       MIN(d->seat_version, 3));
+				       MIN(d->seat_version, 4));
 	input->touch_focus = NULL;
 	input->pointer_focus = NULL;
 	input->keyboard_focus = NULL;
@@ -4966,6 +5026,8 @@ display_add_input(struct display *d, uint32_t id)
 	}
 
 	input->pointer_surface = wl_compositor_create_surface(d->compositor);
+
+	set_repeat_info(input, 40, 400);
 
 	input->repeat_timer_fd = timerfd_create(CLOCK_MONOTONIC,
 						TFD_CLOEXEC | TFD_NONBLOCK);

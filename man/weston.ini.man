@@ -186,6 +186,11 @@ digit pairs are in order transparency, red, green, and blue. Examples:
 .fi
 .RE
 .TP 7
+.BI "panel-location=" top
+sets the location of the panel (string). Can be
+.B top,
+.B none.
+.TP 7
 .BI "locking=" true
 enables screen locking (boolean).
 .TP 7
@@ -195,6 +200,12 @@ sets the effect used for opening new windows (string). Can be
 .B fade,
 .B none.
 By default, no animation is used.
+.TP 7
+.BI "close-animation=" fade
+sets the effect used when closing windows (string). Can be
+.B fade,
+.B none.
+By default, the fade animation is used.
 .TP 7
 .BI "startup-animation=" fade
 sets the effect used for opening new windows (string). Can be
@@ -394,6 +405,17 @@ section in
 .BI "keymap_options=" "grp:alt_shift_toggle,grp_led:scroll"
 sets the keymap options (string). See the Options section in
 .B "xkeyboard-config(7)."
+.RE
+.RE
+.TP 7
+.BI "repeat-rate=" "40"
+sets the rate of repeating keys in characters per second (unsigned integer)
+.RE
+.RE
+.TP 7
+.BI "repeat-delay=" "400"
+sets the delay in milliseconds since key down until repeating starts (unsigned
+integer)
 .RE
 .RE
 .SH "TERMINAL SECTION"

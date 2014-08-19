@@ -447,6 +447,7 @@ struct terminal {
 	int width, height, row, column, max_width;
 	uint32_t buffer_height;
 	uint32_t start, end, saved_start, log_size;
+	wl_fixed_t smooth_scroll;
 	int saved_row, saved_column;
 	int scrolling;
 	int send_cursor_position;
@@ -834,12 +835,26 @@ terminal_resize_cells(struct terminal *terminal,
 }
 
 static void
+update_title(struct terminal *terminal)
+{
+	if (window_is_resizing(terminal->window)) {
+		char *p;
+		if (asprintf(&p, "%s — [%dx%d]", terminal->title, terminal->width, terminal->height) > 0) {
+			window_set_title(terminal->window, p);
+			free(p);
+		}
+	} else {
+		window_set_title(terminal->window, terminal->title);
+	}
+}
+
+static void
 resize_handler(struct widget *widget,
 	       int32_t width, int32_t height, void *data)
 {
 	struct terminal *terminal = data;
 	int32_t columns, rows, m;
-	char *p;
+
 	m = 2 * terminal->margin;
 	columns = (width - m) / (int32_t) terminal->average_width;
 	rows = (height - m) / (int32_t) terminal->extents.height;
@@ -849,14 +864,17 @@ resize_handler(struct widget *widget,
 		width = columns * terminal->average_width + m;
 		height = rows * terminal->extents.height + m;
 		widget_set_size(terminal->widget, width, height);
-		if (asprintf(&p, "%s — [%dx%d]", terminal->title, columns, rows) > 0) {
-		    window_set_title(terminal->window, p);
-		    terminal->size_in_title = 1;
-		    free(p);
-		}
 	}
 
 	terminal_resize_cells(terminal, columns, rows);
+	update_title(terminal);
+}
+
+static void
+state_changed_handler(struct window *window, void *data)
+{
+	struct terminal *terminal = data;
+	update_title(terminal);
 }
 
 static void
@@ -2663,9 +2681,10 @@ recompute_selection(struct terminal *terminal)
 }
 
 static void
-menu_func(struct window *window, struct input *input, int index, void *data)
+menu_func(void *data, struct input *input, int index)
 {
-	struct terminal *terminal = data;
+	struct window *window = data;
+	struct terminal *terminal = window_get_user_data(window);
 
 	fprintf(stderr, "picked entry %d\n", index);
 
@@ -2745,14 +2764,6 @@ static int
 enter_handler(struct widget *widget,
 	      struct input *input, float x, float y, void *data)
 {
-	struct terminal *terminal = data;
-
-	/* Reset title to get rid of resizing '[WxH]' in titlebar */
-	if (terminal->size_in_title) {
-		window_set_title(terminal->window, terminal->title);
-		terminal->size_in_title = 0;
-	}
-
 	return CURSOR_IBEAM;
 }
 
@@ -2773,6 +2784,55 @@ motion_handler(struct widget *widget,
 	}
 
 	return CURSOR_IBEAM;
+}
+
+/* This magnitude is chosen rather arbitrarily. Really, the scrolling
+ * should happen on a (fractional) pixel basis, not a line basis. */
+#define AXIS_UNITS_PER_LINE 256
+
+static void
+axis_handler(struct widget *widget,
+	     struct input *input, uint32_t time,
+	     uint32_t axis,
+	     wl_fixed_t value,
+	     void *data)
+{
+	struct terminal *terminal = data;
+	int lines;
+
+	if (axis != WL_POINTER_AXIS_VERTICAL_SCROLL)
+		return;
+
+	terminal->smooth_scroll += value;
+	lines = terminal->smooth_scroll / AXIS_UNITS_PER_LINE;
+	terminal->smooth_scroll -= lines * AXIS_UNITS_PER_LINE;
+
+	if (lines > 0) {
+		if (terminal->scrolling) {
+			if ((uint32_t)lines > terminal->saved_start - terminal->start)
+				lines = terminal->saved_start - terminal->start;
+		} else {
+			lines = 0;
+		}
+	} else if (lines < 0) {
+		uint32_t neg_lines = -lines;
+
+		if (neg_lines > terminal->log_size + terminal->start - terminal->end)
+			lines = terminal->end - terminal->log_size - terminal->start;
+	}
+
+	if (lines) {
+		if (!terminal->scrolling)
+			terminal->saved_start = terminal->start;
+		terminal->scrolling = 1;
+
+		terminal->start += lines;
+		terminal->row -= lines;
+		terminal->selection_start_row -= lines;
+		terminal->selection_end_row -= lines;
+
+		widget_schedule_redraw(widget);
+	}
 }
 
 static void
@@ -2860,6 +2920,7 @@ terminal_create(struct display *display)
 	window_set_fullscreen_handler(terminal->window, fullscreen_handler);
 	window_set_output_handler(terminal->window, output_handler);
 	window_set_close_handler(terminal->window, close_handler);
+	window_set_state_changed_handler(terminal->window, state_changed_handler);
 
 	window_set_data_handler(terminal->window, data_handler);
 	window_set_drop_handler(terminal->window, drop_handler);
@@ -2869,6 +2930,7 @@ terminal_create(struct display *display)
 	widget_set_button_handler(terminal->widget, button_handler);
 	widget_set_enter_handler(terminal->widget, enter_handler);
 	widget_set_motion_handler(terminal->widget, motion_handler);
+	widget_set_axis_handler(terminal->widget, axis_handler);
 	widget_set_touch_up_handler(terminal->widget, touch_up_handler);
 	widget_set_touch_down_handler(terminal->widget, touch_down_handler);
 	widget_set_touch_motion_handler(terminal->widget, touch_motion_handler);

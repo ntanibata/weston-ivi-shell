@@ -268,50 +268,39 @@ init_gl(struct window *window)
 
 static void
 handle_surface_configure(void *data, struct xdg_surface *surface,
-			 int32_t width, int32_t height)
+			 int32_t width, int32_t height,
+			 struct wl_array *states, uint32_t serial)
 {
 	struct window *window = data;
+	uint32_t *p;
 
-	if (window->native)
-		wl_egl_window_resize(window->native, width, height, 0, 0);
-
-	window->geometry.width = width;
-	window->geometry.height = height;
-
-	if (!window->fullscreen)
-		window->window_size = window->geometry;
-}
-
-static void
-handle_surface_change_state(void *data, struct xdg_surface *xdg_surface,
-			    uint32_t state,
-			    uint32_t value,
-			    uint32_t serial)
-{
-	struct window *window = data;
-
-	switch (state) {
-	case XDG_SURFACE_STATE_FULLSCREEN:
-		window->fullscreen = value;
-
-		if (!value)
-			handle_surface_configure(window, window->xdg_surface,
-						 window->window_size.width,
-						 window->window_size.height);
-		break;
+	window->fullscreen = 0;
+	wl_array_for_each(p, states) {
+		uint32_t state = *p;
+		switch (state) {
+		case XDG_SURFACE_STATE_FULLSCREEN:
+			window->fullscreen = 1;
+			break;
+		}
 	}
 
-	xdg_surface_ack_change_state(xdg_surface, state, value, serial);
-}
+	if (width > 0 && height > 0) {
+		if (!window->fullscreen) {
+			window->window_size.width = width;
+			window->window_size.height = height;
+		}
+		window->geometry.width = width;
+		window->geometry.height = height;
+	} else if (!window->fullscreen) {
+		window->geometry = window->window_size;
+	}
 
-static void
-handle_surface_activated(void *data, struct xdg_surface *xdg_surface)
-{
-}
+	if (window->native)
+		wl_egl_window_resize(window->native,
+				     window->geometry.width,
+				     window->geometry.height, 0, 0);
 
-static void
-handle_surface_deactivated(void *data, struct xdg_surface *xdg_surface)
-{
+	xdg_surface_ack_configure(surface, serial);
 }
 
 static void
@@ -322,9 +311,6 @@ handle_surface_delete(void *data, struct xdg_surface *xdg_surface)
 
 static const struct xdg_surface_listener xdg_surface_listener = {
 	handle_surface_configure,
-	handle_surface_change_state,
-	handle_surface_activated,
-	handle_surface_deactivated,
 	handle_surface_delete,
 };
 
@@ -343,8 +329,8 @@ create_surface(struct window *window)
 
 	window->native =
 		wl_egl_window_create(window->surface,
-				     window->window_size.width,
-				     window->window_size.height);
+				     window->geometry.width,
+				     window->geometry.height);
 	window->egl_surface =
 		eglCreateWindowSurface(display->egl.dpy,
 				       display->egl.conf,
@@ -359,9 +345,8 @@ create_surface(struct window *window)
 	if (!window->frame_sync)
 		eglSwapInterval(display->egl.dpy, 0);
 
-	xdg_surface_request_change_state(window->xdg_surface,
-					 XDG_SURFACE_STATE_FULLSCREEN,
-					 window->fullscreen, 0);
+	if (window->fullscreen)
+		xdg_surface_set_fullscreen(window->xdg_surface, NULL);
 }
 
 static void
@@ -381,8 +366,6 @@ destroy_surface(struct window *window)
 	if (window->callback)
 		wl_callback_destroy(window->callback);
 }
-
-static const struct wl_callback_listener frame_listener;
 
 static void
 redraw(void *data, struct wl_callback *callback, uint32_t time)
@@ -483,10 +466,6 @@ redraw(void *data, struct wl_callback *callback, uint32_t time)
 	}
 	window->frames++;
 }
-
-static const struct wl_callback_listener frame_listener = {
-	redraw
-};
 
 static void
 pointer_handle_enter(void *data, struct wl_pointer *pointer,
@@ -620,11 +599,12 @@ keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
 {
 	struct display *d = data;
 
-	if (key == KEY_F11 && state)
-		xdg_surface_request_change_state(d->window->xdg_surface,
-						 XDG_SURFACE_STATE_FULLSCREEN,
-						 !d->window->fullscreen, 0);
-	else if (key == KEY_ESC && state)
+	if (key == KEY_F11 && state) {
+		if (d->window->fullscreen)
+			xdg_surface_unset_fullscreen(d->window->xdg_surface);
+		else
+			xdg_surface_set_fullscreen(d->window->xdg_surface, NULL);
+	} else if (key == KEY_ESC && state)
 		running = 0;
 }
 
@@ -772,8 +752,9 @@ main(int argc, char **argv)
 
 	window.display = &display;
 	display.window = &window;
-	window.window_size.width  = 250;
-	window.window_size.height = 250;
+	window.geometry.width  = 250;
+	window.geometry.height = 250;
+	window.window_size = window.geometry;
 	window.buffer_size = 32;
 	window.frame_sync = 1;
 

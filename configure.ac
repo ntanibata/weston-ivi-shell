@@ -1,6 +1,6 @@
 m4_define([weston_major_version], [1])
-m4_define([weston_minor_version], [4])
-m4_define([weston_micro_version], [93])
+m4_define([weston_minor_version], [5])
+m4_define([weston_micro_version], [90])
 m4_define([weston_version],
           [weston_major_version.weston_minor_version.weston_micro_version])
 
@@ -18,6 +18,7 @@ AC_SUBST([WESTON_VERSION], [weston_version])
 
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_MACRO_DIR([m4])
 
 AC_USE_SYSTEM_EXTENSIONS
 AC_SYS_LARGEFILE
@@ -58,7 +59,7 @@ AC_CHECK_HEADERS([execinfo.h])
 
 AC_CHECK_FUNCS([mkostemp strchrnul initgroups posix_fallocate])
 
-COMPOSITOR_MODULES="wayland-server >= 1.3.90 pixman-1"
+COMPOSITOR_MODULES="wayland-server >= 1.3.90 pixman-1 >= 0.25.2"
 
 AC_ARG_ENABLE(egl, [  --disable-egl],,
               enable_egl=yes)
@@ -159,7 +160,7 @@ AC_ARG_ENABLE(libinput-backend, [  --enable-libinput-backend],,
 AM_CONDITIONAL([ENABLE_LIBINPUT_BACKEND], [test x$enable_libinput_backend = xyes])
 if test x$enable_libinput_backend = xyes; then
   AC_DEFINE([BUILD_LIBINPUT_BACKEND], [1], [Build the libinput input device backend])
-  PKG_CHECK_MODULES(LIBINPUT_BACKEND, [libinput >= 0.1.0])
+  PKG_CHECK_MODULES(LIBINPUT_BACKEND, [libinput >= 0.5.0])
 fi
 
 

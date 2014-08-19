@@ -161,6 +161,8 @@ weston_view_animation_frame(struct weston_animation *base,
 	struct weston_view_animation *animation =
 		container_of(base,
 			     struct weston_view_animation, animation);
+	struct weston_compositor *compositor =
+		animation->view->surface->compositor;
 
 	if (base->frame_counter <= 1)
 		animation->spring.timestamp = msecs;
@@ -178,6 +180,15 @@ weston_view_animation_frame(struct weston_animation *base,
 
 	weston_view_geometry_dirty(animation->view);
 	weston_view_schedule_repaint(animation->view);
+
+	/* The view's output_mask will be zero if its position is
+	 * offscreen. Animations should always run but as they are also
+	 * run off the repaint cycle, if there's nothing to repaint
+	 * the animation stops running. Therefore if we catch this situation
+	 * and schedule a repaint on all outputs it will be avoided.
+	 */
+	if (animation->view->output_mask == 0)
+		weston_compositor_schedule_repaint(compositor);
 }
 
 static struct weston_view_animation *
@@ -319,6 +330,7 @@ WL_EXPORT void
 weston_fade_update(struct weston_view_animation *fade, float target)
 {
 	fade->spring.target = target;
+	fade->stop = target;
 }
 
 static void
@@ -458,8 +470,10 @@ weston_move_scale_run(struct weston_view *view, int dx, int dy,
 	if (animation == NULL)
 		return NULL;
 
-	weston_spring_init(&animation->spring, 400.0, start, end);
+	weston_spring_init(&animation->spring, 400.0, 0.0, 1.0);
 	animation->spring.friction = 1150;
+
+	weston_view_animation_run(animation);
 
 	return animation;
 }

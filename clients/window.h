@@ -219,6 +219,8 @@ typedef void (*window_fullscreen_handler_t)(struct window *window, void *data);
 
 typedef void (*window_output_handler_t)(struct window *window, struct output *output,
 					int enter, void *data);
+typedef void (*window_state_changed_handler_t)(struct window *window,
+					       void *data);
 
 typedef void (*widget_resize_handler_t)(struct widget *widget,
 					int32_t width, int32_t height,
@@ -275,16 +277,20 @@ struct window *
 window_create_custom(struct display *display);
 
 void
-window_set_transient_for(struct window *window, struct window *parent_window);
+window_set_parent(struct window *window, struct window *parent_window);
 struct window *
-window_get_transient_for(struct window *window);
+window_get_parent(struct window *window);
 
 int
 window_has_focus(struct window *window);
 
-typedef void (*menu_func_t)(struct window *window,
-			    struct input *input, int index, void *data);
+typedef void (*menu_func_t)(void *data, struct input *input, int index);
 
+struct window *
+window_create_menu(struct display *display,
+		   struct input *input, uint32_t time,
+		   menu_func_t func, const char **entries, int count,
+		   void *user_data);
 void
 window_show_menu(struct display *display,
 		 struct input *input, uint32_t time, struct window *parent,
@@ -381,6 +387,9 @@ window_is_maximized(struct window *window);
 void
 window_set_maximized(struct window *window, int maximized);
 
+int
+window_is_resizing(struct window *window);
+
 void
 window_set_minimized(struct window *window);
 
@@ -415,6 +424,9 @@ window_set_fullscreen_handler(struct window *window,
 void
 window_set_output_handler(struct window *window,
 			  window_output_handler_t handler);
+void
+window_set_state_changed_handler(struct window *window,
+				 window_state_changed_handler_t handler);
 
 void
 window_set_title(struct window *window, const char *title);
