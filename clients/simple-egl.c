@@ -350,7 +350,7 @@ create_surface(struct window *window)
 		window->ivi_surface =
 			ivi_application_surface_create(display->ivi_application,
 						       id_ivisurf, window->surface);
-		handle_surface_configure(window, NULL, 250, 250);
+		handle_surface_configure(window, NULL, 250, 250, NULL, 0);
 
 		if (window->ivi_surface == NULL) {
 			fprintf(stderr, "Failed to create ivi_client_surface\n");
