@@ -3208,6 +3208,7 @@ ivi_layout_grabKeyboardKey(struct weston_keyboard_grab *grab,
                 continue;
         }
 
+printf("####### keyboard_key %p\n", ivisurf);
         if (ivisurf->input_acceptable_devices & IVI_INPUT_DEVICE_KEYBOARD) {
             serial = wl_display_next_serial(display);
             wl_keyboard_send_key(resource,

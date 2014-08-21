@@ -2848,6 +2848,7 @@ keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
 	xkb_keysym_t sym;
 	struct itimerspec its;
 
+printf("@@@@@ keyobard_handle_key\n");
 	input->display->serial = serial;
 	code = key + 8;
 	if (!window || !input->xkb.state)
@@ -2913,6 +2914,7 @@ keyboard_handle_modifiers(void *data, struct wl_keyboard *keyboard,
 	struct input *input = data;
 	xkb_mod_mask_t mask;
 
+printf("^^^^^^^^ keyobard_handle_modifiers\n");
 	/* If we're not using a keymap, then we don't handle PC-style modifiers */
 	if (!input->xkb.keymap)
 		return;
