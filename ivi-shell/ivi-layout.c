@@ -697,20 +697,15 @@ update_scale(struct ivi_layout_layer *ivilayer,
         return;
     }
 
-    if (ivisurf->prop.sourceWidth == 0 && ivisurf->prop.sourceHeight == 0) {
-        ivisurf->prop.sourceWidth  = ivisurf->surface->width_from_buffer;
-        ivisurf->prop.sourceHeight = ivisurf->surface->height_from_buffer;
-
-        if (ivisurf->prop.destWidth == 0 && ivisurf->prop.destHeight == 0) {
-            ivisurf->prop.destWidth  = ivisurf->surface->width_from_buffer;
-            ivisurf->prop.destHeight = ivisurf->surface->height_from_buffer;
-        }
+    if (ivisurf->prop.destWidth == 0 && ivisurf->prop.destHeight == 0) {
+        ivisurf->prop.destWidth  = ivisurf->surface->width_from_buffer;
+        ivisurf->prop.destHeight = ivisurf->surface->height_from_buffer;
     }
 
-    lw = ((float)ivilayer->prop.destWidth  / ivilayer->prop.sourceWidth );
-    sw = ((float)ivisurf->prop.destWidth   / ivisurf->prop.sourceWidth  );
-    lh = ((float)ivilayer->prop.destHeight / ivilayer->prop.sourceHeight);
-    sh = ((float)ivisurf->prop.destHeight  / ivisurf->prop.sourceHeight );
+    lw = ((float)ivilayer->prop.destWidth  / (float)ivilayer->prop.sourceWidth );
+    sw = ((float)ivisurf->prop.destWidth   / (float)ivisurf->prop.sourceWidth  );
+    lh = ((float)ivilayer->prop.destHeight / (float)ivilayer->prop.sourceHeight);
+    sh = ((float)ivisurf->prop.destHeight  / (float)ivisurf->prop.sourceHeight );
     sx = sw * lw;
     sy = sh * lh;
 
