@@ -281,14 +281,16 @@ handle_surface_configure(void *data, struct xdg_surface *surface,
 	uint32_t *p;
 
 	window->fullscreen = 0;
-	wl_array_for_each(p, states) {
+        if (states) {
+            wl_array_for_each(p, states) {
 		uint32_t state = *p;
 		switch (state) {
 		case XDG_SURFACE_STATE_FULLSCREEN:
-			window->fullscreen = 1;
-			break;
+                    window->fullscreen = 1;
+                    break;
 		}
-	}
+            }
+        }
 
 	if (width > 0 && height > 0) {
 		if (!window->fullscreen) {
@@ -306,7 +308,8 @@ handle_surface_configure(void *data, struct xdg_surface *surface,
 				     window->geometry.width,
 				     window->geometry.height, 0, 0);
 
-	xdg_surface_ack_configure(surface, serial);
+        if (window->display && window->display->shell)
+            xdg_surface_ack_configure(surface, serial);
 }
 
 static void
