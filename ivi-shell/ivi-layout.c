@@ -332,6 +332,7 @@ westonsurface_destroy_from_ivisurface(struct wl_listener *listener, void *data)
     wl_list_init(&ivisurf->scaling.link);
 
     ivisurf->surface = NULL;
+    ivisurf->view = NULL;
     ivi_layout_surfaceRemove(ivisurf);
 }
 
@@ -443,14 +444,9 @@ update_opacity(struct ivi_layout_layer *ivilayer,
 
     if ((ivilayer->event_mask & IVI_NOTIFICATION_OPACITY) ||
         (ivisurf->event_mask  & IVI_NOTIFICATION_OPACITY)) {
-        struct weston_view *tmpview = NULL;
-        wl_list_for_each(tmpview, &ivisurf->surface->views, surface_link)
-        {
-            if (tmpview == NULL) {
-                continue;
-            }
-            tmpview->alpha = layer_alpha * surf_alpha;
-        }
+        if (ivisurf->view == NULL)
+            return;
+        ivisurf->view->alpha = layer_alpha * surf_alpha;
     }
 }
 
@@ -458,7 +454,7 @@ static void
 update_surface_orientation(struct ivi_layout_layer *ivilayer,
                            struct ivi_layout_surface *ivisurf)
 {
-    struct weston_view *view;
+    struct weston_view *view = ivisurf->view;
     struct weston_matrix  *matrix = &ivisurf->surface_rotation.matrix;
     float width  = 0.0f;
     float height = 0.0f;
@@ -469,16 +465,8 @@ update_surface_orientation(struct ivi_layout_layer *ivilayer,
     float sx = 1.0f;
     float sy = 1.0f;
 
-    wl_list_for_each(view, &ivisurf->surface->views, surface_link)
-    {
-        if (view != NULL) {
-            break;
-        }
-    }
-
-    if (view == NULL) {
+    if (view == NULL)
         return;
-    }
 
     if ((ivilayer->prop.destWidth == 0) ||
         (ivilayer->prop.destHeight == 0)) {
@@ -532,7 +520,7 @@ update_layer_orientation(struct ivi_layout_layer *ivilayer,
                          struct ivi_layout_surface *ivisurf)
 {
     struct weston_surface *es = ivisurf->surface;
-    struct weston_view    *view;
+    struct weston_view    *view = ivisurf->view;
     struct weston_matrix  *matrix = &ivisurf->layer_rotation.matrix;
     struct weston_output  *output = NULL;
     float width  = 0.0f;
@@ -543,13 +531,6 @@ update_layer_orientation(struct ivi_layout_layer *ivilayer,
     float cy = 0.0f;
     float sx = 1.0f;
     float sy = 1.0f;
-
-    wl_list_for_each(view, &ivisurf->surface->views, surface_link)
-    {
-        if (view != NULL) {
-            break;
-        }
-    }
 
     if (es == NULL || view == NULL) {
         return;
@@ -608,17 +589,10 @@ update_layer_orientation(struct ivi_layout_layer *ivilayer,
 static void
 update_surface_position(struct ivi_layout_surface *ivisurf)
 {
-    struct weston_view *view;
+    struct weston_view *view = ivisurf->view;
     float tx  = (float)ivisurf->prop.destX;
     float ty  = (float)ivisurf->prop.destY;
     struct weston_matrix *matrix = &ivisurf->surface_pos.matrix;
-
-    wl_list_for_each(view, &ivisurf->surface->views, surface_link)
-    {
-        if (view != NULL) {
-            break;
-        }
-    }
 
     if (view == NULL) {
         return;
@@ -645,17 +619,10 @@ static void
 update_layer_position(struct ivi_layout_layer *ivilayer,
                struct ivi_layout_surface *ivisurf)
 {
-    struct weston_view *view;
+    struct weston_view *view = ivisurf->view;
     struct weston_matrix *matrix = &ivisurf->layer_pos.matrix;
     float tx  = (float)ivilayer->prop.destX;
     float ty  = (float)ivilayer->prop.destY;
-
-    wl_list_for_each(view, &ivisurf->surface->views, surface_link)
-    {
-        if (view != NULL) {
-            break;
-        }
-    }
 
     if (view == NULL) {
         return;
@@ -677,7 +644,7 @@ static void
 update_scale(struct ivi_layout_layer *ivilayer,
                struct ivi_layout_surface *ivisurf)
 {
-    struct weston_view *view;
+    struct weston_view *view = ivisurf->view;
     struct weston_matrix *matrix = &ivisurf->scaling.matrix;
     float sx = 0.0f;
     float sy = 0.0f;
@@ -685,13 +652,6 @@ update_scale(struct ivi_layout_layer *ivilayer,
     float sw = 0.0f;
     float lh = 0.0f;
     float sh = 0.0f;
-
-    wl_list_for_each(view, &ivisurf->surface->views, surface_link)
-    {
-        if (view != NULL) {
-            break;
-        }
-    }
 
     if (view == NULL) {
         return;
@@ -734,16 +694,8 @@ update_prop(struct ivi_layout_layer *ivilayer,
 
         ivisurf->update_count++;
 
-        struct weston_view *tmpview;
-        wl_list_for_each(tmpview, &ivisurf->surface->views, surface_link)
-        {
-            if (tmpview != NULL) {
-                break;
-            }
-        }
-
-        if (tmpview != NULL) {
-            weston_view_geometry_dirty(tmpview);
+        if (ivisurf->view != NULL) {
+            weston_view_geometry_dirty(ivisurf->view);
         }
 
         if (ivisurf->surface != NULL) {
@@ -985,14 +937,6 @@ commit_list_screen(struct ivi_layout *layout)
         wl_list_for_each(ivilayer, &iviscrn->order.list_layer, order.link) {
 
             wl_list_for_each(ivisurf, &ivilayer->order.list_surface, order.link) {
-                struct weston_view *tmpview = NULL;
-                wl_list_for_each(tmpview, &ivisurf->surface->views, surface_link)
-                {
-                    if (tmpview != NULL) {
-                        break;
-                    }
-                }
-
                 if (ivisurf->surface == NULL || ivisurf->view == NULL)
                     continue;
 
@@ -2943,15 +2887,7 @@ ivi_layout_get_weston_surface(struct ivi_layout_surface *surface)
 static struct weston_view *
 ivi_layout_get_weston_view(struct ivi_layout_surface *surface)
 {
-    if(surface == NULL) return NULL;
-    struct weston_view *tmpview = NULL;
-    wl_list_for_each(tmpview, &surface->surface->views, surface_link)
-    {
-        if (tmpview != NULL) {
-            break;
-        }
-    }
-    return tmpview;
+    return (surface != NULL) ? surface->view : NULL;
 }
 
 static void
@@ -3028,8 +2964,8 @@ ivi_layout_surfaceSetNativeContent(struct weston_surface *surface,
     wl_resource_add_destroy_listener(surface->resource,
                                      &ivisurf->surface_destroy_listener);
 
-    struct weston_view *tmpview = weston_view_create(surface);
-    if (tmpview == NULL) {
+    ivisurf->view = weston_view_create(surface);
+    if (ivisurf->view == NULL) {
         weston_log("fails to allocate memory\n");
         return -1;
     }
@@ -3109,8 +3045,8 @@ ivi_layout_surfaceCreate(struct weston_surface *wl_surface,
     wl_resource_add_destroy_listener(wl_surface->resource,
                                      &ivisurf->surface_destroy_listener);
 
-    struct weston_view *tmpview = weston_view_create(wl_surface);
-    if (tmpview == NULL) {
+    ivisurf->view = weston_view_create(wl_surface);
+    if (ivisurf->view == NULL) {
         weston_log("fails to allocate memory\n");
     }
 
