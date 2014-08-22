@@ -92,22 +92,23 @@ cp %{SOURCE1001} .
 # install example clients
 %define ivi_shell_client_dir %{_bindir}/ivi
 mkdir -p %{buildroot}%{ivi_shell_client_dir}
-install -m 755 weston-calibrator %{buildroot}%{ivi_shell_client_dir}
-install -m 755 weston-simple-touch %{buildroot}%{ivi_shell_client_dir}
-install -m 755 weston-simple-shm %{buildroot}%{ivi_shell_client_dir}
-install -m 755 weston-simple-egl %{buildroot}%{ivi_shell_client_dir}
-install -m 755 weston-flower %{buildroot}%{ivi_shell_client_dir}
-install -m 755 weston-image %{buildroot}%{ivi_shell_client_dir}
-install -m 755 weston-cliptest %{buildroot}%{ivi_shell_client_dir}
-install -m 755 weston-dnd %{buildroot}%{ivi_shell_client_dir}
-install -m 755 weston-editor %{buildroot}%{ivi_shell_client_dir}
-install -m 755 weston-smoke %{buildroot}%{ivi_shell_client_dir}
-install -m 755 weston-resizor %{buildroot}%{ivi_shell_client_dir}
-install -m 755 weston-eventdemo %{buildroot}%{ivi_shell_client_dir}
-install -m 755 weston-clickdot %{buildroot}%{ivi_shell_client_dir}
-install -m 755 weston-subsurfaces %{buildroot}%{ivi_shell_client_dir}
-install -m 755 weston-transformed %{buildroot}%{ivi_shell_client_dir}
-install -m 755 weston-fullscreen %{buildroot}%{ivi_shell_client_dir}
+#mv %{buildroot}%{_bindir}/weston-calibrator %{buildroot}%{ivi_shell_client_dir}
+#mv %{buildroot}%{_bindir}/weston-simple-touch %{buildroot}%{ivi_shell_client_dir}
+#mv %{buildroot}%{_bindir}/weston-simple-shm %{buildroot}%{ivi_shell_client_dir}
+mv %{buildroot}%{_bindir}/weston-simple-egl %{buildroot}%{ivi_shell_client_dir}
+mv %{buildroot}%{_bindir}/weston-flower %{buildroot}%{ivi_shell_client_dir}
+mv %{buildroot}%{_bindir}/weston-image %{buildroot}%{ivi_shell_client_dir}
+mv %{buildroot}%{_bindir}/weston-cliptest %{buildroot}%{ivi_shell_client_dir}
+mv %{buildroot}%{_bindir}/weston-dnd %{buildroot}%{ivi_shell_client_dir}
+mv %{buildroot}%{_bindir}/weston-editor %{buildroot}%{ivi_shell_client_dir}
+mv %{buildroot}%{_bindir}/weston-smoke %{buildroot}%{ivi_shell_client_dir}
+mv %{buildroot}%{_bindir}/weston-resizor %{buildroot}%{ivi_shell_client_dir}
+mv %{buildroot}%{_bindir}/weston-eventdemo %{buildroot}%{ivi_shell_client_dir}
+mv %{buildroot}%{_bindir}/weston-clickdot %{buildroot}%{ivi_shell_client_dir}
+mv %{buildroot}%{_bindir}/weston-subsurfaces %{buildroot}%{ivi_shell_client_dir}
+mv %{buildroot}%{_bindir}/weston-transformed %{buildroot}%{ivi_shell_client_dir}
+mv %{buildroot}%{_bindir}/weston-fullscreen %{buildroot}%{ivi_shell_client_dir}
+mv %{buildroot}%{_bindir}/weston-terminal %{buildroot}%{ivi_shell_client_dir}
 
 install -d %{buildroot}/%{_datadir}/%{name}/protocol/
 
@@ -153,8 +154,8 @@ cp -rfva data/* %{buildroot}/%{_datadir}/weston/
 
 %files clients
 %manifest %{name}.manifest
-%{ivi_shell_client_dir}/weston-simple-touch
-%{ivi_shell_client_dir}/weston-simple-shm
+#%{ivi_shell_client_dir}/weston-simple-touch
+#%{ivi_shell_client_dir}/weston-simple-shm
 %{ivi_shell_client_dir}/weston-simple-egl
 %{ivi_shell_client_dir}/weston-flower
 %{ivi_shell_client_dir}/weston-image
@@ -168,7 +169,8 @@ cp -rfva data/* %{buildroot}/%{_datadir}/weston/
 %{ivi_shell_client_dir}/weston-subsurfaces
 %{ivi_shell_client_dir}/weston-transformed
 %{ivi_shell_client_dir}/weston-fullscreen
-%{ivi_shell_client_dir}/weston-calibrator
+%{ivi_shell_client_dir}/weston-terminal
+#%{ivi_shell_client_dir}/weston-calibrator
 
 %files config
 %manifest %{name}.manifest
