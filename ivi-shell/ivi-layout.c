@@ -1141,8 +1141,6 @@ surface_prop_changed(struct wl_listener *listener, void *data)
 
     ((surfacePropertyNotificationFunc)prop_callback->callback)
         (ivisurf, &ivisurf->prop, ivisurf->event_mask, prop_callback->data);
-
-    ivisurf->event_mask = 0;
 }
 
 static void
