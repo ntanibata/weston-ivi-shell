@@ -1,6 +1,6 @@
 m4_define([weston_major_version], [1])
 m4_define([weston_minor_version], [5])
-m4_define([weston_micro_version], [90])
+m4_define([weston_micro_version], [91])
 m4_define([weston_version],
           [weston_major_version.weston_minor_version.weston_micro_version])
 
@@ -155,8 +155,8 @@ if test x$enable_drm_compositor = xyes; then
 fi
 
 
-AC_ARG_ENABLE(libinput-backend, [  --enable-libinput-backend],,
-	      enable_libinput_backend=no)
+AC_ARG_ENABLE(libinput-backend, [  --disable-libinput-backend],,
+	      enable_libinput_backend=yes)
 AM_CONDITIONAL([ENABLE_LIBINPUT_BACKEND], [test x$enable_libinput_backend = xyes])
 if test x$enable_libinput_backend = xyes; then
   AC_DEFINE([BUILD_LIBINPUT_BACKEND], [1], [Build the libinput input device backend])
