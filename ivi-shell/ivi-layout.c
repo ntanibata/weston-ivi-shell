@@ -3153,8 +3153,7 @@ background_surface_configure(struct weston_surface *es, int32_t sx, int32_t sy)
 }
 
 static void
-background_create(struct ivi_layout *layout, struct weston_output *output,
-                  float red, float green, float blue)
+background_create(struct ivi_layout *layout, struct weston_output *output)
 {
     struct ivi_background *bg;
     struct weston_surface *surface;
@@ -3197,7 +3196,11 @@ background_create(struct ivi_layout *layout, struct weston_output *output,
     surface->configure = background_surface_configure;
     surface->configure_private = layout;
 
-    weston_surface_set_color(surface, red,green,blue, 1.0);
+    weston_surface_set_color(surface,
+                             layout->background_color.red,
+                             layout->background_color.green,
+                             layout->background_color.blue,
+                             1.0);
 
     pixman_region32_fini(&surface->opaque);
     pixman_region32_init_rect(&surface->opaque, x1,y1, x2,y2);
@@ -3219,6 +3222,70 @@ background_create(struct ivi_layout *layout, struct weston_output *output,
     // weston_view_geometry_dirty(view);
     weston_view_update_transform(view);
     weston_surface_damage(surface);
+}
+
+
+static int parse_color(char **str_ptr, int separator, float *value_ptr)
+{
+    char *value_str = *str_ptr;
+    char *p, *e;
+    float value;
+
+    while (*value_str == ' ' || *value_str == '\t')
+        value_str++;
+
+    if (!separator)
+        p = value_str + strlen(value_str);
+    else {
+        if (!(p = strchr(value_str, separator)))
+            return 0;
+        *p++ = '\0';
+    }
+
+    value = strtod(value_str, &e);
+
+    if (e <= value_str || *e || value < 0.0 || value > 1.0)
+        return 0;
+
+    *value_ptr = value;
+    *str_ptr = p;
+
+    return 1;
+}
+
+static void parse_background_color(struct ivi_layout *layout)
+{
+    struct weston_config_section *section;
+    char *def, *p;
+    float red, green, blue;
+
+    layout->background_color.red = 0.0;
+    layout->background_color.green = 0.0;
+    layout->background_color.blue = 0.0;
+
+    section = weston_config_get_section(layout->compositor->config,
+                                        "ivi-shell", NULL, NULL);
+    if (section == NULL)
+        return;
+
+    weston_config_section_get_string(section, "background-color", &def, NULL);
+
+    if (def == NULL)
+        return;
+
+    p = def;
+
+    if (!parse_color(&p, ',', &red)   ||
+        !parse_color(&p, ',', &green) ||
+        !parse_color(&p, 0,   &blue)   )
+        weston_log("invalid background color definition: '%s'\n", def);
+    else {
+        layout->background_color.red = red;
+        layout->background_color.green = green;
+        layout->background_color.blue = blue;
+    }
+
+    free(def);
 }
 
 
@@ -3265,11 +3332,10 @@ ivi_layout_initWithCompositor(struct weston_compositor *ec)
     layout->transitions = ivi_layout_transition_set_create(ec);
     wl_list_init(&layout->pending_transition_list);
 
-
     wl_list_init(&layout->background_list);
-    wl_list_for_each(output, &ec->output_list, link) {
-        background_create(layout, output, 0.0, 0.0, 0.0);
-    }
+    parse_background_color(layout);
+    wl_list_for_each(output, &ec->output_list, link)
+        background_create(layout, output);
 }
 
 

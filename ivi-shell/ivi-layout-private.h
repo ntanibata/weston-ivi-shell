@@ -186,6 +186,9 @@ struct ivi_layout {
     struct wl_list pending_transition_list;
 
     struct wl_list background_list;
+    struct {
+        float red, green, blue;
+    } background_color;
 };
 /*
 struct ivi_layout {
@@ -213,6 +216,9 @@ struct ivi_layout {
     struct wl_list pending_transition_list;
 
     struct wl_list background_list;
+    struct {
+        float red, green, blue;
+    } background_color;
 };
 */
 struct ivi_layout *get_instance(void);
