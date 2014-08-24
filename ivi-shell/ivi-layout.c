@@ -3080,6 +3080,22 @@ ivi_layout_surfaceCreate(struct weston_surface *wl_surface,
     return ivisurf;
 }
 
+static struct ivi_layout_surface*
+ivi_layout_surfaceFind(struct weston_surface *wl_surface)
+{
+    struct ivi_layout *layout = get_instance();
+    struct ivi_layout_surface *ivisurf;
+
+    if (wl_surface != NULL) {
+        wl_list_for_each(ivisurf, &layout->list_surface, link) {
+            if (wl_surface == ivisurf->surface)
+                return ivisurf;
+        }
+    }
+
+    return NULL;
+}
+
 static void
 background_surface_configure(struct weston_surface *es, int32_t sx, int32_t sy)
 {
@@ -3278,6 +3294,9 @@ WL_EXPORT struct ivi_layout_interface ivi_layout_interface = {
 	.surfaceConfigure = ivi_layout_surfaceConfigure,
 	.surfaceSetNativeContent = ivi_layout_surfaceSetNativeContent,
 	.surfaceCreate = ivi_layout_surfaceCreate,
+        .surfaceFind = ivi_layout_surfaceFind,
+        .surfaceAddNotification = ivi_layout_surfaceAddNotification,
+        .surfaceRemoveNotification = ivi_layout_surfaceRemoveNotification,
 	.initWithCompositor = ivi_layout_initWithCompositor,
 	.emitWarningSignal = ivi_layout_emitWarningSignal
 };

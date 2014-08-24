@@ -122,6 +122,13 @@ enum ivi_layout_warning_flag {
     IVI_WARNING_IVI_ID_IN_USE
 };
 
+enum ivi_layout_notification_mask;
+typedef void(*surfacePropertyNotificationFunc)(struct ivi_layout_surface *ivisurf,
+                                            struct ivi_layout_SurfaceProperties *prop,
+                                            enum ivi_layout_notification_mask mask,
+                                            void *userdata);
+
+
 struct ivi_layout_interface {
 	struct weston_surface* (*get_weston_surface)(struct ivi_layout_surface *surface);
 	struct weston_view* (*get_weston_view)(struct ivi_layout_surface *surface);
@@ -132,7 +139,14 @@ struct ivi_layout_interface {
                                            int32_t height,
                                            uint32_t id_surface);
 	struct ivi_layout_surface* (*surfaceCreate)(struct weston_surface *wl_surface,
-							      uint32_t id_surface);
+                                                    uint32_t id_surface);
+	struct ivi_layout_surface* (*surfaceFind)(struct weston_surface *wl_surface);
+	int32_t (*surfaceAddNotification)(struct ivi_layout_surface *ivisurf,
+                                          surfacePropertyNotificationFunc callback,
+                                          void *userdata);
+	int32_t (*surfaceRemoveNotification)(struct ivi_layout_surface *ivisurf);
+
+
 	void (*initWithCompositor)(struct weston_compositor *ec);
 	void (*emitWarningSignal)(uint32_t id_surface,
 				enum ivi_layout_warning_flag flag);
