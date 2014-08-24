@@ -3148,9 +3148,85 @@ ivi_layout_surfaceCreate(struct weston_surface *wl_surface,
 }
 
 static void
+background_surface_configure(struct weston_surface *es, int32_t sx, int32_t sy)
+{
+}
+
+static void
+background_create(struct ivi_layout *layout, struct weston_output *output,
+                  float red, float green, float blue)
+{
+    struct ivi_background *bg;
+    struct weston_surface *surface;
+    struct weston_view *view;
+    int32_t x1, y1, x2, y2;
+
+    weston_log("creating background %d,%d %dx%d\n",
+               output->x,output->y, output->width,output->height);
+
+    if (output->width <= 0 || output->height <= 0)
+        return;
+
+    x1 = output->x;
+    y1 = output->y;
+    x2 = x1 + output->width;
+    y2 = y1 + output->height;
+
+
+    bg = calloc(1, sizeof(*bg));
+    if (bg == NULL) {
+        return;
+    }
+    else {
+        wl_list_init(&bg->link);
+    }
+
+    surface = weston_surface_create(layout->compositor);
+    if (surface == NULL) {
+        free(bg);
+        return;
+    }
+
+    view = weston_view_create(surface);
+    if (view == NULL) {
+        weston_surface_destroy(surface);
+        free(bg);
+        return;
+    }
+
+    surface->configure = background_surface_configure;
+    surface->configure_private = layout;
+
+    weston_surface_set_color(surface, red,green,blue, 1.0);
+
+    pixman_region32_fini(&surface->opaque);
+    pixman_region32_init_rect(&surface->opaque, x1,y1, x2,y2);
+
+    pixman_region32_fini(&surface->input);
+    pixman_region32_init_rect(&surface->input, x1,y1, x2,y2);
+
+    weston_surface_set_size(surface, output->width, output->height);
+
+    wl_list_init(&bg->link);
+    bg->surface = surface;
+    bg->view = view;
+
+    wl_list_insert(&layout->background_list, &bg->link);
+
+    wl_list_insert(&layout->background_layer.view_list, &view->layer_link);
+
+    weston_view_set_position(view, x1,y1);
+    // weston_view_geometry_dirty(view);
+    weston_view_update_transform(view);
+    weston_surface_damage(surface);
+}
+
+
+static void
 ivi_layout_initWithCompositor(struct weston_compositor *ec)
 {
     struct ivi_layout *layout = get_instance();
+    struct weston_output *output;
 
     layout->compositor = ec;
 
@@ -3169,6 +3245,7 @@ ivi_layout_initWithCompositor(struct weston_compositor *ec)
 
     /* Add layout_layer at the last of weston_compositor.layer_list */
     weston_layer_init(&layout->layout_layer, ec->layer_list.prev);
+    weston_layer_init(&layout->background_layer, ec->layer_list.prev);
 
     create_screen(ec);
 
@@ -3188,6 +3265,11 @@ ivi_layout_initWithCompositor(struct weston_compositor *ec)
     layout->transitions = ivi_layout_transition_set_create(ec);
     wl_list_init(&layout->pending_transition_list);
 
+
+    wl_list_init(&layout->background_list);
+    wl_list_for_each(output, &ec->output_list, link) {
+        background_create(layout, output, 0.0, 0.0, 0.0);
+    }
 }
 
 
