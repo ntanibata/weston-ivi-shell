@@ -34,6 +34,13 @@
 #include "../shared/os-compatibility.h"
 #include "compositor.h"
 
+// for input focus step1
+typedef void
+(*keyboard_key)(struct weston_keyboard_grab *grab,
+                uint32_t time, uint32_t key, uint32_t state);
+
+WL_EXPORT keyboard_key keyboard_key_func=NULL;
+
 static void
 empty_region(pixman_region32_t *region)
 {
@@ -318,15 +325,19 @@ default_grab_keyboard_key(struct weston_keyboard_grab *grab,
 	uint32_t serial;
 	struct wl_list *resource_list;
 
-	resource_list = &keyboard->focus_resource_list;
-	if (!wl_list_empty(resource_list)) {
-		serial = wl_display_next_serial(display);
-		wl_resource_for_each(resource, resource_list)
-			wl_keyboard_send_key(resource,
-					     serial,
-					     time,
-					     key,
-					     state);
+	if (keyboard_key_func) {
+		keyboard_key_func(grab, time, key, state);
+	} else {
+		resource_list = &keyboard->focus_resource_list;
+		if (!wl_list_empty(resource_list)) {
+			serial = wl_display_next_serial(display);
+			wl_resource_for_each(resource, resource_list)
+				wl_keyboard_send_key(resource,
+						     serial,
+						     time,
+						     key,
+						     state);
+		}
 	}
 }
 
