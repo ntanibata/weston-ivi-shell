@@ -56,7 +56,6 @@
 #include "ivi-layout-export.h"
 #include "ivi-layout-private.h"
 
-
 enum ivi_layout_surface_orientation {
     IVI_LAYOUT_SURFACE_ORIENTATION_0_DEGREES   = 0,
     IVI_LAYOUT_SURFACE_ORIENTATION_90_DEGREES  = 1,
@@ -1667,10 +1666,11 @@ WL_EXPORT int32_t
 ivi_layout_UpdateInputEventAcceptanceOn(struct ivi_layout_surface *ivisurf,
                                         int32_t devices, int32_t acceptance)
 {
-    /* TODO */
-    (void)ivisurf;
-    (void)devices;
-    (void)acceptance;
+    if (acceptance) {
+        ivisurf->input_acceptable_devices |= devices;
+    } else {
+        ivisurf->input_acceptable_devices &= ~devices;
+    }
 
     return 0;
 }
@@ -3121,6 +3121,8 @@ ivi_layout_surfaceCreate(struct weston_surface *wl_surface,
 
     wl_list_insert(&layout->list_surface, &ivisurf->link);
 
+    ivisurf->input_acceptable_devices = IVI_INPUT_DEVICE_ALL;
+
     wl_signal_emit(&layout->surface_notification.created, ivisurf);
 
     return ivisurf;
@@ -3169,6 +3171,85 @@ ivi_layout_initWithCompositor(struct weston_compositor *ec)
 
 }
 
+static struct wl_resource *
+find_resource_for_surface(struct wl_list *list, struct weston_surface *surface)
+{
+	if (!surface)
+		return NULL;
+
+	if (!surface->resource)
+		return NULL;
+
+	return wl_resource_find_for_client(list, wl_resource_get_client(surface->resource));
+}
+
+static void
+ivi_layout_grabKeyboardKey(struct weston_keyboard_grab *grab,
+                uint32_t time, uint32_t key, uint32_t state)
+{
+    struct weston_keyboard *keyboard = grab->keyboard;
+    struct wl_display *display = keyboard->seat->compositor->wl_display;
+    struct wl_resource *resource;
+    uint32_t serial;
+    struct ivi_layout_surface **surfaces = NULL;
+    struct ivi_layout_surface *ivisurf  = NULL;
+    int32_t surface_length = 0;
+    int32_t i;
+
+    ivi_layout_getSurfaces(&surface_length, &surfaces);
+
+    for (i = 0; i < surface_length; i++) {
+        ivisurf = surfaces[i];
+
+        resource = find_resource_for_surface(&keyboard->resource_list, ivisurf->surface);
+        if (!resource) {
+            resource = find_resource_for_surface(&keyboard->focus_resource_list, ivisurf->surface);
+            if (!resource)
+                continue;
+        }
+
+        if (ivisurf->input_acceptable_devices & IVI_INPUT_DEVICE_KEYBOARD) {
+            serial = wl_display_next_serial(display);
+            wl_keyboard_send_key(resource,
+                                 serial,
+                                 time,
+                                 key,
+                                 state);
+        }
+    }
+}
+
+static void
+ivi_layout_grabKeyboardModifiers(struct weston_keyboard_grab *grab,
+                      uint32_t serial, uint32_t mods_depressed,
+                      uint32_t mods_latched,
+                      uint32_t mods_locked, uint32_t group)
+{
+    struct weston_keyboard *keyboard = grab->keyboard;
+    struct wl_resource *resource;
+    struct ivi_layout_surface **surfaces = NULL;
+    struct ivi_layout_surface *ivisurf  = NULL;
+    int32_t surface_length = 0;
+    int32_t i;
+
+    ivi_layout_getSurfaces(&surface_length, &surfaces);
+
+    for (i = 0; i < surface_length; i++) {
+        ivisurf = surfaces[i];
+
+        resource = find_resource_for_surface(&keyboard->resource_list, ivisurf->surface);
+        if (!resource) {
+            resource = find_resource_for_surface(&keyboard->focus_resource_list, ivisurf->surface);
+            if (!resource)
+                continue;
+        }
+
+        if (ivisurf->input_acceptable_devices & IVI_INPUT_DEVICE_KEYBOARD) {
+            wl_keyboard_send_modifiers(resource, serial, mods_depressed,
+                                       mods_latched, mods_locked, group);
+        }
+    }
+}
 
 WL_EXPORT struct ivi_layout_interface ivi_layout_interface = {
 	.get_weston_view = ivi_layout_get_weston_view,
@@ -3176,5 +3257,7 @@ WL_EXPORT struct ivi_layout_interface ivi_layout_interface = {
 	.surfaceSetNativeContent = ivi_layout_surfaceSetNativeContent,
 	.surfaceCreate = ivi_layout_surfaceCreate,
 	.initWithCompositor = ivi_layout_initWithCompositor,
-	.emitWarningSignal = ivi_layout_emitWarningSignal
+	.emitWarningSignal = ivi_layout_emitWarningSignal,
+        .grab_keyboard_key = ivi_layout_grabKeyboardKey,
+        .grab_keyboard_modifiers = ivi_layout_grabKeyboardModifiers
 };
