@@ -34,6 +34,21 @@
 #include "../shared/os-compatibility.h"
 #include "compositor.h"
 
+// for input focus step1
+typedef void
+(*keyboard_key)(struct weston_keyboard_grab *grab,
+                uint32_t time, uint32_t key, uint32_t state);
+
+WL_EXPORT keyboard_key keyboard_key_func=NULL;
+
+typedef void
+(*keyboard_modifiers)(struct weston_keyboard_grab *grab,
+                      uint32_t serial, uint32_t mods_depressed,
+                      uint32_t mods_latched,
+                      uint32_t mods_locked, uint32_t group);
+
+WL_EXPORT keyboard_modifiers keyboard_modifiers_func=NULL;
+
 static void
 empty_region(pixman_region32_t *region)
 {
@@ -318,15 +333,19 @@ default_grab_keyboard_key(struct weston_keyboard_grab *grab,
 	uint32_t serial;
 	struct wl_list *resource_list;
 
-	resource_list = &keyboard->focus_resource_list;
-	if (!wl_list_empty(resource_list)) {
-		serial = wl_display_next_serial(display);
-		wl_resource_for_each(resource, resource_list)
-			wl_keyboard_send_key(resource,
-					     serial,
-					     time,
-					     key,
-					     state);
+	if (keyboard_key_func) {
+		keyboard_key_func(grab, time, key, state);
+	} else {
+		resource_list = &keyboard->focus_resource_list;
+		if (!wl_list_empty(resource_list)) {
+			serial = wl_display_next_serial(display);
+			wl_resource_for_each(resource, resource_list)
+				wl_keyboard_send_key(resource,
+						     serial,
+						     time,
+						     key,
+						     state);
+		}
 	}
 }
 
@@ -391,20 +410,25 @@ default_grab_keyboard_modifiers(struct weston_keyboard_grab *grab,
 	struct wl_resource *resource;
 	struct wl_list *resource_list;
 
-	resource_list = &keyboard->focus_resource_list;
+	if (keyboard_modifiers_func) {
+		keyboard_modifiers_func(grab, serial, mods_depressed,
+				mods_latched, mods_locked, group);
+	} else {
+		resource_list = &keyboard->focus_resource_list;
 
-	wl_resource_for_each(resource, resource_list) {
-		wl_keyboard_send_modifiers(resource, serial, mods_depressed,
-					   mods_latched, mods_locked, group);
-	}
-	if (pointer && pointer->focus && pointer->focus->surface->resource &&
-	    pointer->focus->surface != keyboard->focus) {
-		struct wl_client *pointer_client =
-			wl_resource_get_client(pointer->focus->surface->resource);
-		send_modifiers_to_client_in_list(pointer_client,
-						 &keyboard->resource_list,
-						 serial,
-						 keyboard);
+		wl_resource_for_each(resource, resource_list) {
+			wl_keyboard_send_modifiers(resource, serial, mods_depressed,
+						   mods_latched, mods_locked, group);
+		}
+		if (pointer && pointer->focus && pointer->focus->surface->resource &&
+		    pointer->focus->surface != keyboard->focus) {
+			struct wl_client *pointer_client =
+				wl_resource_get_client(pointer->focus->surface->resource);
+			send_modifiers_to_client_in_list(pointer_client,
+							 &keyboard->resource_list,
+							 serial,
+							 keyboard);
+		}
 	}
 }
 
