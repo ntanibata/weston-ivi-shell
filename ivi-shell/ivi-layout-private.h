@@ -27,13 +27,6 @@
 #include "ivi-layout.h"
 #include "ivi-layout-transition.h"
 
-enum ivi_input_device{
-    IVI_INPUT_DEVICE_KEYBOARD = (1 << 0),
-    IVI_INPUT_DEVICE_POINTER  = (1 << 1),
-    IVI_INPUT_DEVICE_TOUCH    = (1 << 2),
-    IVI_INPUT_DEVICE_ALL      = (~0)
-};
-
 struct ivi_layout_surface {
     struct wl_list link;
     struct wl_signal property_changed;
@@ -69,7 +62,7 @@ struct ivi_layout_surface {
         void* userdata;
     } content_observer;
 
-    enum ivi_input_device input_acceptable_devices;
+    enum ivi_layout_input_device input_acceptable_devices;
 };
 
 struct ivi_layout_layer {

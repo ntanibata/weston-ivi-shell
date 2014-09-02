@@ -1676,6 +1676,24 @@ ivi_layout_UpdateInputEventAcceptanceOn(struct ivi_layout_surface *ivisurf,
 }
 
 WL_EXPORT int32_t
+ivi_layout_surfaceGetInputAcceptance(struct ivi_layout_surface *ivisurf,
+                                     int32_t device)
+{
+    if ( IVI_INPUT_DEVICE_KEYBOARD == device ||
+         IVI_INPUT_DEVICE_POINTER == device ||
+         IVI_INPUT_DEVICE_TOUCH == device) {
+        if (ivisurf->input_acceptable_devices & device ) {
+            return 1;
+        } else {
+            return 0;
+        }
+    }
+
+    weston_log("ivi_layout_surfaceGetInputAcceptance: invalid device\n");
+    return -1;
+}
+
+WL_EXPORT int32_t
 ivi_layout_surfaceInitialize(struct ivi_layout_surface **pSurfaceId)
 {
     /* TODO */

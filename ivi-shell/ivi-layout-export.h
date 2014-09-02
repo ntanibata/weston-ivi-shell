@@ -67,6 +67,7 @@ enum ivi_layout_notification_mask {
     IVI_NOTIFICATION_PIXELFORMAT = (1 << 8),
     IVI_NOTIFICATION_ADD         = (1 << 9),
     IVI_NOTIFICATION_REMOVE      = (1 << 10),
+    IVI_NOTIFICATION_INPUT_FOCUS = (1 << 11),
     IVI_NOTIFICATION_ALL         = 0xFFFF
 };
 
@@ -79,6 +80,13 @@ enum ivi_layout_transition_type{
     IVI_LAYOUT_TRANSITION_LAYER_MOVE,
     IVI_LAYOUT_TRANSITION_LAYER_VIEW_ORDER,
     IVI_LAYOUT_TRANSITION_MAX,
+};
+
+enum ivi_layout_input_device{
+    IVI_INPUT_DEVICE_KEYBOARD = (1 << 0),
+    IVI_INPUT_DEVICE_POINTER  = (1 << 1),
+    IVI_INPUT_DEVICE_TOUCH    = (1 << 2),
+    IVI_INPUT_DEVICE_ALL      = (~0)
 };
 
 typedef void(*shellWarningNotificationFunc)(uint32_t id_surface,
@@ -348,6 +356,10 @@ int32_t
 ivi_layout_UpdateInputEventAcceptanceOn(struct ivi_layout_surface *ivisurf,
                                            int32_t devices,
                                            int32_t acceptance);
+
+int32_t
+ivi_layout_surfaceGetInputAcceptance(struct ivi_layout_surface *ivisurf,
+                                     int32_t device);
 
 /**
  * \brief  Get the layer properties
