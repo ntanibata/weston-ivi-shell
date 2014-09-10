@@ -325,6 +325,26 @@ static const struct xdg_surface_listener xdg_surface_listener = {
 };
 
 static void
+handle_ivi_surface_configure(void *data, struct ivi_surface *ivi_surface,
+                             int32_t width, int32_t height)
+{
+	struct window *window = data;
+
+        wl_egl_window_resize(window->native, width, height, 0, 0);
+
+	window->geometry.width = width;
+	window->geometry.height = height;
+
+	if (!window->fullscreen)
+		window->window_size = window->geometry;
+}
+
+static const struct ivi_surface_listener ivi_surface_listener = {
+        NULL,
+        handle_ivi_surface_configure,
+};
+
+static void
 create_surface(struct window *window)
 {
 	struct display *display = window->display;
@@ -360,6 +380,10 @@ create_surface(struct window *window)
 			fprintf(stderr, "Failed to create ivi_client_surface\n");
 			abort();
 		}
+
+                ivi_surface_add_listener(window->ivi_surface,
+                                         &ivi_surface_listener, window);
+
 	} else {
 		assert(0);
 	}
