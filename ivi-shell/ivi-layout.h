@@ -141,6 +141,10 @@ struct ivi_layout_interface {
                                         uint32_t serial, uint32_t mods_depressed,
                                         uint32_t mods_latched,
                                         uint32_t mods_locked, uint32_t group);
+        int32_t (*get_surface_dimension)(struct ivi_layout_surface *ivisurf,
+                                         int32_t *pDimension);
+        void (*add_surface_configured_listener)(struct ivi_layout_surface *ivisurf,
+                                                struct wl_listener* listener);
 };
 
 WL_EXPORT struct ivi_layout_interface ivi_layout_interface;

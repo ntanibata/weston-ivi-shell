@@ -63,6 +63,8 @@ struct ivi_layout_surface {
     } content_observer;
 
     enum ivi_layout_input_device input_acceptable_devices;
+
+    struct wl_signal configured;
 };
 
 struct ivi_layout_layer {
