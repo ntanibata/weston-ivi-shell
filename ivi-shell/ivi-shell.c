@@ -65,6 +65,7 @@ extern keyboard_modifiers keyboard_modifiers_func;
 
 struct ivi_shell_surface
 {
+    struct wl_resource* resource;
     struct ivi_shell *shell;
     struct ivi_layout_surface *layout_surface;
 
@@ -75,6 +76,8 @@ struct ivi_shell_surface
     int32_t height;
 
     struct wl_list link;
+
+    struct wl_listener configured_listener;
 };
 
 struct ivi_shell_setting
@@ -92,6 +95,8 @@ static struct ivi_layout_interface *ivi_layout;
 /**
  * Implementation of ivi_surface
  */
+
+static void surface_configure_notify(struct wl_listener *listener, void *data);
 
 static void
 ivi_shell_surface_configure(struct weston_surface *, int32_t, int32_t);
@@ -250,6 +255,7 @@ application_surface_create(struct wl_client *client,
         wl_list_init(&ivisurf->link);
         wl_list_insert(&shell->ivi_surface_list, &ivisurf->link);
 
+        ivisurf->resource = res;
         ivisurf->shell = shell;
         ivisurf->id_surface = id_surface;
     }
@@ -257,6 +263,9 @@ application_surface_create(struct wl_client *client,
     ivisurf->width = 0;
     ivisurf->height = 0;
     ivisurf->layout_surface = layout_surface;
+    ivisurf->configured_listener.notify = surface_configure_notify;
+    ivi_layout->add_surface_configured_listener(layout_surface, &ivisurf->configured_listener);
+
     ivisurf->surface = weston_surface;
 
     weston_surface->configure = ivi_shell_surface_configure;
@@ -391,6 +400,24 @@ ivi_load_modules(struct weston_compositor *compositor, const char *modules,
 	}
 
 	return 0;
+}
+
+static void
+surface_configure_notify(struct wl_listener *listener, void *data)
+{
+    struct ivi_layout_surface* layout_surf =
+        (struct ivi_layout_surface*) data;
+
+    struct ivi_shell_surface *shell_surf =
+        container_of(listener,
+                     struct ivi_shell_surface,
+                     configured_listener);
+
+    int32_t dim[2] = {};
+    ivi_layout->get_surface_dimension(layout_surf, dim);
+
+    ivi_surface_send_configure(shell_surf->resource, dim[0], dim[1]);
+
 }
 
 WL_EXPORT int
