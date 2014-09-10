@@ -41,6 +41,24 @@
             </description>
             <arg name="visibility" type="int"/>
         </event>
+
+	<event name="configure">
+	    <description summary="suggest resize">
+	      The configure event asks the client to resize its surface.
+
+	      The size is a hint, in the sense that the client is free to
+	      ignore it if it doesn't resize, pick a smaller size (to
+	      satisfy aspect ratio or resize in steps of NxM pixels).
+
+	      The client is free to dismiss all but the last configure
+	      event it received.
+
+	      The width and height arguments specify the size of the window
+	      in surface local coordinates.
+	    </description>
+	    <arg name="width" type="int"/>
+	    <arg name="height" type="int"/>
+	</event>
     </interface>
 
     <interface name="ivi_application" version="1">
