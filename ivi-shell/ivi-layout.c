@@ -3169,6 +3169,45 @@ ivi_layout_initWithCompositor(struct weston_compositor *ec)
 
 }
 
+static struct wl_resource *
+find_resource_for_surface(struct wl_list *list, struct weston_surface *surface)
+{
+	if (!surface)
+		return NULL;
+
+	if (!surface->resource)
+		return NULL;
+
+	return wl_resource_find_for_client(list, wl_resource_get_client(surface->resource));
+}
+
+static void
+ivi_layout_grabKeyboardKey(struct weston_keyboard_grab *grab,
+                uint32_t time, uint32_t key, uint32_t state)
+{
+    struct weston_keyboard *keyboard = grab->keyboard;
+    struct wl_display *display = keyboard->seat->compositor->wl_display;
+    uint32_t serial;
+    struct wl_resource *resource;
+
+    wl_resource_for_each(resource, &keyboard->focus_resource_list) {
+        serial = wl_display_next_serial(display);
+        wl_keyboard_send_key(resource,
+                             serial,
+                             time,
+                             key,
+                             state);
+    }
+
+    wl_resource_for_each(resource, &keyboard->resource_list) {
+        serial = wl_display_next_serial(display);
+        wl_keyboard_send_key(resource,
+                             serial,
+                             time,
+                             key,
+                             state);
+    }
+}
 
 WL_EXPORT struct ivi_layout_interface ivi_layout_interface = {
 	.get_weston_view = ivi_layout_get_weston_view,
@@ -3176,5 +3215,6 @@ WL_EXPORT struct ivi_layout_interface ivi_layout_interface = {
 	.surfaceSetNativeContent = ivi_layout_surfaceSetNativeContent,
 	.surfaceCreate = ivi_layout_surfaceCreate,
 	.initWithCompositor = ivi_layout_initWithCompositor,
-	.emitWarningSignal = ivi_layout_emitWarningSignal
+	.emitWarningSignal = ivi_layout_emitWarningSignal,
+        .grab_keyboard_key = ivi_layout_grabKeyboardKey
 };

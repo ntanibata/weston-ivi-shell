@@ -135,6 +135,8 @@ struct ivi_layout_interface {
 	void (*initWithCompositor)(struct weston_compositor *ec);
 	void (*emitWarningSignal)(uint32_t id_surface,
 				enum ivi_layout_warning_flag flag);
+        void (*grab_keyboard_key)(struct weston_keyboard_grab *grab,
+                                  uint32_t time, uint32_t key, uint32_t state);
 };
 
 WL_EXPORT struct ivi_layout_interface ivi_layout_interface;
