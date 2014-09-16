@@ -433,6 +433,16 @@ weston_simple_egl_CFLAGS = $(AM_CFLAGS) $(SIMPLE_EGL_CLIENT_CFLAGS)
 weston_simple_egl_LDADD = $(SIMPLE_EGL_CLIENT_LIBS) -lm
 endif
 
+demo_clients += weston-simple-keyboard-binding
+weston_simple_keyboard_binding_SOURCES = clients/simple-keyboard-binding.c
+nodist_weston_simple_keyboard_binding_SOURCES =		\
+	protocol/xdg-shell-protocol.c		        \
+	protocol/xdg-shell-client-protocol.h            \
+	protocol/ivi-application-protocol.c		\
+	protocol/ivi-application-client-protocol.h
+weston_simple_keyboard_binding_CFLAGS = $(AM_CFLAGS) $(SIMPLE_EGL_CLIENT_CFLAGS)
+weston_simple_keyboard_binding_LDADD = $(SIMPLE_EGL_CLIENT_LIBS) -lm
+
 noinst_LTLIBRARIES += libtoytoolkit.la
 
 libtoytoolkit_la_SOURCES =				\
