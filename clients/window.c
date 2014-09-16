@@ -1385,6 +1385,20 @@ window_get_display(struct window *window)
 }
 
 static void
+handle_ivi_surface_configure(void *data, struct ivi_surface *ivi_surface,
+                             int32_t width, int32_t height)
+{
+	struct window *window = data;
+
+	window_schedule_resize(window, width, height);
+}
+
+static const struct ivi_surface_listener ivi_surface_listener = {
+        NULL,
+        handle_ivi_surface_configure,
+};
+
+static void
 surface_create_surface(struct surface *surface, uint32_t flags)
 {
 	struct display *display = surface->window->display;
@@ -1401,6 +1415,9 @@ surface_create_surface(struct surface *surface, uint32_t flags)
 				fprintf(stderr, "Failed to create ivi_client_surface\n");
 				abort();
 			}
+
+                        ivi_surface_add_listener(surface->window->ivi_surface,
+                                                 &ivi_surface_listener, surface->window);
 		}
 	}
 
