@@ -135,6 +135,12 @@ struct ivi_layout_interface {
 	void (*initWithCompositor)(struct weston_compositor *ec);
 	void (*emitWarningSignal)(uint32_t id_surface,
 				enum ivi_layout_warning_flag flag);
+        int32_t (*get_surface_dimension)(struct ivi_layout_surface *ivisurf,
+                                         int32_t *pDimension);
+        void (*add_surface_configured_listener)(struct ivi_layout_surface *ivisurf,
+                                                struct wl_listener* listener);
+        void (*remove_surface_configured_listener)(struct ivi_layout_surface *ivisurf,
+                                                   struct wl_listener* listener);
 };
 
 WL_EXPORT struct ivi_layout_interface ivi_layout_interface;
