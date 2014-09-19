@@ -74,4 +74,7 @@ ivi_layout_transition_layer_render_order(struct ivi_layout_layer* layer,
                                             uint32_t surface_num,
                                             uint32_t duration);
 
+WL_EXPORT int32_t
+is_surface_transition(struct ivi_layout_surface* surface);
+
 #endif

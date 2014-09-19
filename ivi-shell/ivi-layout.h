@@ -137,6 +137,12 @@ struct ivi_layout_interface {
 				enum ivi_layout_warning_flag flag);
         void (*grab_keyboard_key)(struct weston_keyboard_grab *grab,
                                   uint32_t time, uint32_t key, uint32_t state);
+        int32_t (*get_surface_dimension)(struct ivi_layout_surface *ivisurf,
+                                         int32_t *pDimension);
+        void (*add_surface_configured_listener)(struct ivi_layout_surface *ivisurf,
+                                                struct wl_listener* listener);
+        void (*remove_surface_configured_listener)(struct ivi_layout_surface *ivisurf,
+                                                   struct wl_listener* listener);
 };
 
 WL_EXPORT struct ivi_layout_interface ivi_layout_interface;
