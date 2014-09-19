@@ -80,6 +80,21 @@ get_transition_from_type_and_id(enum ivi_layout_inner_transition_type type, void
     return NULL;
 }
 
+WL_EXPORT int32_t
+is_surface_transition(struct ivi_layout_surface* surface)
+{
+    struct ivi_layout* layout = get_instance();
+    struct transition_node *node=NULL;
+    wl_list_for_each(node, &layout->transitions->transition_list, link){
+        if ( node->transition->type == IVI_LAYOUT_INNER_TRANSITION_VIEW_MOVE_RESIZE ||
+             node->transition->type == IVI_LAYOUT_INNER_TRANSITION_VIEW_RESIZE)
+            if ( node->transition->id_func(node->transition->private_data, surface))
+                return 1; /* true */
+    }
+
+    return 0; /* false */
+}
+
 static void
 tick_transition(struct ivi_layout_transition *transition, uint32_t timestamp)
 {
@@ -246,6 +261,12 @@ struct move_resize_view_data {
 static void
 transition_move_resize_view_destroy(struct ivi_layout_transition* transition)
 {
+    struct move_resize_view_data* data =
+        (struct move_resize_view_data*)transition->private_data;
+    struct ivi_layout_surface* layout_surface = data->surface;
+
+    wl_signal_emit(&layout_surface->configured, layout_surface);
+
     if(transition->private_data){
         free(transition->private_data);
         transition->private_data = NULL;

@@ -61,6 +61,8 @@ struct ivi_layout_surface {
         ivi_controller_surface_content_callback callback;
         void* userdata;
     } content_observer;
+
+    struct wl_signal configured;
 };
 
 struct ivi_layout_layer {

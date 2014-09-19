@@ -838,14 +838,32 @@ commit_list_surface(struct ivi_layout *layout)
                 ivi_layout_transition_visibility_off(ivisurf, ivisurf->pending.prop.transitionDuration);
             }
 
+            int32_t configured = 0;
+            if (ivisurf->prop.destWidth  != ivisurf->pending.prop.destWidth ||
+                ivisurf->prop.destHeight != ivisurf->pending.prop.destHeight) {
+                configured = 1;
+            }
+
             ivisurf->prop = ivisurf->pending.prop;
             ivisurf->prop.transitionType = IVI_LAYOUT_TRANSITION_NONE;
             ivisurf->pending.prop.transitionType = IVI_LAYOUT_TRANSITION_NONE;
+
+            if (configured && !is_surface_transition(ivisurf))
+                wl_signal_emit(&ivisurf->configured, ivisurf);
         }
         else{
+            int32_t configured = 0;
+            if (ivisurf->prop.destWidth  != ivisurf->pending.prop.destWidth ||
+                ivisurf->prop.destHeight != ivisurf->pending.prop.destHeight) {
+                configured = 1;
+            }
+
             ivisurf->prop = ivisurf->pending.prop;
             ivisurf->prop.transitionType = IVI_LAYOUT_TRANSITION_NONE;
             ivisurf->pending.prop.transitionType = IVI_LAYOUT_TRANSITION_NONE;
+
+            if (configured && !is_surface_transition(ivisurf))
+                wl_signal_emit(&ivisurf->configured, ivisurf);
         }
     }
 }
@@ -3079,6 +3097,7 @@ ivi_layout_surfaceCreate(struct weston_surface *wl_surface,
 
     wl_list_init(&ivisurf->link);
     wl_signal_init(&ivisurf->property_changed);
+    wl_signal_init(&ivisurf->configured);
     wl_list_init(&ivisurf->list_layer);
     ivisurf->id_surface = id_surface;
     ivisurf->layout = layout;
@@ -3209,6 +3228,27 @@ ivi_layout_grabKeyboardKey(struct weston_keyboard_grab *grab,
     }
 }
 
+static void
+ivi_layout_surfaceAddConfiguredListener(struct ivi_layout_surface* ivisurf,
+                                       struct wl_listener* listener)
+{
+    wl_signal_add(&ivisurf->configured, listener);
+}
+
+static void
+ivi_layout_surfaceRemoveConfiguredListener(struct ivi_layout_surface* ivisurf,
+                                           struct wl_listener* target)
+{
+    struct wl_listener *listener = NULL;
+    struct wl_listener *next = NULL;
+
+    wl_list_for_each_safe(listener, next, &ivisurf->configured.listener_list, link) {
+        if (target == listener) {
+            wl_list_remove(&listener->link);
+        }
+    }
+}
+
 WL_EXPORT struct ivi_layout_interface ivi_layout_interface = {
 	.get_weston_view = ivi_layout_get_weston_view,
 	.surfaceConfigure = ivi_layout_surfaceConfigure,
@@ -3216,5 +3256,8 @@ WL_EXPORT struct ivi_layout_interface ivi_layout_interface = {
 	.surfaceCreate = ivi_layout_surfaceCreate,
 	.initWithCompositor = ivi_layout_initWithCompositor,
 	.emitWarningSignal = ivi_layout_emitWarningSignal,
-        .grab_keyboard_key = ivi_layout_grabKeyboardKey
+        .grab_keyboard_key = ivi_layout_grabKeyboardKey,
+        .get_surface_dimension = ivi_layout_surfaceGetDimension,
+        .add_surface_configured_listener = ivi_layout_surfaceAddConfiguredListener,
+        .remove_surface_configured_listener = ivi_layout_surfaceRemoveConfiguredListener
 };
