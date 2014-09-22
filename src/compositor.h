@@ -68,6 +68,11 @@ enum weston_keyboard_modifier {
 	MODIFIER_SHIFT = (1 << 3),
 };
 
+enum weston_keyboard_locks {
+	WESTON_NUM_LOCK = (1 << 0),
+	WESTON_CAPS_LOCK = (1 << 1),
+};
+
 enum weston_led {
 	LED_NUM_LOCK = (1 << 0),
 	LED_CAPS_LOCK = (1 << 1),
@@ -195,7 +200,6 @@ struct weston_output {
 	int dirty;
 	struct wl_signal frame_signal;
 	struct wl_signal destroy_signal;
-	struct wl_signal move_signal;
 	int move_x, move_y;
 	uint32_t frame_time;
 	int disable_planes;
@@ -393,6 +397,13 @@ weston_keyboard_start_grab(struct weston_keyboard *device,
 			   struct weston_keyboard_grab *grab);
 void
 weston_keyboard_end_grab(struct weston_keyboard *keyboard);
+int
+/*
+ * 'mask' and 'value' should be a bitwise mask of one or more
+ * valued of the weston_keyboard_locks enum.
+ */
+weston_keyboard_set_locks(struct weston_keyboard *keyboard,
+			  uint32_t mask, uint32_t value);
 
 struct weston_touch *
 weston_touch_create(void);
@@ -1344,6 +1355,9 @@ weston_client_launch(struct weston_compositor *compositor,
 		     struct weston_process *proc,
 		     const char *path,
 		     weston_process_cleanup_func_t cleanup);
+
+struct wl_client *
+weston_client_start(struct weston_compositor *compositor, const char *path);
 
 void
 weston_watch_process(struct weston_process *process);

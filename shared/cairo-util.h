@@ -26,6 +26,8 @@
 #include <stdint.h>
 #include <cairo.h>
 
+#include <wayland-util.h>
+
 void
 surface_flush_device(cairo_surface_t *surface);
 
@@ -69,7 +71,8 @@ theme_set_background_source(struct theme *t, cairo_t *cr, uint32_t flags);
 void
 theme_render_frame(struct theme *t, 
 		   cairo_t *cr, int width, int height,
-		   const char *title, uint32_t flags);
+		   const char *title, struct wl_list *buttons,
+		   uint32_t flags);
 
 enum theme_location {
 	THEME_LOCATION_INTERIOR = 0,
@@ -209,6 +212,10 @@ frame_touch_down(struct frame *frame, void *data, int32_t id, int x, int y);
 
 void
 frame_touch_up(struct frame *frame, void *data, int32_t id);
+
+enum theme_location
+frame_double_click(struct frame *frame, void *pointer,
+		   uint32_t button, enum frame_button_state state);
 
 void
 frame_repaint(struct frame *frame, cairo_t *cr);

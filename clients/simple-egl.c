@@ -133,6 +133,7 @@ init_egl(struct display *display, struct window *window)
 		EGL_RED_SIZE, 1,
 		EGL_GREEN_SIZE, 1,
 		EGL_BLUE_SIZE, 1,
+		EGL_ALPHA_SIZE, 1,
 		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
 		EGL_NONE
 	};
@@ -670,7 +671,7 @@ static const struct xdg_shell_listener xdg_shell_listener = {
 	xdg_shell_ping,
 };
 
-#define XDG_VERSION 3 /* The version of xdg-shell that we implement */
+#define XDG_VERSION 4 /* The version of xdg-shell that we implement */
 #ifdef static_assert
 static_assert(XDG_VERSION == XDG_SHELL_VERSION_CURRENT,
 	      "Interface version doesn't match implementation version");

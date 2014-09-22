@@ -1436,10 +1436,10 @@ input_handle_keymap(void *data, struct wl_keyboard *keyboard, uint32_t format,
 			goto error;
 		}
 
-		keymap = xkb_map_new_from_string(input->compositor->base.xkb_context,
-						 map_str,
-						 XKB_KEYMAP_FORMAT_TEXT_V1,
-						 0);
+		keymap = xkb_keymap_new_from_string(input->compositor->base.xkb_context,
+						    map_str,
+						    XKB_KEYMAP_FORMAT_TEXT_V1,
+						    0);
 		munmap(map_str, size);
 
 		if (!keymap) {
@@ -1464,8 +1464,7 @@ input_handle_keymap(void *data, struct wl_keyboard *keyboard, uint32_t format,
 	else
 		weston_seat_init_keyboard(&input->base, keymap);
 
-	if (keymap)
-		xkb_map_unref(keymap);
+	xkb_keymap_unref(keymap);
 
 	return;
 

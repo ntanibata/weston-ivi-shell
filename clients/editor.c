@@ -1331,11 +1331,16 @@ main(int argc, char *argv[])
 	for (i = 1; i < argc; i++) {
 		if (strcmp("--click-to-show", argv[i]) == 0)
 			click_to_show = 1;
-		else if (strcmp("--preferred-language", argv[i]) == 0) {
-			if (i + 1 < argc) {
-				preferred_language = argv[i + 1];
-				i++;
-			}
+		else if (strcmp("--preferred-language", argv[i]) == 0 &&
+			 i + 1 < argc) {
+			preferred_language = argv[i + 1];
+			i++;
+		} else {
+			printf("Usage: %s [OPTIONS]\n"
+			       "  --click-to-show\n"
+			       "  --preferred-language LANGUAGE\n",
+			       argv[0]);
+			return 1;
 		}
 	}
 
@@ -1353,6 +1358,11 @@ main(int argc, char *argv[])
 
 	display_set_user_data(editor.display, &editor);
 	display_set_global_handler(editor.display, global_handler);
+
+	if (editor.text_input_manager == NULL) {
+		fprintf(stderr, "No text input manager global\n");
+		return -1;
+	}
 
 	editor.window = window_create(editor.display);
 	editor.widget = window_frame_create(editor.window, &editor);

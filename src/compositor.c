@@ -46,6 +46,7 @@
 #include <setjmp.h>
 #include <sys/time.h>
 #include <time.h>
+#include <errno.h>
 
 #ifdef HAVE_LIBUNWIND
 #define UNW_LOCAL_ONLY
@@ -68,22 +69,23 @@ sigchld_handler(int signal_number, void *data)
 	int status;
 	pid_t pid;
 
-	pid = waitpid(-1, &status, WNOHANG);
-	if (!pid)
-		return 1;
+	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+		wl_list_for_each(p, &child_process_list, link) {
+			if (p->pid == pid)
+				break;
+		}
 
-	wl_list_for_each(p, &child_process_list, link) {
-		if (p->pid == pid)
-			break;
+		if (&p->link == &child_process_list) {
+			weston_log("unknown child process exited\n");
+			continue;
+		}
+
+		wl_list_remove(&p->link);
+		p->cleanup(p, status);
 	}
 
-	if (&p->link == &child_process_list) {
-		weston_log("unknown child process exited\n");
-		return 1;
-	}
-
-	wl_list_remove(&p->link);
-	p->cleanup(p, status);
+	if (pid < 0 && errno != ECHILD)
+		weston_log("waitpid error %m\n");
 
 	return 1;
 }
@@ -317,6 +319,66 @@ weston_client_launch(struct weston_compositor *compositor,
 	weston_watch_process(proc);
 
 	return client;
+}
+
+struct process_info {
+	struct weston_process proc;
+	char *path;
+};
+
+static void
+process_handle_sigchld(struct weston_process *process, int status)
+{
+	struct process_info *pinfo =
+		container_of(process, struct process_info, proc);
+
+	/*
+	 * There are no guarantees whether this runs before or after
+	 * the wl_client destructor.
+	 */
+
+	if (WIFEXITED(status)) {
+		weston_log("%s exited with status %d\n", pinfo->path,
+			   WEXITSTATUS(status));
+	} else if (WIFSIGNALED(status)) {
+		weston_log("%s died on signal %d\n", pinfo->path,
+			   WTERMSIG(status));
+	} else {
+		weston_log("%s disappeared\n", pinfo->path);
+	}
+
+	free(pinfo->path);
+	free(pinfo);
+}
+
+WL_EXPORT struct wl_client *
+weston_client_start(struct weston_compositor *compositor, const char *path)
+{
+	struct process_info *pinfo;
+	struct wl_client *client;
+
+	pinfo = zalloc(sizeof *pinfo);
+	if (!pinfo)
+		return NULL;
+
+	pinfo->path = strdup(path);
+	if (!pinfo->path)
+		goto out_free;
+
+	client = weston_client_launch(compositor, &pinfo->proc, path,
+				      process_handle_sigchld);
+	if (!client)
+		goto out_str;
+
+	return client;
+
+out_str:
+	free(pinfo->path);
+
+out_free:
+	free(pinfo);
+
+	return NULL;
 }
 
 static void
@@ -2187,7 +2249,7 @@ weston_surface_commit_state(struct weston_surface *surface,
 			      &state->damage);
 	pixman_region32_intersect_rect(&surface->damage, &surface->damage,
 				       0, 0, surface->width, surface->height);
-	pixman_region32_clear(&surface->pending.damage);
+	pixman_region32_clear(&state->damage);
 
 	/* wl_surface.set_opaque_region */
 	pixman_region32_init(&opaque);
@@ -2559,13 +2621,13 @@ subsurface_configure(struct weston_surface *surface, int32_t dx, int32_t dy)
 	if (!weston_surface_is_mapped(surface)) {
 		struct weston_output *output;
 
-		/* Cannot call weston_surface_update_transform(),
+		/* Cannot call weston_view_update_transform(),
 		 * because that would call it also for the parent surface,
 		 * which might not be mapped yet. That would lead to
 		 * inconsistent state, where the window could never be
 		 * mapped.
 		 *
-		 * Instead just assing any output, to make
+		 * Instead just assign any output, to make
 		 * weston_surface_is_mapped() return true, so that when the
 		 * parent surface does get mapped, this one will get
 		 * included, too. See view_list_add().
@@ -3186,6 +3248,8 @@ weston_compositor_remove_output(struct weston_compositor *compositor,
 WL_EXPORT void
 weston_output_destroy(struct weston_output *output)
 {
+	struct wl_resource *resource;
+
 	output->destroying = 1;
 
 	weston_compositor_remove_output(output->compositor, output);
@@ -3198,6 +3262,10 @@ weston_output_destroy(struct weston_output *output)
 	pixman_region32_fini(&output->region);
 	pixman_region32_fini(&output->previous_damage);
 	output->compositor->output_id_pool &= ~(1 << output->id);
+
+	wl_resource_for_each(resource, &output->resource_list) {
+		wl_resource_set_destructor(resource, NULL);
+	}
 
 	wl_global_destroy(output->global);
 }
@@ -4217,6 +4285,42 @@ handle_primary_client_destroyed(struct wl_listener *listener, void *data)
 	wl_display_terminate(wl_client_get_display(client));
 }
 
+static char *
+weston_choose_default_backend(void)
+{
+	char *backend = NULL;
+
+	if (getenv("WAYLAND_DISPLAY") || getenv("WAYLAND_SOCKET"))
+		backend = strdup("wayland-backend.so");
+	else if (getenv("DISPLAY"))
+		backend = strdup("x11-backend.so");
+	else
+		backend = strdup(WESTON_NATIVE_BACKEND);
+
+	return backend;
+}
+
+static int
+weston_create_listening_socket(struct wl_display *display, const char *socket_name)
+{
+	if (socket_name) {
+		if (wl_display_add_socket(display, socket_name)) {
+			weston_log("fatal: failed to add socket: %m\n");
+			return -1;
+		}
+	} else {
+		socket_name = wl_display_add_socket_auto(display);
+		if (!socket_name) {
+			weston_log("fatal: failed to add socket: %m\n");
+			return -1;
+		}
+	}
+
+	setenv("WAYLAND_DISPLAY", socket_name, 1);
+
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int ret = EXIT_SUCCESS;
@@ -4230,25 +4334,26 @@ int main(int argc, char *argv[])
 				 struct weston_config *config);
 	int i, fd;
 	char *backend = NULL;
-	char *option_backend = NULL;
 	char *shell = NULL;
-	char *option_shell = NULL;
-	char *modules, *option_modules = NULL;
+	char *modules = NULL;
+	char *option_modules = NULL;
 	char *log = NULL;
 	char *server_socket = NULL, *end;
 	int32_t idle_time = 300;
 	int32_t help = 0;
-	const char *socket_name = NULL;
+	char *socket_name = NULL;
 	int32_t version = 0;
 	int32_t noconfig = 0;
+	int32_t numlock_on;
 	struct weston_config *config = NULL;
 	struct weston_config_section *section;
 	struct wl_client *primary_client;
 	struct wl_listener primary_client_destroyed;
+	struct weston_seat *seat;
 
 	const struct weston_option core_options[] = {
-		{ WESTON_OPTION_STRING, "backend", 'B', &option_backend },
-		{ WESTON_OPTION_STRING, "shell", 0, &option_shell },
+		{ WESTON_OPTION_STRING, "backend", 'B', &backend },
+		{ WESTON_OPTION_STRING, "shell", 0, &shell },
 		{ WESTON_OPTION_STRING, "socket", 'S', &socket_name },
 		{ WESTON_OPTION_INTEGER, "idle-time", 'i', &idle_time },
 		{ WESTON_OPTION_STRING, "modules", 0, &option_modules },
@@ -4309,23 +4414,14 @@ int main(int argc, char *argv[])
 	}
 	section = weston_config_get_section(config, "core", NULL, NULL);
 
-	if (option_backend)
-		backend = strdup(option_backend);
-	else
+	if (!backend) {
 		weston_config_section_get_string(section, "backend", &backend,
 						 NULL);
-
-	if (!backend) {
-		if (getenv("WAYLAND_DISPLAY") || getenv("WAYLAND_SOCKET"))
-			backend = strdup("wayland-backend.so");
-		else if (getenv("DISPLAY"))
-			backend = strdup("x11-backend.so");
-		else
-			backend = strdup(WESTON_NATIVE_BACKEND);
+		if (!backend)
+			backend = weston_choose_default_backend();
 	}
 
 	backend_init = weston_load_module(backend, "backend_init");
-	free(backend);
 	if (!backend_init) {
 		ret = EXIT_FAILURE;
 		goto out_signals;
@@ -4374,52 +4470,41 @@ int main(int argc, char *argv[])
 			handle_primary_client_destroyed;
 		wl_client_add_destroy_listener(primary_client,
 					       &primary_client_destroyed);
-	} else {
-		if (socket_name) {
-			if (wl_display_add_socket(display, socket_name)) {
-				weston_log("fatal: failed to add socket: %m\n");
-				ret = EXIT_FAILURE;
-				goto out;
-			}
-		} else {
-			socket_name = wl_display_add_socket_auto(display);
-			if (!socket_name) {
-				weston_log("fatal: failed to add socket: %m\n");
-				ret = EXIT_FAILURE;
-				goto out;
-			}
-		}
-
-		setenv("WAYLAND_DISPLAY", socket_name, 1);
+	} else if (weston_create_listening_socket(display, socket_name)) {
+		ret = EXIT_FAILURE;
+		goto out;
 	}
 
-	if (option_shell)
-		shell = strdup(option_shell);
-	else
+	if (!shell)
 		weston_config_section_get_string(section, "shell", &shell,
 						 "desktop-shell.so");
 
-	if (load_modules(ec, shell, &argc, argv) < 0) {
-		free(shell);
+	if (load_modules(ec, shell, &argc, argv) < 0)
 		goto out;
-	}
-	free(shell);
 
 	weston_config_section_get_string(section, "modules", &modules, "");
-	if (load_modules(ec, modules, &argc, argv) < 0) {
-		free(modules);
+	if (load_modules(ec, modules, &argc, argv) < 0)
 		goto out;
-	}
-	free(modules);
 
 	if (load_modules(ec, option_modules, &argc, argv) < 0)
 		goto out;
+
+	section = weston_config_get_section(config, "keyboard", NULL, NULL);
+	weston_config_section_get_bool(section, "numlock-on", &numlock_on, 0);
+	if (numlock_on) {
+		wl_list_for_each(seat, &ec->seat_list, link) {
+			if (seat->keyboard)
+				weston_keyboard_set_locks(seat->keyboard,
+							  WESTON_NUM_LOCK,
+							  WESTON_NUM_LOCK);
+		}
+	}
 
 	weston_compositor_wake(ec);
 
 	wl_display_run(display);
 
- out:
+out:
 	/* prevent further rendering while shutting down */
 	ec->state = WESTON_COMPOSITOR_OFFSCREEN;
 
@@ -4437,6 +4522,13 @@ out_signals:
 	wl_display_destroy(display);
 
 	weston_log_file_close();
+
+	free(backend);
+	free(shell);
+	free(socket_name);
+	free(option_modules);
+	free(log);
+	free(modules);
 
 	return ret;
 }

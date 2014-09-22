@@ -701,6 +701,9 @@ weston_wm_window_activate(struct wl_listener *listener, void *data)
 	}
 
 	if (window) {
+		if (window->override_redirect)
+			return;
+
 		client_message.response_type = XCB_CLIENT_MESSAGE;
 		client_message.format = 32;
 		client_message.window = window->id;
@@ -1244,8 +1247,8 @@ weston_wm_window_handle_moveresize(struct weston_wm_window *window,
 	struct weston_shell_interface *shell_interface =
 		&wm->server->compositor->shell_interface;
 
-	if (seat->pointer->button_count != 1 || !window->view
-	    || seat->pointer->focus != window->view)
+	if (seat == NULL || seat->pointer->button_count != 1
+	    || !window->view || seat->pointer->focus != window->view)
 		return;
 
 	detail = client_message->data.data32[2];
@@ -1648,12 +1651,14 @@ weston_wm_handle_button(struct weston_wm *wm, xcb_generic_event_t *event)
 		weston_wm_window_schedule_repaint(window);
 
 	if (frame_status(window->frame) & FRAME_STATUS_MOVE) {
-		shell_interface->move(window->shsurf, seat);
+		if (seat != NULL)
+			shell_interface->move(window->shsurf, seat);
 		frame_status_clear(window->frame, FRAME_STATUS_MOVE);
 	}
 
 	if (frame_status(window->frame) & FRAME_STATUS_RESIZE) {
-		shell_interface->resize(window->shsurf, seat, location);
+		if (seat != NULL)
+			shell_interface->resize(window->shsurf, seat, location);
 		frame_status_clear(window->frame, FRAME_STATUS_RESIZE);
 	}
 
@@ -2188,15 +2193,12 @@ send_configure(struct weston_surface *surface, int32_t width, int32_t height)
 	struct theme *t = window->wm->theme;
 	int vborder, hborder;
 
-	if (window->fullscreen) {
+	if (window->decorate) {
+		hborder = 2 * t->width;
+		vborder = t->titlebar_height + t->width;
+	} else {
 		hborder = 0;
 		vborder = 0;
-	} else if (window->decorate) {
-		hborder = 2 * (t->margin + t->width);
-		vborder = 2 * t->margin + t->titlebar_height + t->width;
-	} else {
-		hborder = 2 * t->margin;
-		vborder = 2 * t->margin;
 	}
 
 	if (width > hborder)

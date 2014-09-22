@@ -1,6 +1,6 @@
 m4_define([weston_major_version], [1])
-m4_define([weston_minor_version], [5])
-m4_define([weston_micro_version], [90])
+m4_define([weston_minor_version], [6])
+m4_define([weston_micro_version], [0])
 m4_define([weston_version],
           [weston_major_version.weston_minor_version.weston_micro_version])
 
@@ -59,7 +59,7 @@ AC_CHECK_HEADERS([execinfo.h])
 
 AC_CHECK_FUNCS([mkostemp strchrnul initgroups posix_fallocate])
 
-COMPOSITOR_MODULES="wayland-server >= 1.3.90 pixman-1 >= 0.25.2"
+COMPOSITOR_MODULES="wayland-server >= 1.5.91 pixman-1 >= 0.25.2"
 
 AC_ARG_ENABLE(egl, [  --disable-egl],,
               enable_egl=yes)
@@ -155,12 +155,12 @@ if test x$enable_drm_compositor = xyes; then
 fi
 
 
-AC_ARG_ENABLE(libinput-backend, [  --enable-libinput-backend],,
-	      enable_libinput_backend=no)
+AC_ARG_ENABLE(libinput-backend, [  --disable-libinput-backend],,
+	      enable_libinput_backend=yes)
 AM_CONDITIONAL([ENABLE_LIBINPUT_BACKEND], [test x$enable_libinput_backend = xyes])
 if test x$enable_libinput_backend = xyes; then
   AC_DEFINE([BUILD_LIBINPUT_BACKEND], [1], [Build the libinput input device backend])
-  PKG_CHECK_MODULES(LIBINPUT_BACKEND, [libinput >= 0.5.0])
+  PKG_CHECK_MODULES(LIBINPUT_BACKEND, [libinput >= 0.6.0])
 fi
 
 
@@ -173,7 +173,7 @@ AM_CONDITIONAL(ENABLE_WAYLAND_COMPOSITOR,
 if test x$enable_wayland_compositor = xyes -a x$enable_egl = xyes; then
   AC_DEFINE([BUILD_WAYLAND_COMPOSITOR], [1],
 	    [Build the Wayland (nested) compositor])
-  PKG_CHECK_MODULES(WAYLAND_COMPOSITOR, [wayland-client wayland-egl wayland-cursor])
+  PKG_CHECK_MODULES(WAYLAND_COMPOSITOR, [wayland-client >= 1.5.91 wayland-egl wayland-cursor])
 fi
 
 
@@ -323,9 +323,9 @@ AM_CONDITIONAL(BUILD_CLIENTS, test x$enable_clients = xyes)
 if test x$enable_clients = xyes; then
   AC_DEFINE([BUILD_CLIENTS], [1], [Build the Wayland clients])
 
-  PKG_CHECK_MODULES(CLIENT, [wayland-client cairo >= 1.10.0 xkbcommon wayland-cursor])
+  PKG_CHECK_MODULES(CLIENT, [wayland-client >= 1.5.91 cairo >= 1.10.0 xkbcommon wayland-cursor])
   PKG_CHECK_MODULES(SERVER, [wayland-server])
-  PKG_CHECK_MODULES(WESTON_INFO, [wayland-client])
+  PKG_CHECK_MODULES(WESTON_INFO, [wayland-client >= 1.5.91])
 
   # Only check for cairo-egl if a GL or GLES renderer requested
   AS_IF([test "x$cairo_modules" = "xcairo-gl" -o "x$cairo_modules" = "xcairo-glesv2"], [

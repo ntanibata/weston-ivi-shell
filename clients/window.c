@@ -217,6 +217,7 @@ struct window {
 	struct rectangle saved_allocation;
 	struct rectangle min_allocation;
 	struct rectangle pending_allocation;
+	struct rectangle last_geometry;
 	int x, y;
 	int redraw_needed;
 	int redraw_task_scheduled;
@@ -246,6 +247,7 @@ struct window {
 	struct xdg_popup *xdg_popup;
 
 	struct window *parent;
+	struct wl_surface *last_parent_surface;
 
 	struct window_frame *frame;
 
@@ -365,6 +367,9 @@ struct window_frame {
 	struct widget *widget;
 	struct widget *child;
 	struct frame *frame;
+
+	uint32_t last_time;
+	uint32_t did_double, double_click;
 };
 
 struct menu {
@@ -576,8 +581,8 @@ egl_window_surface_release(struct toysurface *base)
 	if (!device)
 		return;
 
-	if (!eglMakeCurrent(surface->display->dpy, NULL, NULL,
-			    surface->display->argb_ctx))
+	if (!eglMakeCurrent(surface->display->dpy,
+			    EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT))
 		fprintf(stderr, "failed to make context current\n");
 
 	cairo_device_release(device);
@@ -2233,19 +2238,61 @@ frame_get_pointer_image_for_location(struct window_frame *frame,
 	}
 }
 
+static void
+frame_menu_func(void *data, struct input *input, int index)
+{
+	struct window *window = data;
+	struct display *display;
+
+	switch (index) {
+	case 0: /* close */
+		window_close(window);
+		break;
+	case 1: /* move to workspace above */
+		display = window->display;
+		if (display->workspace > 0)
+			workspace_manager_move_surface(
+				display->workspace_manager,
+				window->main_surface->surface,
+				display->workspace - 1);
+		break;
+	case 2: /* move to workspace below */
+		display = window->display;
+		if (display->workspace < display->workspace_count - 1)
+			workspace_manager_move_surface(
+				display->workspace_manager,
+				window->main_surface->surface,
+				display->workspace + 1);
+		break;
+	case 3: /* fullscreen */
+		/* we don't have a way to get out of fullscreen for now */
+		if (window->fullscreen_handler)
+			window->fullscreen_handler(window, window->user_data);
+		break;
+	}
+}
+
 void
 window_show_frame_menu(struct window *window,
 		       struct input *input, uint32_t time)
 {
 	int32_t x, y;
+	int count;
 
-	if (window->xdg_surface) {
-		input_get_position(input, &x, &y);
-		xdg_surface_show_window_menu(window->xdg_surface,
-					     input_get_seat(input),
-					     window->display->serial,
-					     x - 10, y - 10);
-	}
+	static const char *entries[] = {
+		"Close",
+		"Move to workspace above", "Move to workspace below",
+		"Fullscreen"
+	};
+
+	if (window->fullscreen_handler)
+		count = ARRAY_LENGTH(entries);
+	else
+		count = ARRAY_LENGTH(entries) - 1;
+
+	input_get_position(input, &x, &y);
+	window_show_menu(window->display, input, time, window,
+			 x - 10, y - 10, frame_menu_func, entries, count);
 }
 
 static int
@@ -2340,6 +2387,7 @@ frame_handle_status(struct window_frame *frame, struct input *input,
 	}
 }
 
+#define DOUBLE_CLICK_PERIOD 250
 static void
 frame_button_handler(struct widget *widget,
 		     struct input *input, uint32_t time,
@@ -2350,7 +2398,27 @@ frame_button_handler(struct widget *widget,
 	struct window_frame *frame = data;
 	enum theme_location location;
 
-	location = frame_pointer_button(frame->frame, input, button, state);
+	frame->double_click = 0;
+	if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
+		if (time - frame->last_time <= DOUBLE_CLICK_PERIOD) {
+			frame->double_click = 1;
+			frame->did_double = 1;
+		} else
+			frame->did_double = 0;
+
+		frame->last_time = time;
+	} else if (frame->did_double == 1) {
+		frame->double_click = 1;
+		frame->did_double = 0;
+	}
+
+	if (frame->double_click)
+		location = frame_double_click(frame->frame, input,
+					      button, state);
+	else
+		location = frame_pointer_button(frame->frame, input,
+						button, state);
+
 	frame_handle_status(frame, input, time, location);
 }
 
@@ -2749,10 +2817,10 @@ keyboard_handle_keymap(void *data, struct wl_keyboard *keyboard,
 		return;
 	}
 
-	keymap = xkb_map_new_from_string(input->display->xkb_context,
-					 map_str,
-					 XKB_KEYMAP_FORMAT_TEXT_V1,
-					 0);
+	keymap = xkb_keymap_new_from_string(input->display->xkb_context,
+					    map_str,
+					    XKB_KEYMAP_FORMAT_TEXT_V1,
+					    0);
 	munmap(map_str, size);
 	close(fd);
 
@@ -2764,7 +2832,7 @@ keyboard_handle_keymap(void *data, struct wl_keyboard *keyboard,
 	state = xkb_state_new(keymap);
 	if (!state) {
 		fprintf(stderr, "failed to create XKB state\n");
-		xkb_map_unref(keymap);
+		xkb_keymap_unref(keymap);
 		return;
 	}
 
@@ -2774,11 +2842,11 @@ keyboard_handle_keymap(void *data, struct wl_keyboard *keyboard,
 	input->xkb.state = state;
 
 	input->xkb.control_mask =
-		1 << xkb_map_mod_get_index(input->xkb.keymap, "Control");
+		1 << xkb_keymap_mod_get_index(input->xkb.keymap, "Control");
 	input->xkb.alt_mask =
-		1 << xkb_map_mod_get_index(input->xkb.keymap, "Mod1");
+		1 << xkb_keymap_mod_get_index(input->xkb.keymap, "Mod1");
 	input->xkb.shift_mask =
-		1 << xkb_map_mod_get_index(input->xkb.keymap, "Shift");
+		1 << xkb_keymap_mod_get_index(input->xkb.keymap, "Shift");
 }
 
 static void
@@ -2834,7 +2902,7 @@ keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
 	if (input->grab && input->grab_button == 0)
 		return;
 
-	num_syms = xkb_key_get_syms(input->xkb.state, code, &syms);
+	num_syms = xkb_state_key_get_syms(input->xkb.state, code, &syms);
 
 	sym = XKB_KEY_NoSymbol;
 	if (num_syms == 1)
@@ -2893,8 +2961,8 @@ keyboard_handle_modifiers(void *data, struct wl_keyboard *keyboard,
 	xkb_state_update_mask(input->xkb.state, mods_depressed, mods_latched,
 			      mods_locked, 0, 0, group);
 	mask = xkb_state_serialize_mods(input->xkb.state,
-					XKB_STATE_DEPRESSED |
-					XKB_STATE_LATCHED);
+					XKB_STATE_MODS_DEPRESSED |
+					XKB_STATE_MODS_LATCHED);
 	input->modifiers = 0;
 	if (mask & input->xkb.control_mask)
 		input->modifiers |= MOD_CONTROL_MASK;
@@ -3927,7 +3995,11 @@ window_sync_parent(struct window *window)
 	else
 		parent_surface = NULL;
 
+	if (parent_surface == window->last_parent_surface)
+		return;
+
 	xdg_surface_set_parent(window->xdg_surface, parent_surface);
+	window->last_parent_surface = parent_surface;
 }
 
 static void
@@ -3952,12 +4024,18 @@ window_sync_geometry(struct window *window)
 		return;
 
 	window_get_geometry(window, &geometry);
+	if (geometry.x == window->last_geometry.x &&
+	    geometry.y == window->last_geometry.y &&
+	    geometry.width == window->last_geometry.width &&
+	    geometry.height == window->last_geometry.height)
+		return;
 
 	xdg_surface_set_window_geometry(window->xdg_surface,
 					geometry.x,
 					geometry.y,
 					geometry.width,
 					geometry.height);
+	window->last_geometry = geometry;
 }
 
 static void
@@ -4993,7 +5071,7 @@ static void
 fini_xkb(struct input *input)
 {
 	xkb_state_unref(input->xkb.state);
-	xkb_map_unref(input->xkb.keymap);
+	xkb_keymap_unref(input->xkb.keymap);
 }
 
 #define MIN(a,b) ((a) < (b) ? a : b)
@@ -5103,7 +5181,7 @@ static const struct xdg_shell_listener xdg_shell_listener = {
 	xdg_shell_ping,
 };
 
-#define XDG_VERSION 3 /* The version of xdg-shell that we implement */
+#define XDG_VERSION 4 /* The version of xdg-shell that we implement */
 #ifdef static_assert
 static_assert(XDG_VERSION == XDG_SHELL_VERSION_CURRENT,
 	      "Interface version doesn't match implementation version");

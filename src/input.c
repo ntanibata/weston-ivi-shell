@@ -544,12 +544,10 @@ weston_keyboard_destroy(struct weston_keyboard *keyboard)
 
 #ifdef ENABLE_XKBCOMMON
 	if (keyboard->seat->compositor->use_xkbcommon) {
-		if (keyboard->xkb_state.state != NULL)
-			xkb_state_unref(keyboard->xkb_state.state);
+		xkb_state_unref(keyboard->xkb_state.state);
 		if (keyboard->xkb_info)
 			weston_xkb_info_destroy(keyboard->xkb_info);
-		if (keyboard->pending_keymap)
-			xkb_keymap_unref(keyboard->pending_keymap);
+		xkb_keymap_unref(keyboard->pending_keymap);
 	}
 #endif
 
@@ -1064,6 +1062,58 @@ notify_axis(struct weston_seat *seat, uint32_t time, uint32_t axis,
 				     value);
 }
 
+WL_EXPORT int
+weston_keyboard_set_locks(struct weston_keyboard *keyboard,
+			  uint32_t mask, uint32_t value)
+{
+#ifdef ENABLE_XKBCOMMON
+	uint32_t serial;
+	xkb_mod_mask_t mods_depressed, mods_latched, mods_locked, group;
+	xkb_mod_mask_t num, caps;
+
+	/* We don't want the leds to go out of sync with the actual state
+	 * so if the backend has no way to change the leds don't try to
+	 * change the state */
+	if (!keyboard->seat->led_update)
+		return -1;
+
+	mods_depressed = xkb_state_serialize_mods(keyboard->xkb_state.state,
+						XKB_STATE_DEPRESSED);
+	mods_latched = xkb_state_serialize_mods(keyboard->xkb_state.state,
+						XKB_STATE_LATCHED);
+	mods_locked = xkb_state_serialize_mods(keyboard->xkb_state.state,
+						XKB_STATE_LOCKED);
+	group = xkb_state_serialize_group(keyboard->xkb_state.state,
+                                      XKB_STATE_EFFECTIVE);
+
+	num = (1 << keyboard->xkb_info->mod2_mod);
+	caps = (1 << keyboard->xkb_info->caps_mod);
+	if (mask & WESTON_NUM_LOCK) {
+		if (value & WESTON_NUM_LOCK)
+			mods_locked |= num;
+		else
+			mods_locked &= ~num;
+	}
+	if (mask & WESTON_CAPS_LOCK) {
+		if (value & WESTON_CAPS_LOCK)
+			mods_locked |= caps;
+		else
+			mods_locked &= ~caps;
+	}
+
+	xkb_state_update_mask(keyboard->xkb_state.state, mods_depressed,
+			      mods_latched, mods_locked, 0, 0, group);
+
+	serial = wl_display_next_serial(
+				keyboard->seat->compositor->wl_display);
+	notify_modifiers(keyboard->seat, serial);
+
+	return 0;
+#else
+	return -1;
+#endif
+}
+
 #ifdef ENABLE_XKBCOMMON
 WL_EXPORT void
 notify_modifiers(struct weston_seat *seat, uint32_t serial)
@@ -1078,13 +1128,13 @@ notify_modifiers(struct weston_seat *seat, uint32_t serial)
 	/* Serialize and update our internal state, checking to see if it's
 	 * different to the previous state. */
 	mods_depressed = xkb_state_serialize_mods(keyboard->xkb_state.state,
-						  XKB_STATE_DEPRESSED);
+						  XKB_STATE_MODS_DEPRESSED);
 	mods_latched = xkb_state_serialize_mods(keyboard->xkb_state.state,
-						XKB_STATE_LATCHED);
+						XKB_STATE_MODS_LATCHED);
 	mods_locked = xkb_state_serialize_mods(keyboard->xkb_state.state,
-					       XKB_STATE_LOCKED);
-	group = xkb_state_serialize_group(keyboard->xkb_state.state,
-					  XKB_STATE_EFFECTIVE);
+					       XKB_STATE_MODS_LOCKED);
+	group = xkb_state_serialize_layout(keyboard->xkb_state.state,
+					   XKB_STATE_LAYOUT_EFFECTIVE);
 
 	if (mods_depressed != seat->keyboard->modifiers.mods_depressed ||
 	    mods_latched != seat->keyboard->modifiers.mods_latched ||
@@ -1421,8 +1471,14 @@ weston_touch_set_focus(struct weston_seat *seat, struct weston_view *view)
 	}
 
 	if (view) {
-		struct wl_client *surface_client =
-			wl_resource_get_client(view->surface->resource);
+		struct wl_client *surface_client;
+
+		if (!view->surface->resource) {
+			seat->touch->focus = NULL;
+			return;
+		}
+
+		surface_client = wl_resource_get_client(view->surface->resource);
 		move_resources_for_client(focus_resource_list,
 					  &seat->touch->resource_list,
 					  surface_client);
@@ -1609,8 +1665,10 @@ pointer_set_cursor(struct wl_client *client, struct wl_resource *resource,
 	pointer->hotspot_x = x;
 	pointer->hotspot_y = y;
 
-	if (surface->buffer_ref.buffer)
+	if (surface->buffer_ref.buffer) {
 		pointer_cursor_surface_configure(surface, 0, 0);
+		weston_view_schedule_repaint(pointer->sprite);
+	}
 }
 
 static void
@@ -1869,8 +1927,7 @@ weston_xkb_info_destroy(struct weston_xkb_info *xkb_info)
 	if (--xkb_info->ref_count > 0)
 		return;
 
-	if (xkb_info->keymap)
-		xkb_map_unref(xkb_info->keymap);
+	xkb_keymap_unref(xkb_info->keymap);
 
 	if (xkb_info->keymap_area)
 		munmap(xkb_info->keymap_area, xkb_info->keymap_size);
@@ -1907,33 +1964,37 @@ weston_xkb_info_create(struct xkb_keymap *keymap)
 	if (xkb_info == NULL)
 		return NULL;
 
-	xkb_info->keymap = xkb_map_ref(keymap);
+	xkb_info->keymap = xkb_keymap_ref(keymap);
 	xkb_info->ref_count = 1;
 
 	char *keymap_str;
 
-	xkb_info->shift_mod = xkb_map_mod_get_index(xkb_info->keymap,
-						    XKB_MOD_NAME_SHIFT);
-	xkb_info->caps_mod = xkb_map_mod_get_index(xkb_info->keymap,
-						   XKB_MOD_NAME_CAPS);
-	xkb_info->ctrl_mod = xkb_map_mod_get_index(xkb_info->keymap,
-						   XKB_MOD_NAME_CTRL);
-	xkb_info->alt_mod = xkb_map_mod_get_index(xkb_info->keymap,
-						  XKB_MOD_NAME_ALT);
-	xkb_info->mod2_mod = xkb_map_mod_get_index(xkb_info->keymap, "Mod2");
-	xkb_info->mod3_mod = xkb_map_mod_get_index(xkb_info->keymap, "Mod3");
-	xkb_info->super_mod = xkb_map_mod_get_index(xkb_info->keymap,
-						    XKB_MOD_NAME_LOGO);
-	xkb_info->mod5_mod = xkb_map_mod_get_index(xkb_info->keymap, "Mod5");
+	xkb_info->shift_mod = xkb_keymap_mod_get_index(xkb_info->keymap,
+						       XKB_MOD_NAME_SHIFT);
+	xkb_info->caps_mod = xkb_keymap_mod_get_index(xkb_info->keymap,
+						      XKB_MOD_NAME_CAPS);
+	xkb_info->ctrl_mod = xkb_keymap_mod_get_index(xkb_info->keymap,
+						      XKB_MOD_NAME_CTRL);
+	xkb_info->alt_mod = xkb_keymap_mod_get_index(xkb_info->keymap,
+						     XKB_MOD_NAME_ALT);
+	xkb_info->mod2_mod = xkb_keymap_mod_get_index(xkb_info->keymap,
+						      "Mod2");
+	xkb_info->mod3_mod = xkb_keymap_mod_get_index(xkb_info->keymap,
+						      "Mod3");
+	xkb_info->super_mod = xkb_keymap_mod_get_index(xkb_info->keymap,
+						       XKB_MOD_NAME_LOGO);
+	xkb_info->mod5_mod = xkb_keymap_mod_get_index(xkb_info->keymap,
+						      "Mod5");
 
-	xkb_info->num_led = xkb_map_led_get_index(xkb_info->keymap,
-						  XKB_LED_NAME_NUM);
-	xkb_info->caps_led = xkb_map_led_get_index(xkb_info->keymap,
-						   XKB_LED_NAME_CAPS);
-	xkb_info->scroll_led = xkb_map_led_get_index(xkb_info->keymap,
-						     XKB_LED_NAME_SCROLL);
+	xkb_info->num_led = xkb_keymap_led_get_index(xkb_info->keymap,
+						     XKB_LED_NAME_NUM);
+	xkb_info->caps_led = xkb_keymap_led_get_index(xkb_info->keymap,
+						      XKB_LED_NAME_CAPS);
+	xkb_info->scroll_led = xkb_keymap_led_get_index(xkb_info->keymap,
+							XKB_LED_NAME_SCROLL);
 
-	keymap_str = xkb_map_get_as_string(xkb_info->keymap);
+	keymap_str = xkb_keymap_get_as_string(xkb_info->keymap,
+					      XKB_KEYMAP_FORMAT_TEXT_V1);
 	if (keymap_str == NULL) {
 		weston_log("failed to get string version of keymap\n");
 		goto err_keymap;
@@ -1965,7 +2026,7 @@ err_dev_zero:
 err_keymap_str:
 	free(keymap_str);
 err_keymap:
-	xkb_map_unref(xkb_info->keymap);
+	xkb_keymap_unref(xkb_info->keymap);
 	free(xkb_info);
 	return NULL;
 }
@@ -1978,9 +2039,9 @@ weston_compositor_build_global_keymap(struct weston_compositor *ec)
 	if (ec->xkb_info != NULL)
 		return 0;
 
-	keymap = xkb_map_new_from_names(ec->xkb_context,
-					&ec->xkb_names,
-					0);
+	keymap = xkb_keymap_new_from_names(ec->xkb_context,
+					   &ec->xkb_names,
+					   0);
 	if (keymap == NULL) {
 		weston_log("failed to compile global XKB keymap\n");
 		weston_log("  tried rules %s, model %s, layout %s, variant %s, "

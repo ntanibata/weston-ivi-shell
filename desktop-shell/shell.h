@@ -23,8 +23,11 @@
  */
 
 #include <stdbool.h>
+#include <time.h>
 
 #include "compositor.h"
+
+#include "desktop-shell-server-protocol.h"
 
 enum animation_type {
 	ANIMATION_NONE,
@@ -132,7 +135,6 @@ struct desktop_shell {
 	struct weston_surface *grab_surface;
 
 	struct {
-		struct weston_process process;
 		struct wl_client *client;
 		struct wl_resource *desktop_shell;
 		struct wl_listener client_destroy_listener;
@@ -205,7 +207,11 @@ struct desktop_shell {
 	struct wl_listener output_move_listener;
 	struct wl_list output_list;
 
+	enum desktop_shell_panel_position panel_position;
+
 	char *client;
+
+	struct timespec startup_time;
 };
 
 struct weston_output *
