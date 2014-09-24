@@ -98,6 +98,7 @@ struct hmi_controller
     struct hmi_controller_layer         workspace_background_layer;
     struct hmi_controller_layer         workspace_layer;
     struct hmi_controller_layer         fullscreen_layer;
+    struct hmi_controller_layer         navit_layer;
     enum ivi_hmi_controller_layout_mode layout_mode;
 
     struct hmi_controller_fade              workspace_fade;
@@ -681,6 +682,18 @@ hmi_controller_create(struct weston_compositor *ec)
     create_layer(iviscrn, &hmi_ctrl->workspace_background_layer);
     ivi_layout_layerSetOpacity(hmi_ctrl->workspace_background_layer.ivilayer, 0);
     ivi_layout_layerSetVisibility(hmi_ctrl->workspace_background_layer.ivilayer, 0);
+
+    /* init navit layer */
+    hmi_ctrl->navit_layer.x = 0;
+    hmi_ctrl->navit_layer.y = 0;
+    hmi_ctrl->navit_layer.width = screen_width;
+    hmi_ctrl->navit_layer.height = screen_height - panel_height;
+
+    hmi_ctrl->navit_layer.id_layer = 2000;
+
+    create_layer(iviscrn, &hmi_ctrl->navit_layer);
+    ivi_layout_layerSetOpacity(hmi_ctrl->navit_layer.ivilayer, 0);
+    ivi_layout_layerSetVisibility(hmi_ctrl->navit_layer.ivilayer, 0);
 
     /* init workspace layer */
     hmi_ctrl->workspace_layer.x = hmi_ctrl->workspace_background_layer.x;
