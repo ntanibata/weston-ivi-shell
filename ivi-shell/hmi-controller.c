@@ -97,9 +97,11 @@ struct hmi_controller
     struct hmi_controller_layer         application_layer;
     struct hmi_controller_layer         workspace_background_layer;
     struct hmi_controller_layer         workspace_layer;
+    struct hmi_controller_layer         fullscreen_layer;
     enum ivi_hmi_controller_layout_mode layout_mode;
 
     struct hmi_controller_fade              workspace_fade;
+    struct hmi_controller_fade              fullscreen_fade;
 
     int32_t                                 workspace_count;
     struct wl_array                     ui_widgets;
@@ -181,6 +183,46 @@ compare_launcher_info(const void *lhs, const void *rhs)
 }
 
 /**
+ * Internal method for transition
+ */
+static void
+hmi_controller_fade_run(struct hmi_controller* hmi_ctrl, uint32_t isFadeIn, struct hmi_controller_fade *fade)
+{
+    double tint = isFadeIn ? 1.0 : 0.0;
+    fade->isFadeIn = isFadeIn;
+
+    struct link_layer* linklayer = NULL;
+
+    const uint32_t duration = hmi_ctrl->hmi_setting->transition_duration;
+
+    wl_list_for_each(linklayer, &fade->layer_list, link){
+        ivi_layout_layerSetTransition(linklayer->layout_layer,IVI_LAYOUT_TRANSITION_LAYER_FADE,duration);
+        ivi_layout_layerSetFadeInfo(linklayer->layout_layer,isFadeIn,1.0 - tint, tint);
+    }
+}
+
+enum LAYER_VISIBILITY
+{
+    FULLSCREEN_LAYER,
+    APPLICATION_LAYER
+};
+
+static void
+switch_fullscreen_app_layer(struct hmi_controller *hmi_ctrl, enum LAYER_VISIBILITY layer)
+{
+    if (NULL != hmi_ctrl) {
+        if (FULLSCREEN_LAYER == layer) {
+            ivi_layout_layerSetVisibility(hmi_ctrl->fullscreen_layer.ivilayer, 1);
+            ivi_layout_layerSetVisibility(hmi_ctrl->application_layer.ivilayer, 0);
+        }
+        else if (APPLICATION_LAYER == layer) {
+            ivi_layout_layerSetVisibility(hmi_ctrl->application_layer.ivilayer, 1);
+            ivi_layout_layerSetVisibility(hmi_ctrl->fullscreen_layer.ivilayer, 0);
+        }
+    }
+}
+
+/**
  * Internal methods called by mainly ivi_hmi_controller_switch_mode
  * This reference shows 4 examples how to use ivi_layout APIs.
  */
@@ -190,6 +232,7 @@ mode_divided_into_tiling(struct hmi_controller *hmi_ctrl,
                         int32_t surface_length,
                         struct hmi_controller_layer *layer)
 {
+    switch_fullscreen_app_layer(hmi_ctrl, APPLICATION_LAYER);
     const float surface_width  = (float)layer->width * 0.25;
     const float surface_height = (float)layer->height * 0.5;
     int32_t surface_x = 0;
@@ -260,6 +303,7 @@ mode_divided_into_sidebyside(struct hmi_controller *hmi_ctrl,
                       int32_t surface_length,
                       struct hmi_controller_layer *layer)
 {
+    switch_fullscreen_app_layer(hmi_ctrl, APPLICATION_LAYER);
     int32_t surface_width  = layer->width / 2;
     int32_t surface_height = layer->height;
     struct ivi_layout_surface *ivisurf  = NULL;
@@ -307,25 +351,51 @@ mode_fullscreen_someone(struct hmi_controller *hmi_ctrl,
                       int32_t surface_length,
                       struct hmi_controller_layer *layer)
 {
-    const int32_t  surface_width  = layer->width;
-    const int32_t  surface_height = layer->height;
-    struct ivi_layout_surface *ivisurf  = NULL;
-
-    int32_t i = 0;
-    const uint32_t duration = hmi_ctrl->hmi_setting->transition_duration;
-    for (i = 0; i < surface_length; i++) {
-        ivisurf = ppSurface[i];
-
-        /* skip ui widgets */
-        if (is_surf_in_uiWidget(hmi_ctrl, ivisurf)) {
-            continue;
-        }
-        ivi_layout_surfaceSetTransition(ivisurf,IVI_LAYOUT_TRANSITION_VIEW_DEFAULT,duration);
-        ivi_layout_surfaceSetVisibility(ivisurf, 1);
-        ivi_layout_surfaceSetDestinationRectangle(ivisurf, 0, 0,
-                (uint32_t)surface_width, (uint32_t)surface_height);
+    const uint32_t fullscreen_id_layer = 2000;
+    struct ivi_layout_layer *ivilayer = ivi_layout_getLayerFromId(fullscreen_id_layer);
+    if (NULL == ivilayer) {
+        hmi_ctrl->fullscreen_layer.ivilayer = NULL;
+        hmi_ctrl->fullscreen_layer.x = 0;
+        hmi_ctrl->fullscreen_layer.y = 0;
+        hmi_ctrl->fullscreen_layer.width = 0;
+        hmi_ctrl->fullscreen_layer.height = 0;
+        return;
     }
 
+    hmi_ctrl->fullscreen_layer.ivilayer = ivilayer;
+    hmi_ctrl->fullscreen_layer.x = 0;
+    hmi_ctrl->fullscreen_layer.y = 0;
+    hmi_ctrl->fullscreen_layer.width = 800;
+    hmi_ctrl->fullscreen_layer.height = 480;
+    switch_fullscreen_app_layer(hmi_ctrl, FULLSCREEN_LAYER);
+    const uint32_t isFadeIn = 1;
+    hmi_controller_fade_run(hmi_ctrl, isFadeIn, &hmi_ctrl->fullscreen_fade);
+
+    const uint32_t hmi_launch_id_surf = 2002;
+    struct ivi_layout_surface *hmi_launch_surf = ivi_layout_getSurfaceFromId(hmi_launch_id_surf);
+    if (NULL != hmi_launch_surf) {
+        const uint32_t width = 800;
+        const uint32_t height = 480;
+        struct ivi_layout_layer *layout_layer = hmi_ctrl->fullscreen_layer.ivilayer;
+        ivi_layout_surfaceSetVisibility(hmi_launch_surf, 1);
+        ivi_layout_surfaceSetDestinationRectangle(hmi_launch_surf, 0, 0,
+                                                  width, height);
+        ivi_layout_layerAddSurface(layout_layer, hmi_launch_surf);
+    }
+
+    const uint32_t navit_id_surf = 2001;
+    struct ivi_layout_surface *navit_surf = ivi_layout_getSurfaceFromId(navit_id_surf);
+    if (NULL != navit_surf) {
+        const uint32_t width = 800;
+        const uint32_t height = 348;
+        const uint32_t destX = 3;
+        const uint32_t destY = 109;
+        struct ivi_layout_layer *layout_layer = hmi_ctrl->fullscreen_layer.ivilayer;
+        ivi_layout_surfaceSetVisibility(navit_surf, 1);
+        ivi_layout_surfaceSetDestinationRectangle(navit_surf, destX, destY,
+                                                  width, height);
+        ivi_layout_layerAddSurface(layout_layer, navit_surf);
+    }
 }
 
 static void
@@ -334,6 +404,7 @@ mode_random_replace(struct hmi_controller *hmi_ctrl,
                     int32_t surface_length,
                     struct hmi_controller_layer *layer)
 {
+    switch_fullscreen_app_layer(hmi_ctrl, APPLICATION_LAYER);
     const int32_t surface_width  = (int32_t)(layer->width * 0.25f);
     const int32_t surface_height = (int32_t)(layer->height * 0.25f);
     int32_t surface_x = 0;
@@ -434,25 +505,6 @@ switch_mode(struct hmi_controller *hmi_ctrl,
     ppSurface = NULL;
 
     return;
-}
-
-/**
- * Internal method for transition
- */
-static void
-hmi_controller_fade_run(struct hmi_controller* hmi_ctrl, uint32_t isFadeIn, struct hmi_controller_fade *fade)
-{
-    double tint = isFadeIn ? 1.0 : 0.0;
-    fade->isFadeIn = isFadeIn;
-
-    struct link_layer* linklayer = NULL;
-
-    const uint32_t duration = hmi_ctrl->hmi_setting->transition_duration;
-
-    wl_list_for_each(linklayer, &fade->layer_list, link){
-        ivi_layout_layerSetTransition(linklayer->layout_layer,IVI_LAYOUT_TRANSITION_LAYER_FADE,duration);
-        ivi_layout_layerSetFadeInfo(linklayer->layout_layer,isFadeIn,1.0 - tint, tint);
-    }
 }
 
 /**
@@ -648,6 +700,20 @@ hmi_controller_create(struct weston_compositor *ec)
     tmp_link_layer = MEM_ALLOC(sizeof(*tmp_link_layer));
     tmp_link_layer->layout_layer = hmi_ctrl->workspace_background_layer.ivilayer;
     wl_list_insert(&hmi_ctrl->workspace_fade.layer_list, &tmp_link_layer->link);
+
+    /* init fullscreen layer */
+    hmi_ctrl->fullscreen_layer.x = 0;
+    hmi_ctrl->fullscreen_layer.y = 0;
+    hmi_ctrl->fullscreen_layer.width = 800;
+    hmi_ctrl->fullscreen_layer.height = 480;
+    hmi_ctrl->fullscreen_layer.id_layer = 2000;
+    hmi_ctrl->fullscreen_layer.ivilayer = NULL;
+
+    struct link_layer *fullscreen_link_layer = NULL;
+    wl_list_init(&hmi_ctrl->fullscreen_fade.layer_list);
+    fullscreen_link_layer = MEM_ALLOC(sizeof(*fullscreen_link_layer));
+    fullscreen_link_layer->layout_layer = hmi_ctrl->fullscreen_layer.ivilayer;
+    wl_list_insert(&hmi_ctrl->fullscreen_fade.layer_list, &fullscreen_link_layer->link);
 
     ivi_layout_addNotificationCreateSurface(set_notification_create_surface, hmi_ctrl);
     ivi_layout_addNotificationRemoveSurface(set_notification_remove_surface, hmi_ctrl);
