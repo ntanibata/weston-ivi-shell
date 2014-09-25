@@ -67,6 +67,8 @@ struct ivi_shell_surface
 	struct wl_list link;
 
 	struct wl_listener configured_listener;
+
+	const struct weston_shell_client *client;
 };
 
 struct ivi_shell_setting
@@ -95,9 +97,13 @@ surface_configure_notify(struct wl_listener *listener, void *data)
 	ivi_layout_surface_get_dimension(layout_surf,
 					 &dest_width, &dest_height);
 
-	if (shell_surf->resource)
+	if (shell_surf->resource) 
 		ivi_surface_send_configure(shell_surf->resource,
 					   dest_width, dest_height);
+
+	if (shell_surf->client) 
+		shell_surf->client->send_configure(shell_surf->surface,
+						dest_width, dest_height);
 }
 
 static void
@@ -205,6 +211,110 @@ static const struct ivi_surface_interface surface_implementation = {
 	surface_destroy,
 };
 
+static struct shell_surface*
+create_shell_surface(void *shell,
+		     struct weston_surface *weston_surface,
+		     const struct weston_shell_client *client)
+{
+	struct ivi_shell_surface *ivisurf;
+	struct ivi_layout_surface *layout_surface;
+	static uint32_t id_surface = 0xffffffff; // FIXME
+
+	ivisurf = zalloc(sizeof *ivisurf);
+	if (ivisurf == NULL) {
+	weston_log("no memory\n");
+		return NULL;
+	}
+
+	layout_surface = ivi_layout_surface_create(weston_surface, id_surface);
+
+	wl_list_init(&ivisurf->link);
+	wl_list_insert(&((struct ivi_shell*)shell)->ivi_surface_list, &ivisurf->link);
+
+	ivisurf->shell = shell;
+	ivisurf->id_surface = id_surface;
+
+	ivisurf->resource = NULL;
+	ivisurf->width = 0;
+	ivisurf->height = 0;
+	ivisurf->layout_surface = layout_surface;
+	ivisurf->configured_listener.notify = surface_configure_notify;
+	ivi_layout_surface_add_configured_listener(layout_surface, 
+						   &ivisurf->configured_listener);
+	ivisurf->client = client;
+
+	ivisurf->surface = weston_surface;
+
+	weston_surface->configure = ivi_shell_surface_configure;
+	weston_surface->configure_private = ivisurf;
+
+	/* FIXME !!! res is null !!!
+	wl_resource_set_implementation(res, &surface_implementation,
+				       ivisurf, NULL);
+	*/
+
+	id_surface--;
+
+	return NULL;
+}
+
+static struct weston_view*
+get_primary_view(void *shell,
+		 struct shell_surface *shsurf)
+{
+	return NULL;
+}
+
+static void
+set_toplevel(struct shell_surface *shsurf)
+{
+}
+
+static void
+set_transient(struct shell_surface *shsurf,
+	      struct weston_surface *parent,
+	      int x, int y, uint32_t flags)
+{
+}
+
+static void
+set_fullscreen(struct shell_surface *shsurf,
+	       uint32_t method,
+	       uint32_t framerate,
+	       struct weston_output *output)
+{
+}
+
+static void
+set_xwayland(struct shell_surface *shsurf,
+	     int x, int y, uint32_t flags)
+{
+}
+
+static int
+move(struct shell_surface *shsurf, struct weston_seat *ws)
+{
+    return 0; // success
+}
+
+static int
+resize(struct shell_surface *shsurf, struct weston_seat *ws, uint32_t edges)
+{
+    return 0; // success
+}
+
+static void
+set_title(struct shell_surface *shsurf, const char *title)
+{
+}
+
+static void
+set_window_geometry(struct shell_surface *shsurf,
+		    int32_t x, int32_t y, int32_t width, int32_t height)
+{
+	/*non support*/
+}
+
 /**
  * Request handler for ivi_application.surface_create.
  *
@@ -268,6 +378,8 @@ application_surface_create(struct wl_client *client,
 	ivisurf->configured_listener.notify = surface_configure_notify;
 	ivi_layout_surface_add_configured_listener(layout_surface,
 				     &ivisurf->configured_listener);
+	ivisurf->client= NULL;
+
 	/*
 	 * The following code relies on wl_surface destruction triggering
 	 * immediateweston_surface destruction
@@ -368,6 +480,18 @@ init_ivi_shell(struct weston_compositor *compositor, struct ivi_shell *shell)
 	wl_list_init(&shell->ivi_surface_list);
 
 	weston_layer_init(&shell->input_panel_layer, NULL);
+
+	compositor->shell_interface.shell = shell;
+	compositor->shell_interface.create_shell_surface = create_shell_surface;
+	compositor->shell_interface.get_primary_view = get_primary_view;
+	compositor->shell_interface.set_toplevel = set_toplevel;
+	compositor->shell_interface.set_transient = set_transient;
+	compositor->shell_interface.set_fullscreen = set_fullscreen;
+	compositor->shell_interface.set_xwayland = set_xwayland;
+	compositor->shell_interface.move = move;
+	compositor->shell_interface.resize = resize;
+	compositor->shell_interface.set_title = set_title;
+	compositor->shell_interface.set_window_geometry = set_window_geometry;
 }
 
 static int
