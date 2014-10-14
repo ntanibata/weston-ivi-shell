@@ -799,10 +799,15 @@ ivi_shell_la_SOURCES =				\
 	ivi-shell/ivi-shell.h			\
 	ivi-shell/ivi-shell.c			\
 	ivi-shell/ivi-layout.h			\
-	ivi-shell/input-panel-ivi.c
+	ivi-shell/input-panel-ivi.c		\
+	ivi-shell/ivi-shell-private.h	\
+	ivi-shell/xdg-shell.h			\
+	ivi-shell/xdg-shell.c
 nodist_ivi_shell_la_SOURCES =			\
 	protocol/ivi-application-protocol.c		\
-	protocol/ivi-application-server-protocol.h
+	protocol/ivi-application-server-protocol.h	\
+	protocol/xdg-shell-protocol.c				\
+	protocol/xdg-shell-server-protocol.h
 
 BUILT_SOURCES += $(nodist_ivi_shell_la_SOURCES)
 
