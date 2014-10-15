@@ -37,6 +37,10 @@
 #include "xdg-shell-client-protocol.h"
 #include "fullscreen-shell-client-protocol.h"
 
+#include <sys/types.h>
+#include "ivi-application-client-protocol.h"
+#define IVI_SURFACE_ID 9000
+
 struct display {
 	struct wl_display *display;
 	struct wl_registry *registry;
@@ -45,6 +49,7 @@ struct display {
 	struct _wl_fullscreen_shell *fshell;
 	struct wl_shm *shm;
 	uint32_t formats;
+	struct ivi_application *ivi_application;
 };
 
 struct buffer {
@@ -58,6 +63,7 @@ struct window {
 	int width, height;
 	struct wl_surface *surface;
 	struct xdg_surface *xdg_surface;
+	struct ivi_surface *ivi_surface;
 	struct buffer buffers[2];
 	struct buffer *prev_buffer;
 	struct wl_callback *callback;
@@ -134,6 +140,40 @@ static const struct xdg_surface_listener xdg_surface_listener = {
 	handle_delete,
 };
 
+static void
+handle_ivi_surface_visibility(void *data, struct ivi_surface *ivi_surface,
+			     int32_t visibility)
+{
+	/* TODO: implement behavior when its surface is set to be invisible by compositor */
+}
+
+static void
+handle_ivi_surface_configure(void *data, struct ivi_surface *ivi_surface,
+                             int32_t width, int32_t height)
+{
+	struct window *window = data;
+
+        if (window->buffers[0].buffer) {
+            wl_buffer_destroy(window->buffers[0].buffer);
+            window->buffers[0].buffer = NULL;
+            window->buffers[0].busy = 0;
+        }
+
+        if (window->buffers[1].buffer) {
+            wl_buffer_destroy(window->buffers[1].buffer);
+            window->buffers[1].buffer = NULL;
+            window->buffers[1].busy = 0;
+        }
+
+	window->width = width;
+	window->height = height;
+}
+
+static const struct ivi_surface_listener ivi_surface_listener = {
+        handle_ivi_surface_visibility,
+        handle_ivi_surface_configure,
+};
+
 static struct window *
 create_window(struct display *display, int width, int height)
 {
@@ -160,11 +200,25 @@ create_window(struct display *display, int width, int height)
 					 &xdg_surface_listener, window);
 
 		xdg_surface_set_title(window->xdg_surface, "simple-shm");
+
 	} else if (display->fshell) {
 		_wl_fullscreen_shell_present_surface(display->fshell,
 						     window->surface,
 						     _WL_FULLSCREEN_SHELL_PRESENT_METHOD_DEFAULT,
 						     NULL);
+	} else if (display->ivi_application ) {
+		uint32_t id_ivisurf = IVI_SURFACE_ID + (uint32_t)getpid();
+		window->ivi_surface =
+			ivi_application_surface_create(display->ivi_application,
+						       id_ivisurf, window->surface);
+		if (window->ivi_surface == NULL) {
+			fprintf(stderr, "Failed to create ivi_client_surface\n");
+			abort();
+		}
+
+                ivi_surface_add_listener(window->ivi_surface,
+                                         &ivi_surface_listener, window);
+
 	} else {
 		assert(0);
 	}
@@ -350,6 +404,11 @@ registry_handle_global(void *data, struct wl_registry *registry,
 					  id, &wl_shm_interface, 1);
 		wl_shm_add_listener(d->shm, &shm_listener, d);
 	}
+	else if (strcmp(interface, "ivi_application") == 0) {
+		d->ivi_application =
+			wl_registry_bind(registry, id,
+					 &ivi_application_interface, 1);
+	}
 }
 
 static void
@@ -412,6 +471,10 @@ destroy_display(struct display *display)
 		wl_compositor_destroy(display->compositor);
 
 	wl_registry_destroy(display->registry);
+
+	if (display->ivi_application)
+		wl_display_roundtrip(display->display);
+
 	wl_display_flush(display->display);
 	wl_display_disconnect(display->display);
 	free(display);
@@ -451,6 +514,13 @@ main(int argc, char **argv)
 		ret = wl_display_dispatch(display->display);
 
 	fprintf(stderr, "simple-shm exiting\n");
+
+	if (window->display->ivi_application)
+	{
+		ivi_surface_destroy(window->ivi_surface);
+		ivi_application_destroy(window->display->ivi_application);
+	}
+
 	destroy_window(window);
 	destroy_display(display);
 
