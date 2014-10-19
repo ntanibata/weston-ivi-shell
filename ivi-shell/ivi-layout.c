@@ -3197,6 +3197,45 @@ ivi_layout_initWithCompositor(struct weston_compositor *ec)
 
 }
 
+static struct wl_resource *
+find_resource_for_surface(struct wl_list *list, struct weston_surface *surface)
+{
+	if (!surface)
+		return NULL;
+
+	if (!surface->resource)
+		return NULL;
+
+	return wl_resource_find_for_client(list, wl_resource_get_client(surface->resource));
+}
+
+static void
+ivi_layout_grabKeyboardKey(struct weston_keyboard_grab *grab,
+                uint32_t time, uint32_t key, uint32_t state)
+{
+    struct weston_keyboard *keyboard = grab->keyboard;
+    struct wl_display *display = keyboard->seat->compositor->wl_display;
+    uint32_t serial;
+    struct wl_resource *resource;
+
+    wl_resource_for_each(resource, &keyboard->focus_resource_list) {
+        serial = wl_display_next_serial(display);
+        wl_keyboard_send_key(resource,
+                             serial,
+                             time,
+                             key,
+                             state);
+    }
+
+    wl_resource_for_each(resource, &keyboard->resource_list) {
+        serial = wl_display_next_serial(display);
+        wl_keyboard_send_key(resource,
+                             serial,
+                             time,
+                             key,
+                             state);
+    }
+}
 
 static void
 ivi_layout_surfaceAddConfiguredListener(struct ivi_layout_surface* ivisurf,
@@ -3228,5 +3267,6 @@ WL_EXPORT struct ivi_layout_interface ivi_layout_interface = {
 	.emitWarningSignal = ivi_layout_emitWarningSignal,
         .get_surface_dimension = ivi_layout_surfaceGetDimension,
         .add_surface_configured_listener = ivi_layout_surfaceAddConfiguredListener,
-        .remove_surface_configured_listener = ivi_layout_surfaceRemoveConfiguredListener
+        .remove_surface_configured_listener = ivi_layout_surfaceRemoveConfiguredListener,
+        .grab_keyboard_key = ivi_layout_grabKeyboardKey
 };

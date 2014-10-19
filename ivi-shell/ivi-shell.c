@@ -48,6 +48,13 @@
 
 #include "../shared/os-compatibility.h"
 
+// for input focus step1
+typedef void
+(*keyboard_key)(struct weston_keyboard_grab *grab,
+                uint32_t time, uint32_t key, uint32_t state);
+
+extern keyboard_key keyboard_key_func;
+
 struct ivi_shell_surface
 {
     struct wl_resource* resource;
@@ -469,6 +476,8 @@ module_init(struct weston_compositor *compositor,
 	 free(setting.ivi_module);
 	 return -1;
     }
+
+    keyboard_key_func = ivi_layout->grab_keyboard_key;
 
     free(setting.ivi_module);
     return 0;
