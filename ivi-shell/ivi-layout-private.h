@@ -178,6 +178,8 @@ struct ivi_layout {
 
     struct ivi_layout_transition_set* transitions;
     struct wl_list pending_transition_list;
+
+    struct wl_listener seat_create_listener;
 };
 /*
 struct ivi_layout {

@@ -115,6 +115,12 @@ struct ivi_layout_screen {
     } order;
 };
 
+struct seat_ctx {
+    struct weston_keyboard_grab grab;
+    struct wl_listener updated_caps_listener;
+    struct wl_listener destroy_listener;
+};
+
 struct ivi_layout_notificationCallback {
     void *callback;
     void *data;
@@ -3157,6 +3163,70 @@ ivi_layout_surfaceCreate(struct weston_surface *wl_surface,
 }
 
 static void
+keyboard_grab_key(struct weston_keyboard_grab *grab, uint32_t time,
+                  uint32_t key, uint32_t state)
+{
+}
+
+static void
+keyboard_grab_modifiers(struct weston_keyboard_grab *grab, uint32_t serial,
+                        uint32_t mods_depressed, uint32_t mods_latched,
+                        uint32_t mods_locked, uint32_t group)
+{
+}
+
+static void
+keyboard_grab_cancel(struct weston_keyboard_grab *grab)
+{
+}
+
+static struct weston_keyboard_grab_interface keyboard_grab_interface = {
+    keyboard_grab_key,
+    keyboard_grab_modifiers,
+    keyboard_grab_cancel
+};
+
+static void
+handle_seat_updated_caps(struct wl_listener *listener, void *data)
+{
+    struct weston_seat *seat = data;
+    struct seat_ctx *ctx = wl_container_of(listener, ctx,
+                                           updated_caps_listener);
+    if (seat->keyboard && seat->keyboard != ctx->grab.keyboard)
+        weston_keyboard_start_grab(seat->keyboard, &ctx->grab);
+}
+
+static void
+handle_seat_destroy(struct wl_listener *listener, void *data)
+{
+    struct seat_ctx *ctx = wl_container_of(listener, ctx, destroy_listener);
+    if (ctx->grab.keyboard)
+        keyboard_grab_cancel(&ctx->grab);
+
+    free(ctx);
+}
+
+static void
+handle_seat_create(struct wl_listener *listener, void *data)
+{
+    struct weston_seat *seat = data;
+
+    struct seat_ctx *ctx = calloc(1, sizeof *ctx);
+    if (ctx == NULL) {
+        weston_log("%s: failed to allocate memory\n", __FUNCTION__);
+        return;
+    }
+
+    ctx->grab.interface = &keyboard_grab_interface;
+
+    ctx->destroy_listener.notify = &handle_seat_destroy;
+    wl_signal_add(&seat->destroy_signal, &ctx->destroy_listener);
+
+    ctx->updated_caps_listener.notify = &handle_seat_updated_caps;
+    wl_signal_add(&seat->updated_caps_signal, &ctx->updated_caps_listener);
+}
+
+static void
 ivi_layout_initWithCompositor(struct weston_compositor *ec)
 {
     struct ivi_layout *layout = get_instance();
@@ -3197,6 +3267,16 @@ ivi_layout_initWithCompositor(struct weston_compositor *ec)
     layout->transitions = ivi_layout_transition_set_create(ec);
     wl_list_init(&layout->pending_transition_list);
 
+    /* Listen to seat creation, for grab purposes */
+    layout->seat_create_listener.notify = &handle_seat_create;
+    wl_signal_add(&ec->seat_created_signal, &layout->seat_create_listener);
+
+    /* Handle existing seats */
+    struct weston_seat *seat;
+    wl_list_for_each(seat, &ec->seat_list, link) {
+        handle_seat_create(NULL, seat);
+        wl_signal_emit(&seat->updated_caps_signal, seat);
+    }
 }
 
 
