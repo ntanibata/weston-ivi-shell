@@ -2419,8 +2419,41 @@ ivi_layout_surfaceGetOpacity(struct ivi_layout_surface *ivisurf,
 WL_EXPORT int32_t
 ivi_layout_SetKeyboardFocusOn(struct ivi_layout_surface *ivisurf)
 {
-    /* TODO */
-    (void)ivisurf;
+    struct ivi_layout *layout = get_instance();
+    struct wl_list *seat_list = &layout->compositor->seat_list;
+    struct wl_list *surface_list = &layout->list_surface;
+    struct ivi_layout_surface *current_surf;
+
+    if (ivisurf == NULL) {
+        weston_log("%s: invalid argument\n", __FUNCTION__);
+        return -1;
+    }
+
+    if (seat_list == NULL) {
+        weston_log("%s: seat list is NULL\n", __FUNCTION__);
+        return -1;
+    }
+
+    if (ivisurf->surface == NULL) {
+        weston_log("%s: ivisurf has no surface\n", __FUNCTION__);
+        return -1;
+    }
+
+    if (surface_list == NULL) {
+        weston_log("%s: surface list is NULL\n", __FUNCTION__);
+        return -1;
+    }
+
+    wl_list_for_each(current_surf, &layout->list_surface, link) {
+        if (current_surf == ivisurf) {
+            current_surf->prop.hasKeyboardFocus = 1;
+            current_surf->pending.prop.hasKeyboardFocus = 1;
+        } else {
+            current_surf->prop.hasKeyboardFocus = 0;
+            current_surf->pending.prop.hasKeyboardFocus = 0;
+        }
+        current_surf->event_mask |= IVI_NOTIFICATION_KEYBOARD_FOCUS;
+    }
 
     return 0;
 }
@@ -3166,6 +3199,32 @@ static void
 keyboard_grab_key(struct weston_keyboard_grab *grab, uint32_t time,
                   uint32_t key, uint32_t state)
 {
+    struct ivi_layout *layout = get_instance();
+    struct weston_keyboard *keyboard = grab->keyboard;
+    struct wl_display *display = keyboard->seat->compositor->wl_display;
+    struct ivi_layout_surface *surf;
+    struct wl_resource *resource;
+    uint32_t serial;
+
+    wl_list_for_each(surf, &layout->list_surface, link) {
+        if (surf->prop.hasKeyboardFocus) {
+            resource = wl_resource_find_for_client(
+                           &keyboard->resource_list,
+                           wl_resource_get_client(surf->surface->resource));
+            if (!resource)
+                resource = wl_resource_find_for_client(
+                               &keyboard->focus_resource_list,
+                               wl_resource_get_client(surf->surface->resource));
+
+            if (resource) {
+                serial = wl_display_next_serial(display);
+                wl_keyboard_send_key(resource, serial, time, key, state);
+            } else {
+                weston_log("%s: No resource found for surface %d\n",
+                           __FUNCTION__, surf->id_surface);
+            }
+        }
+    }
 }
 
 static void
@@ -3173,6 +3232,62 @@ keyboard_grab_modifiers(struct weston_keyboard_grab *grab, uint32_t serial,
                         uint32_t mods_depressed, uint32_t mods_latched,
                         uint32_t mods_locked, uint32_t group)
 {
+    struct ivi_layout *layout = get_instance();
+    struct weston_keyboard *keyboard = grab->keyboard;
+    struct ivi_layout_surface *surf;
+    struct wl_resource *resource;
+    int sent_to_pointer_client = 0;
+    struct weston_pointer *pointer = keyboard->seat->pointer;
+
+    /* Send modifiers to focussed surface */
+    wl_list_for_each(surf, &layout->list_surface, link) {
+        if (surf->prop.hasKeyboardFocus) {
+            resource = wl_resource_find_for_client(
+                           &keyboard->resource_list,
+                           wl_resource_get_client(surf->surface->resource));
+            if (!resource)
+                resource = wl_resource_find_for_client(
+                               &keyboard->focus_resource_list,
+                               wl_resource_get_client(surf->surface->resource));
+
+            if (resource) {
+                wl_keyboard_send_modifiers(resource, serial,
+                                           mods_depressed,
+                                           mods_latched, mods_locked,
+                                           group);
+                if (pointer && pointer->focus
+                    && pointer->focus->surface->resource
+                    && pointer->focus->surface == surf->surface)
+                    sent_to_pointer_client = 1;
+            } else {
+                 weston_log("%s: No resource found for surface %d\n",
+                            __FUNCTION__, surf->id_surface);
+            }
+        }
+    }
+
+    /* Send modifiers to pointer's client, if not already sent */
+    if (!sent_to_pointer_client && pointer && pointer->focus
+        && pointer->focus->surface->resource) {
+        struct wl_client *pointer_client =
+            wl_resource_get_client(pointer->focus->surface->resource);
+        wl_resource_for_each(resource, &keyboard->resource_list) {
+            if (wl_resource_get_client(resource) == pointer_client) {
+                sent_to_pointer_client = 1;
+                wl_keyboard_send_modifiers(resource, serial, mods_depressed,
+                                           mods_latched, mods_locked, group);
+                break;
+            }
+        }
+
+        if (!sent_to_pointer_client) {
+            wl_resource_for_each(resource, &keyboard->focus_resource_list) {
+                wl_keyboard_send_modifiers(resource, serial, mods_depressed,
+                                           mods_latched, mods_locked, group);
+                break;
+            }
+        }
+    }
 }
 
 static void
