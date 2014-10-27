@@ -697,7 +697,7 @@ ivi_layout_surfaceGetOpacity(struct ivi_layout_surface *ivisurf,
  * \return -1 if the method call was failed
  */
 int32_t
-ivi_layout_SetKeyboardFocusOn(struct ivi_layout_surface *ivisurf);
+ivi_layout_SetKeyboardFocusOn(uint32_t *surface_ids, size_t size);
 
 /**
  * \brief Get the indentifier of the surface which hold the keyboard focus
@@ -706,7 +706,7 @@ ivi_layout_SetKeyboardFocusOn(struct ivi_layout_surface *ivisurf);
  * \return -1 if the method call was failed
  */
 int32_t
-ivi_layout_GetKeyboardFocusSurfaceId(struct ivi_layout_surface **pSurfaceId);
+ivi_layout_GetKeyboardFocusSurfaceId(uint32_t *surface_ids, size_t size, uint32_t *count);
 
 /**
  * \brief Set the destination area of a surface within a layer for rendering.
