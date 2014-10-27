@@ -2417,14 +2417,14 @@ ivi_layout_surfaceGetOpacity(struct ivi_layout_surface *ivisurf,
 }
 
 WL_EXPORT int32_t
-ivi_layout_SetKeyboardFocusOn(struct ivi_layout_surface *ivisurf)
+ivi_layout_SetKeyboardFocusOn(uint32_t *surface_ids, size_t size)
 {
     struct ivi_layout *layout = get_instance();
     struct wl_list *seat_list = &layout->compositor->seat_list;
     struct wl_list *surface_list = &layout->list_surface;
     struct ivi_layout_surface *current_surf;
 
-    if (ivisurf == NULL) {
+    if (surface_ids == NULL) {
         weston_log("%s: invalid argument\n", __FUNCTION__);
         return -1;
     }
@@ -2434,21 +2434,23 @@ ivi_layout_SetKeyboardFocusOn(struct ivi_layout_surface *ivisurf)
         return -1;
     }
 
-    if (ivisurf->surface == NULL) {
-        weston_log("%s: ivisurf has no surface\n", __FUNCTION__);
-        return -1;
-    }
-
     if (surface_list == NULL) {
         weston_log("%s: surface list is NULL\n", __FUNCTION__);
         return -1;
     }
 
     wl_list_for_each(current_surf, &layout->list_surface, link) {
-        if (current_surf == ivisurf) {
-            current_surf->prop.hasKeyboardFocus = 1;
-            current_surf->pending.prop.hasKeyboardFocus = 1;
-        } else {
+        int found_focus = 0;
+        unsigned int i;
+        for (i = 0; i < size; i++) {
+            if (current_surf->id_surface == surface_ids[i]) {
+                found_focus = 1;
+                current_surf->prop.hasKeyboardFocus = 1;
+                current_surf->pending.prop.hasKeyboardFocus = 1;
+                break;
+            }
+        }
+        if (!found_focus) {
             current_surf->prop.hasKeyboardFocus = 0;
             current_surf->pending.prop.hasKeyboardFocus = 0;
         }
@@ -2459,20 +2461,30 @@ ivi_layout_SetKeyboardFocusOn(struct ivi_layout_surface *ivisurf)
 }
 
 WL_EXPORT int32_t
-ivi_layout_GetKeyboardFocusSurfaceId(struct ivi_layout_surface **pSurfaceId)
+ivi_layout_GetKeyboardFocusSurfaceId(uint32_t *surface_ids, size_t size, uint32_t *count)
 {
     struct wl_list *surface_list = &get_instance()->list_surface;
     struct ivi_layout_surface *current_surf;
 
-    if (surface_list == NULL) {
-        weston_log("%s: surface list is NULL\n", __FUNCTION__);
+    if (surface_ids == NULL) {
+        weston_log("%s: surface_ids is NULL\n", __FUNCTION__);
         return -1;
     }
 
+    if (count == NULL) {
+        weston_log("%s: count is NULL\n", __FUNCTION__);
+        return -1;
+    }
+
+    *count = 0;
     wl_list_for_each(current_surf, surface_list, link) {
         if (current_surf->prop.hasKeyboardFocus != 0) {
-            *pSurfaceId = current_surf;
-            break;
+            if (*count == size) {
+                weston_log("%s: Ran out of space to store surface IDs\n", __FUNCTION__);
+                return -1;
+            }
+            surface_ids[*count] = current_surf->id_surface;
+            (*count)++;
         }
     }
 
