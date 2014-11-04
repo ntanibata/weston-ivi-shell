@@ -138,6 +138,7 @@ surface_destroy(struct wl_client *client, struct wl_resource *resource)
 {
     struct ivi_shell_surface *ivisurf = wl_resource_get_user_data(resource);
     if (ivisurf != NULL) {
+        wl_resource_destroy(ivisurf->surface->resource);
         ivisurf->surface->configure = NULL;
         ivisurf->surface->configure_private = NULL;
         ivisurf->surface = NULL;
