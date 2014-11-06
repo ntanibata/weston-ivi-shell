@@ -567,14 +567,13 @@ ivi_layout_transition_visibility_off(struct ivi_layout_surface* surface,
 {
 
     struct ivi_layout_transition* transition = NULL;
-    float start_alpha = 0.0;
+    float start_alpha = ivi_layout_surface_get_opacity(surface);
     struct store_alpha* user_data = NULL;
-	struct fade_view_data* data = NULL;
-    
+    struct fade_view_data* data = NULL;
+
     transition = get_transition_from_type_and_id(IVI_LAYOUT_TRANSITION_VIEW_FADE,
                                                  surface);
     if(transition){
-        start_alpha = ivi_layout_surface_get_opacity(surface);
         data = transition->private_data;
 
         transition->time_start = 0;
