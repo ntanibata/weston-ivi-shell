@@ -173,12 +173,12 @@ enum ivi_layout_transition_type{
 };
 
 typedef void (*layer_property_notification_func)(struct ivi_layout_layer *ivilayer,
-                                              struct ivi_layout_layer_properties*,
+                                              const struct ivi_layout_layer_properties*,
                                               enum ivi_layout_notification_mask mask,
                                               void *userdata);
 
 typedef void (*surface_property_notification_func)(struct ivi_layout_surface *ivisurf,
-                                                struct ivi_layout_surface_properties*,
+                                                const struct ivi_layout_surface_properties*,
                                                 enum ivi_layout_notification_mask mask,
                                                 void *userdata);
 
