@@ -1935,7 +1935,7 @@ ivi_layout_layer_get_visibility(struct ivi_layout_layer *ivilayer)
 
 WL_EXPORT int32_t
 ivi_layout_layer_set_opacity(struct ivi_layout_layer *ivilayer,
-                           float opacity)
+                             wl_fixed_t opacity)
 {
     struct ivi_layout_layer_properties *prop = NULL;
 
@@ -1952,12 +1952,12 @@ ivi_layout_layer_set_opacity(struct ivi_layout_layer *ivilayer,
     return IVI_SUCCEEDED;
 }
 
-WL_EXPORT float
+WL_EXPORT wl_fixed_t
 ivi_layout_layer_get_opacity(struct ivi_layout_layer *ivilayer)
 {
     if (ivilayer == NULL) {
         weston_log("ivi_layout_layer_get_opacity: invalid argument\n");
-        return 0.0;
+        return wl_fixed_from_double(0.0);
     }
 
     return ivilayer->prop.opacity;
@@ -2193,7 +2193,7 @@ ivi_layout_surface_get_visibility(struct ivi_layout_surface *ivisurf)
 
 WL_EXPORT int32_t
 ivi_layout_surface_set_opacity(struct ivi_layout_surface *ivisurf,
-                             float opacity)
+                               wl_fixed_t opacity)
 {
     struct ivi_layout_surface_properties *prop = NULL;
 
@@ -2210,12 +2210,12 @@ ivi_layout_surface_set_opacity(struct ivi_layout_surface *ivisurf,
     return IVI_SUCCEEDED;
 }
 
-WL_EXPORT float
+WL_EXPORT wl_fixed_t
 ivi_layout_surface_get_opacity(struct ivi_layout_surface *ivisurf)
 {
     if (ivisurf == NULL) {
         weston_log("ivi_layout_surface_get_opacity: invalid argument\n");
-        return 0.0;
+        return wl_fixed_from_double(0.0);
     }
 
     return ivisurf->prop.opacity;

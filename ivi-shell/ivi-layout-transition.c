@@ -392,12 +392,12 @@ ivi_layout_transition_move_resize_view(struct ivi_layout_surface* surface,
 /* fade transition */
 struct fade_view_data {
     struct ivi_layout_surface* surface;
-    float start_alpha;
-    float end_alpha;
+    double start_alpha;
+    double end_alpha;
 };
 
 struct store_alpha{
-    float alpha;
+    double alpha;
 };
 
 static void
@@ -407,7 +407,7 @@ fade_view_user_frame(struct ivi_layout_transition *transition)
     struct ivi_layout_surface *surface = private_data->surface;
 
     const double current = time_to_nowpos(transition);
-    const float alpha = private_data->start_alpha + (private_data->end_alpha - private_data->start_alpha)*current;
+    const double alpha = private_data->start_alpha + (private_data->end_alpha - private_data->start_alpha)*current;
 
     ivi_layout_surface_set_opacity(surface, wl_fixed_from_double(alpha));
     ivi_layout_surface_set_visibility(surface, true);
@@ -423,7 +423,7 @@ transition_fade_view_identifier(struct fade_view_data* data,
 static struct ivi_layout_transition*
 create_fade_view_transition(
     struct ivi_layout_surface* surface,
-    float start_alpha, float end_alpha,
+    double start_alpha, double end_alpha,
     ivi_layout_transition_frame_func frame_func,
     void* user_data,
     ivi_layout_transition_destroy_func destroy_func,
@@ -458,8 +458,8 @@ create_fade_view_transition(
 
 static void
 create_visibility_transition(struct ivi_layout_surface* surface,
-                            float start_alpha,
-                            float dest_alpha,
+                            double start_alpha,
+                            double dest_alpha,
                             void* user_data,
                              ivi_layout_transition_destroy_func destroy_func,
                              uint32_t duration)
@@ -501,9 +501,9 @@ ivi_layout_transition_visibility_on(struct ivi_layout_surface* surface,
 
     struct ivi_layout_transition* transition = NULL;
     bool is_visible = ivi_layout_surface_get_visibility(surface);
-    float dest_alpha = ivi_layout_surface_get_opacity(surface);
+    wl_fixed_t dest_alpha = ivi_layout_surface_get_opacity(surface);
     struct store_alpha* user_data = NULL;
-	float start_alpha = 0.0;
+	wl_fixed_t start_alpha = 0.0;
 	struct fade_view_data* data = NULL;
 
     transition = get_transition_from_type_and_id(IVI_LAYOUT_TRANSITION_VIEW_FADE,
@@ -567,7 +567,7 @@ ivi_layout_transition_visibility_off(struct ivi_layout_surface* surface,
 {
 
     struct ivi_layout_transition* transition = NULL;
-    float start_alpha = ivi_layout_surface_get_opacity(surface);
+    wl_fixed_t start_alpha = ivi_layout_surface_get_opacity(surface);
     struct store_alpha* user_data = NULL;
     struct fade_view_data* data = NULL;
 
@@ -597,7 +597,7 @@ ivi_layout_transition_visibility_off(struct ivi_layout_surface* surface,
 
     create_visibility_transition(surface,
                                  wl_fixed_to_double(start_alpha),
-                                 0.0f, // dest_alpha
+                                 0.0, // dest_alpha
                                  user_data,
                                  visibility_off_transition_destroy,
                                  duration);
@@ -745,7 +745,7 @@ transition_fade_layer_user_frame(struct ivi_layout_transition *transition)
     double current = time_to_nowpos(transition);
     struct fade_layer_data* data = transition->private_data;
     double alpha = data->start_alpha + (data->end_alpha - data->start_alpha) * current;
-    int32_t fixed_alpha = wl_fixed_from_double(alpha);
+    wl_fixed_t fixed_alpha = wl_fixed_from_double(alpha);
 
     int32_t is_done = transition->is_done;
     bool is_visible = !is_done || data->is_fade_in;
@@ -770,9 +770,9 @@ ivi_layout_transition_fade_layer(struct ivi_layout_layer* layer,
 {
     struct ivi_layout_transition* transition = NULL;
     struct fade_layer_data* data = NULL;
-	float fixed_opacity = 0.0;
+	wl_fixed_t fixed_opacity = 0.0;
 	double now_opacity = 0.0;
-	float remain = 0.0;
+	double remain = 0.0;
 
     transition = get_transition_from_type_and_id(IVI_LAYOUT_TRANSITION_LAYER_FADE, layer);
     if(transition){
