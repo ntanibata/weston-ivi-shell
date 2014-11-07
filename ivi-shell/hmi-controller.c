@@ -233,7 +233,7 @@ mode_divided_into_tiling(struct hmi_controller *hmi_ctrl,
             ivi_layout_surface_set_transition(ivisurf,IVI_LAYOUT_TRANSITION_VIEW_DEFAULT, duration);
             ivi_layout_surface_set_visibility(ivisurf, true);
             ivi_layout_surface_set_destination_rectangle(ivisurf, surface_x, surface_y,
-                    (uint32_t)surface_width, (uint32_t)surface_height);
+                    (int32_t)surface_width, (int32_t)surface_height);
 
             num++;
             continue;
@@ -280,7 +280,7 @@ mode_divided_into_sidebyside(struct hmi_controller *hmi_ctrl,
             ivi_layout_surface_set_transition(ivisurf,IVI_LAYOUT_TRANSITION_VIEW_DEFAULT,duration);
             ivi_layout_surface_set_visibility(ivisurf, true);
             ivi_layout_surface_set_destination_rectangle(ivisurf, 0, 0,
-                    (uint32_t)surface_width, (uint32_t)surface_height);
+                                                         surface_width, surface_height);
 
             num++;
             continue;
@@ -289,7 +289,7 @@ mode_divided_into_sidebyside(struct hmi_controller *hmi_ctrl,
             ivi_layout_surface_set_transition(ivisurf,IVI_LAYOUT_TRANSITION_VIEW_DEFAULT,duration);
             ivi_layout_surface_set_visibility(ivisurf, true);
             ivi_layout_surface_set_destination_rectangle(ivisurf, surface_width, 0,
-                    (uint32_t)surface_width, (uint32_t)surface_height);
+                                                         surface_width, surface_height);
 
             num++;
             continue;
@@ -323,7 +323,7 @@ mode_fullscreen_someone(struct hmi_controller *hmi_ctrl,
         ivi_layout_surface_set_transition(ivisurf,IVI_LAYOUT_TRANSITION_VIEW_DEFAULT,duration);
         ivi_layout_surface_set_visibility(ivisurf, true);
         ivi_layout_surface_set_destination_rectangle(ivisurf, 0, 0,
-                (uint32_t)surface_width, (uint32_t)surface_height);
+                                                     surface_width, surface_height);
     }
 
 }
