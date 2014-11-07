@@ -62,27 +62,27 @@ struct ivi_layout_surface;
 struct ivi_layout_surface_properties
 {
     wl_fixed_t opacity;
-    uint32_t source_x;
-    uint32_t source_y;
-    uint32_t source_width;
-    uint32_t source_height;
-    uint32_t orig_source_width;
-    uint32_t orig_source_height;
+    int32_t  source_x;
+    int32_t  source_y;
+    int32_t  source_width;
+    int32_t  source_height;
+    int32_t  orig_source_width;
+    int32_t  orig_source_height;
     int32_t  start_x;
     int32_t  start_y;
-    uint32_t start_width;
-    uint32_t start_height;
+    int32_t  start_width;
+    int32_t  start_height;
     int32_t  dest_x;
     int32_t  dest_y;
-    uint32_t dest_width;
-    uint32_t dest_height;
+    int32_t  dest_width;
+    int32_t  dest_height;
     enum wl_output_transform orientation;
     bool     visibility;
-    uint32_t frame_counter;
-    uint32_t draw_counter;
-    uint32_t update_counter;
+    int32_t  frame_counter;
+    int32_t  draw_counter;
+    int32_t  update_counter;
     uint32_t pixel_format;
-    uint32_t native_surface;
+    int32_t  native_surface;
     uint32_t input_devices_acceptance;
     uint32_t chroma_key_enabled;
     uint32_t chroma_key_red;
@@ -96,16 +96,16 @@ struct ivi_layout_surface_properties
 struct ivi_layout_layer_properties
 {
     wl_fixed_t opacity;
-    uint32_t source_x;
-    uint32_t source_y;
-    uint32_t source_width;
-    uint32_t source_height;
-    uint32_t orig_source_width;
-    uint32_t orig_source_height;
+    int32_t  source_x;
+    int32_t  source_y;
+    int32_t  source_width;
+    int32_t  source_height;
+    int32_t  orig_source_width;
+    int32_t  orig_source_height;
     int32_t  dest_x;
     int32_t  dest_y;
-    uint32_t dest_width;
-    uint32_t dest_height;
+    int32_t  dest_width;
+    int32_t  dest_height;
     enum wl_output_transform orientation;
     uint32_t visibility;
     uint32_t type;
@@ -800,7 +800,7 @@ ivi_layout_surface_set_transition(struct ivi_layout_surface *ivisurf,
                                 uint32_t duration);
 
 int32_t
-ivi_layout_surface_set_transition_duration(struct ivi_layout_surface *ivisurf,uint32_t duration);
+ivi_layout_surface_set_transition_duration(struct ivi_layout_surface *ivisurf, uint32_t duration);
 
 void
 ivi_layout_transition_layer_render_order(struct ivi_layout_layer* layer,

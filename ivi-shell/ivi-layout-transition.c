@@ -252,10 +252,10 @@ struct move_resize_view_data {
     int32_t start_y;
     int32_t end_x;
     int32_t end_y;
-    uint32_t start_width;
-    uint32_t start_height;
-    uint32_t end_width;
-    uint32_t end_height;
+    int32_t start_width;
+    int32_t start_height;
+    int32_t end_width;
+    int32_t end_height;
 };
 
 static void
@@ -283,11 +283,11 @@ transition_move_resize_view_user_frame(struct ivi_layout_transition *transition)
     const int32_t destx = private_data->start_x + (private_data->end_x - private_data->start_x)*current;
     const int32_t desty = private_data->start_y + (private_data->end_y - private_data->start_y)*current;
 
-    const uint32_t dest_width  = (int32_t)private_data->start_width  +
-        ((int32_t)private_data->end_width  - (int32_t)private_data->start_width) *current;
+    const int32_t dest_width  = private_data->start_width  +
+        (private_data->end_width  - private_data->start_width) *current;
 
-    const uint32_t dest_height = (int32_t)private_data->start_height +
-        ((int32_t)private_data->end_height - (int32_t)private_data->start_height)*current;
+    const int32_t dest_height = private_data->start_height +
+        (private_data->end_height - private_data->start_height)*current;
 
     ivi_layout_surface_set_destination_rectangle(surface,
                                                  destx, desty, dest_width, dest_height);
@@ -305,8 +305,8 @@ create_move_resize_view_transition(
     struct ivi_layout_surface* surface,
     int32_t start_x, int32_t start_y,
     int32_t end_x, int32_t end_y,
-    uint32_t start_width, uint32_t start_height,
-    uint32_t end_width, uint32_t end_height,
+    int32_t start_width, int32_t start_height,
+    int32_t end_width, int32_t end_height,
     ivi_layout_transition_frame_func frame_func,
     ivi_layout_transition_destroy_func destroy_func,
     uint32_t duration)
@@ -347,12 +347,12 @@ create_move_resize_view_transition(
 WL_EXPORT void
 ivi_layout_transition_move_resize_view(struct ivi_layout_surface* surface,
                                           int32_t dest_x, int32_t dest_y,
-                                          uint32_t dest_width, uint32_t dest_height,
+                                          int32_t dest_width, int32_t dest_height,
                                           uint32_t duration)
 {
     int32_t start_pos[2] = {surface->pending.prop.start_x,surface->pending.prop.start_y};
 
-    uint32_t start_size[2] = {surface->pending.prop.start_width,surface->pending.prop.start_height};
+    int32_t start_size[2] = {surface->pending.prop.start_width,surface->pending.prop.start_height};
 
     struct ivi_layout_transition* transition = NULL;
 
@@ -724,7 +724,7 @@ ivi_layout_transition_move_layer_cancel(struct ivi_layout_layer* layer)
 /* fade layer transition */
 struct fade_layer_data {
     struct ivi_layout_layer* layer;
-    int32_t is_fade_in;
+    uint32_t is_fade_in;
     double start_alpha;
     double end_alpha;
     ivi_layout_transition_destroy_user_func destroy_func;
@@ -762,7 +762,7 @@ transition_fade_layer_identifier(struct fade_layer_data* data, struct ivi_layout
 
 WL_EXPORT void
 ivi_layout_transition_fade_layer(struct ivi_layout_layer* layer,
-                                    int32_t is_fade_in,
+                                    uint32_t is_fade_in,
                                     double start_alpha, double end_alpha,
                                     void* user_data,
                                     ivi_layout_transition_destroy_user_func destroy_func,
@@ -1033,7 +1033,7 @@ ivi_layout_surface_set_transition(struct ivi_layout_surface *ivisurf,
 }
 
 WL_EXPORT int32_t
-ivi_layout_surface_set_transition_duration(struct ivi_layout_surface *ivisurf,uint32_t duration)
+ivi_layout_surface_set_transition_duration(struct ivi_layout_surface *ivisurf, uint32_t duration)
 {
     struct ivi_layout_surface_properties *prop = NULL;
 

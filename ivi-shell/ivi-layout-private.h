@@ -130,7 +130,7 @@ ivi_layout_transition_set_create(struct weston_compositor* ec);
 void
 ivi_layout_transition_move_resize_view(struct ivi_layout_surface* surface,
                                        int32_t dest_x, int32_t dest_y,
-                                       uint32_t dest_width, uint32_t dest_height,
+                                       int32_t dest_width, int32_t dest_height,
                                        uint32_t duration);
 
 void
@@ -149,7 +149,7 @@ ivi_layout_transition_move_layer(struct ivi_layout_layer* layer,
 
 void
 ivi_layout_transition_fade_layer(struct ivi_layout_layer* layer,
-                                 int32_t is_fade_in,
+                                 uint32_t is_fade_in,
                                  double start_alpha, double end_alpha,
                                  void* user_data,
                                  ivi_layout_transition_destroy_user_func destroy_func,
