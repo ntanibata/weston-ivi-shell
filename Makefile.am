@@ -464,9 +464,7 @@ nodist_libtoytoolkit_la_SOURCES =			\
 	protocol/xdg-shell-protocol.c			\
 	protocol/xdg-shell-client-protocol.h		\
 	protocol/ivi-application-protocol.c		\
-	protocol/ivi-application-client-protocol.h      \
-	protocol/ivi-hmi-controller-protocol.c		\
-	protocol/ivi-hmi-controller-client-protocol.h
+	protocol/ivi-application-client-protocol.h
 
 BUILT_SOURCES += $(nodist_libtoytoolkit_la_SOURCES)
 
