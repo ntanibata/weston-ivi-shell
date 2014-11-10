@@ -159,7 +159,6 @@ ivi_layout_transition_set_create(struct weston_compositor* ec)
 
     loop = wl_display_get_event_loop(ec->wl_display);
     transitions->event_source = wl_event_loop_add_timer(loop, layout_transition_frame, transitions);
-    wl_event_source_timer_update(transitions->event_source, 0);
 
     return transitions;
 }
