@@ -155,7 +155,138 @@ ivi_layout_transition_fade_layer(struct ivi_layout_layer* layer,
                                  ivi_layout_transition_destroy_user_func destroy_func,
                                  uint32_t duration);
 
-WL_EXPORT int32_t
+int32_t
 is_surface_transition(struct ivi_layout_surface* surface);
+
+/**
+ * \brief get ivi_layout_layer from id of layer
+ *
+ * \return (struct ivi_layout_layer *)
+ *              if the method call was successful
+ * \return NULL if the method call was failed
+ */
+struct ivi_layout_layer *
+ivi_layout_get_layer_from_id(uint32_t id_layer);
+
+/**
+ * \brief Remove a surface
+ */
+void
+ivi_layout_surface_remove(struct ivi_layout_surface *ivisurf);
+
+/**
+ * \brief Get all Layers of the given screen
+ *
+ * \return IVI_SUCCEEDED if the method call was successful
+ * \return IVI_FAILED if the method call was failed
+ */
+int32_t
+ivi_layout_get_layers_on_screen(struct ivi_layout_screen *iviscrn,
+                                int32_t *pLength,
+                                struct ivi_layout_layer ***ppArray);
+
+/**
+ * \brief Get all Surfaces which are currently registered to a given layer and are managed by the services
+ *
+ * \return IVI_SUCCEEDED if the method call was successful
+ * \return IVI_FAILED if the method call was failed
+ */
+int32_t
+ivi_layout_get_surfaces_on_layer(struct ivi_layout_layer *ivilayer,
+                                 int32_t *pLength,
+                                 struct ivi_layout_surface ***ppArray);
+
+/**
+ * \brief Get the visibility of a layer. If a layer is not visible, the layer and its
+ * surfaces will not be rendered.
+ *
+ * \return true if layer is visible
+ * \return false if layer is invisible or the method call was failed
+ */
+bool
+ivi_layout_layer_get_visibility(struct ivi_layout_layer *ivilayer);
+
+/**
+ * \brief Get the horizontal and vertical dimension of the layer.
+ *
+ * \return IVI_SUCCEEDED if the method call was successful
+ * \return IVI_FAILED if the method call was failed
+ */
+int32_t
+ivi_layout_layer_get_dimension(struct ivi_layout_layer *ivilayer,
+                             int32_t *dest_width, int32_t *dest_height);
+
+/**
+ * \brief Set the horizontal and vertical dimension of the layer.
+ *
+ * \return IVI_SUCCEEDED if the method call was successful
+ * \return IVI_FAILED if the method call was failed
+ */
+int32_t
+ivi_layout_layer_set_dimension(struct ivi_layout_layer *ivilayer,
+                             int32_t dest_width, int32_t dest_height);
+
+/**
+ * \brief Gets the orientation of a layer.
+ *
+ * \return (enum wl_output_transform)
+ *              if the method call was successful
+ * \return WL_OUTPUT_TRANSFORM_NORMAL if the method call was failed
+ */
+enum wl_output_transform
+ivi_layout_layer_get_orientation(struct ivi_layout_layer *ivilayer);
+
+/**
+ * \brief Set the horizontal and vertical dimension of the surface.
+ *
+ * \return IVI_SUCCEEDED if the method call was successful
+ * \return IVI_FAILED if the method call was failed
+ */
+int32_t
+ivi_layout_surface_set_dimension(struct ivi_layout_surface *ivisurf,
+                               int32_t dest_width, int32_t dest_height);
+
+/**
+ * \brief Get the horizontal and vertical dimension of the surface.
+ *
+ * \return IVI_SUCCEEDED if the method call was successful
+ * \return IVI_FAILED if the method call was failed
+ */
+int32_t
+ivi_layout_surface_get_dimension(struct ivi_layout_surface *ivisurf,
+                               int32_t *dest_width, int32_t *dest_height);
+
+/**
+ * \brief Sets the horizontal and vertical position of the surface.
+ *
+ * \return IVI_SUCCEEDED if the method call was successful
+ * \return IVI_FAILED if the method call was failed
+ */
+int32_t
+ivi_layout_surface_set_position(struct ivi_layout_surface *ivisurf,
+                              int32_t dest_x, int32_t dest_y);
+
+/**
+ * \brief Get the horizontal and vertical position of the surface.
+ *
+ * \return IVI_SUCCEEDED if the method call was successful
+ * \return IVI_FAILED if the method call was failed
+ */
+int32_t
+ivi_layout_surface_get_position(struct ivi_layout_surface *ivisurf,
+                              int32_t *dest_x, int32_t *dest_y);
+
+/**
+ * \brief Gets the orientation of a surface.
+ *
+ * \return (enum wl_output_transform)
+ *              if the method call was successful
+ * \return WL_OUTPUT_TRANSFORM_NORMAL if the method call was failed
+ */
+enum wl_output_transform
+ivi_layout_surface_get_orientation(struct ivi_layout_surface *ivisurf);
+
+int32_t
+ivi_layout_surface_set_transition_duration(struct ivi_layout_surface *ivisurf,uint32_t duration);
 
 #endif

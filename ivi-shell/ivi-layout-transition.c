@@ -1031,7 +1031,7 @@ ivi_layout_surface_set_transition(struct ivi_layout_surface *ivisurf,
 	return 0;
 }
 
-WL_EXPORT int32_t
+int32_t
 ivi_layout_surface_set_transition_duration(struct ivi_layout_surface *ivisurf, uint32_t duration)
 {
     struct ivi_layout_surface_properties *prop = NULL;
