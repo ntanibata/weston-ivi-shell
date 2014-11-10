@@ -40,6 +40,9 @@
  * In-Vehicle Infotainment system, which integrate several domains in one system.
  * A layer is allocated to a domain in order to control application surfaces
  * grouped to the layer all together.
+ *
+ * This API and ABI follow following specifications.
+ * http://projects.genivi.org/wayland-ivi-extension/layer-manager-apis 
  */
 
 #ifndef _IVI_LAYOUT_EXPORT_H_
