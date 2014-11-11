@@ -1069,10 +1069,10 @@ ivi_hmi_controller_UI_ready(struct wl_client *client,
         ivi_hmi_controller_set_home_button(hmi_ctrl, dest.home_id);
         ivi_hmi_controller_set_workspacebackground(hmi_ctrl, dest.workspace_background_id);
         ivi_layout_commit_changes();
-    }
 
-    ivi_hmi_controller_add_launchers(resource, 256);
-    hmi_ctrl->is_initialized = 1;
+        ivi_hmi_controller_add_launchers(resource, 256);
+        hmi_ctrl->is_initialized = 1;
+    }
 }
 
 /**
