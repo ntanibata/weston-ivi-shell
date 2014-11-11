@@ -663,8 +663,11 @@ BUILT_SOURCES +=					\
 	protocol/fullscreen-shell-protocol.c		\
 	protocol/fullscreen-shell-client-protocol.h	\
 	protocol/xdg-shell-protocol.c			\
-	protocol/xdg-shell-client-protocol.h
-
+	protocol/xdg-shell-client-protocol.h		\
+	protocol/ivi-hmi-controller-protocol.c		\
+	protocol/ivi-hmi-controller-client-protocol.h	\
+	protocol/ivi-application-protocol.c		\
+	protocol/ivi-application-client-protocol.h
 
 westondatadir = $(datadir)/weston
 dist_westondata_DATA =				\
