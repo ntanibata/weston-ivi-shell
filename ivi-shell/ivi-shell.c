@@ -372,7 +372,8 @@ init_ivi_shell(struct weston_compositor *compositor, struct ivi_shell *shell)
 }
 
 static int
-ivi_shell_setting_create(struct ivi_shell_setting *dest, struct weston_compositor *compositor)
+ivi_shell_setting_create(struct ivi_shell_setting *dest,
+			 struct weston_compositor *compositor)
 {
 	int result = 0;
 	struct weston_config *config = compositor->config;
