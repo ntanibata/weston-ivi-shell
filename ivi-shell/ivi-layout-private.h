@@ -289,4 +289,26 @@ ivi_layout_surface_get_orientation(struct ivi_layout_surface *ivisurf);
 int32_t
 ivi_layout_surface_set_transition_duration(struct ivi_layout_surface *ivisurf,uint32_t duration);
 
+
+struct ivi_layout_interface {
+    struct weston_view* (*get_weston_view)(struct ivi_layout_surface *surface);
+    void (*surface_configure)(struct ivi_layout_surface *ivisurf,
+                             int32_t width, int32_t height);
+    int32_t (*surface_set_native_content)(struct weston_surface *wl_surface,
+                                       int32_t width,
+                                       int32_t height,
+                                       uint32_t id_surface);
+    struct ivi_layout_surface* (*surface_create)(struct weston_surface *wl_surface,
+                                                uint32_t id_surface);
+    void (*init_with_compositor)(struct weston_compositor *ec);
+    int32_t (*get_surface_dimension)(struct ivi_layout_surface *ivisurf,
+                                     int32_t *dest_width, int32_t *dest_height);
+    void (*add_surface_configured_listener)(struct ivi_layout_surface *ivisurf,
+                                            struct wl_listener* listener);
+    void (*remove_surface_configured_listener)(struct ivi_layout_surface *ivisurf,
+                                               struct wl_listener* listener);
+};
+
+WL_EXPORT struct ivi_layout_interface ivi_layout_interface;
+
 #endif
