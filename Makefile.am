@@ -803,8 +803,6 @@ hmi_controller_la_SOURCES =				\
 	ivi-shell/ivi-layout-export.h			\
 	ivi-shell/hmi-controller.c
 nodist_hmi_controller_la_SOURCES =			\
-	protocol/ivi-application-protocol.c		\
-	protocol/ivi-application-server-protocol.h	\
 	protocol/ivi-hmi-controller-protocol.c		\
 	protocol/ivi-hmi-controller-server-protocol.h
 
