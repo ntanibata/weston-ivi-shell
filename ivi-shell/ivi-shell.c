@@ -384,7 +384,7 @@ ivi_shell_setting_create(struct ivi_shell_setting *dest, struct weston_composito
 	section = weston_config_get_section(config, "ivi-shell", NULL, NULL);
 
 	if (weston_config_section_get_string(
-		section, "ivi-module", (char **)&dest->ivi_module, NULL) != 0)
+		section, "ivi-module", &dest->ivi_module, NULL) != 0)
 	{
 		result = -1;
 	}
