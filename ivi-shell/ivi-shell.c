@@ -255,16 +255,6 @@ application_surface_create(struct wl_client *client,
 		return;
 	}
 
-	ivisurf = is_surf_in_surfaces(&shell->ivi_surface_list, id_surface);
-	if (ivisurf != NULL) {
-		wl_resource_post_error(resource,
-				       IVI_APPLICATION_ERROR_IVI_ID,
-				       "surface_id is already assigned "
-				       "by another app");
-		wl_resource_destroy(res);
-		return;
-	}
-
 	ivisurf = zalloc(sizeof *ivisurf);
 	if (ivisurf == NULL) {
 		wl_resource_post_no_memory(resource);
