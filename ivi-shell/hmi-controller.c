@@ -263,7 +263,6 @@ mode_divided_into_sidebyside(struct hmi_controller *hmi_ctrl,
     int32_t surface_width  = layer->width / 2;
     int32_t surface_height = layer->height;
     struct ivi_layout_surface *ivisurf  = NULL;
-    int32_t ret = 0;
 
     const uint32_t duration = hmi_ctrl->hmi_setting->transition_duration;
     int32_t i = 0;
@@ -296,8 +295,6 @@ mode_divided_into_sidebyside(struct hmi_controller *hmi_ctrl,
         }
         ivi_layout_surface_set_transition(ivisurf,IVI_LAYOUT_TRANSITION_VIEW_FADE_ONLY,duration);
         ivi_layout_surface_set_visibility(ivisurf, false);
-
-        assert(!ret);
     }
 }
 
@@ -576,7 +573,6 @@ hmi_controller_create(struct weston_compositor *ec)
     int32_t screen_length  = 0;
     int32_t screen_width   = 0;
     int32_t screen_height  = 0;
-    int32_t ret = 0;
     struct link_layer *tmp_link_layer = NULL;
     int32_t panel_height = 0;
 
@@ -591,7 +587,6 @@ hmi_controller_create(struct weston_compositor *ec)
     iviscrn = pp_screen[0];
 
     ivi_layout_get_screen_resolution(iviscrn, &screen_width, &screen_height);
-    assert(!ret);
 
     /* init base ivi_layer*/
     hmi_ctrl->base_layer.x = 0;
