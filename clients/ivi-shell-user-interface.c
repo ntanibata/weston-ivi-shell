@@ -43,20 +43,19 @@
  * hmi_client_start and create a pthread.
  *
  * The basic flow is as followed,
- * 1/ create pthread
- * 2/ read configuration from weston.ini.
- * 3/ draw png file to surface according to configuration of weston.ini
- * 4/ set up UI by using ivi-hmi-controller protocol
- * 5/ Enter event loop
- * 6/ If a surface receives touch/pointer event, followings are invoked according
+ * 1/ read configuration from weston.ini.
+ * 2/ draw png file to surface according to configuration of weston.ini
+ * 3/ set up UI by using ivi-hmi-controller protocol
+ * 4/ Enter event loop
+ * 5/ If a surface receives touch/pointer event, followings are invoked according
  *    to type of event and surface
- * 6-1/ If a surface to launch ivi_application receive touch up, it execs
+ * 5-1/ If a surface to launch ivi_application receive touch up, it execs
  *      ivi-application configured in weston.ini.
- * 6-2/ If a surface to switch layout mode receive touch up, it sends a request,
+ * 5-2/ If a surface to switch layout mode receive touch up, it sends a request,
  *      ivi_hmi_controller_switch_mode, to hmi-controller.
- * 6-3/ If a surface to show workspace having launchers, it sends a request,
+ * 5-3/ If a surface to show workspace having launchers, it sends a request,
  *      ivi_hmi_controller_home, to hmi-controller.
- * 6-4/ If touch down events happens in workspace,
+ * 5-4/ If touch down events happens in workspace,
  *      ivi_hmi_controller_workspace_control is sent to slide workspace.
  *      When control finished, event: ivi_hmi_controller_workspace_end_control
  *      is received.
