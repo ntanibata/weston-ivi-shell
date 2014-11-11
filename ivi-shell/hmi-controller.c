@@ -1024,7 +1024,7 @@ ivi_hmi_controller_UI_ready(struct wl_client *client,
 
     struct config_command {
         char *key;
-        void *dest;
+        uint32_t *dest;
     };
 
     struct hmi_controller *hmi_ctrl = wl_resource_get_user_data(resource);
@@ -1058,7 +1058,7 @@ ivi_hmi_controller_UI_ready(struct wl_client *client,
         }
 
         if (weston_config_section_get_uint(
-                    section, command->key, (uint32_t *)command->dest, 0) != 0)
+                    section, command->key, command->dest, 0) != 0)
         {
             result = -1;
         }
