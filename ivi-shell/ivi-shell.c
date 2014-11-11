@@ -40,6 +40,7 @@
 #include <linux/input.h>
 #include <dlfcn.h>
 #include <limits.h>
+#include <assert.h>
 
 #include "ivi-shell.h"
 #include "ivi-application-server-protocol.h"
@@ -150,19 +151,20 @@ shell_destroy_shell_surface(struct wl_resource *resource)
 {
 	struct ivi_shell_surface *ivisurf = wl_resource_get_user_data(resource);
 
-	if (ivisurf != NULL) {
-		ivisurf->surface->configure = NULL;
-		ivisurf->surface->configure_private = NULL;
-		ivisurf->surface = NULL;
-		ivi_layout->surface_set_native_content(NULL, 0, 0,
-						       ivisurf->id_surface);
-		ivi_layout->remove_surface_configured_listener(
-				ivisurf->layout_surface,
-				&ivisurf->configured_listener);
+	assert(ivisurf == NULL);
 
-		wl_list_remove(&ivisurf->surface_destroy_listener.link);
-		ivisurf->resource = NULL;
-	}
+	ivisurf->surface->configure = NULL;
+	ivisurf->surface->configure_private = NULL;
+	ivisurf->surface = NULL;
+	ivi_layout->surface_set_native_content(NULL, 0, 0,
+					       ivisurf->id_surface);
+	ivi_layout->remove_surface_configured_listener(
+			ivisurf->layout_surface,
+			&ivisurf->configured_listener);
+
+	wl_list_remove(&ivisurf->surface_destroy_listener.link);
+	ivisurf->resource = NULL;
+
 }
 
 static void
