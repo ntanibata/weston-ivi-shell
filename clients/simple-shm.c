@@ -142,28 +142,28 @@ static const struct xdg_surface_listener xdg_surface_listener = {
 
 static void
 handle_ivi_surface_configure(void *data, struct ivi_surface *ivi_surface,
-                             int32_t width, int32_t height)
+			     int32_t width, int32_t height)
 {
 	struct window *window = data;
 
-        if (window->buffers[0].buffer) {
-            wl_buffer_destroy(window->buffers[0].buffer);
-            window->buffers[0].buffer = NULL;
-            window->buffers[0].busy = 0;
-        }
+	if (window->buffers[0].buffer) {
+		wl_buffer_destroy(window->buffers[0].buffer);
+		window->buffers[0].buffer = NULL;
+		window->buffers[0].busy = 0;
+	}
 
-        if (window->buffers[1].buffer) {
-            wl_buffer_destroy(window->buffers[1].buffer);
-            window->buffers[1].buffer = NULL;
-            window->buffers[1].busy = 0;
-        }
+	if (window->buffers[1].buffer) {
+		wl_buffer_destroy(window->buffers[1].buffer);
+		window->buffers[1].buffer = NULL;
+		window->buffers[1].busy = 0;
+	}
 
 	window->width = width;
 	window->height = height;
 }
 
 static const struct ivi_surface_listener ivi_surface_listener = {
-        handle_ivi_surface_configure,
+	handle_ivi_surface_configure,
 };
 
 static struct window *
@@ -208,8 +208,8 @@ create_window(struct display *display, int width, int height)
 			abort();
 		}
 
-                ivi_surface_add_listener(window->ivi_surface,
-                                         &ivi_surface_listener, window);
+		ivi_surface_add_listener(window->ivi_surface,
+					 &ivi_surface_listener, window);
 
 	} else {
 		assert(0);
