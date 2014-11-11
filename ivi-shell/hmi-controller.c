@@ -431,7 +431,6 @@ switch_mode(struct hmi_controller *hmi_ctrl,
 
     ivi_layout_commit_changes();
     free(pp_surface);
-    pp_surface = NULL;
 
     return;
 }
