@@ -651,6 +651,8 @@ hmi_controller_create(struct weston_compositor *ec)
     ivi_layout_add_notification_remove_surface(set_notification_remove_surface, hmi_ctrl);
     ivi_layout_add_notification_configure_surface(set_notification_configure_surface, hmi_ctrl);
 
+    wl_signal_add(&hmi_ctrl->compositor->destroy_signal, &hmi_ctrl->destroy_listener);
+
     free(pp_screen);
     pp_screen = NULL;
 
@@ -1610,8 +1612,6 @@ launch_hmi_client_process(void *data)
                          &hmi_ctrl->process,
                          hmi_ctrl->hmi_setting->ivi_homescreen,
                          handle_hmi_client_process_sigchld);
-
-    wl_signal_add(&hmi_ctrl->compositor->destroy_signal, &hmi_ctrl->destroy_listener);
 
     free(hmi_ctrl->hmi_setting->ivi_homescreen);
 }
