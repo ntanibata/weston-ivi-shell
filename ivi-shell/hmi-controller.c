@@ -1164,6 +1164,7 @@ move_workspace_grab_end(struct move_grab *move, struct wl_resource* resource,
     int32_t width = hmi_ctrl->workspace_background_layer.width;
 
     struct timespec time = {0};
+    clock_gettime(CLOCK_MONOTONIC, &time);
 
     double  grab_time = 1e+3 * (time.tv_sec  - move->start_time.tv_sec) +
                         1e-6 * (time.tv_nsec - move->start_time.tv_nsec);
@@ -1182,7 +1183,6 @@ move_workspace_grab_end(struct move_grab *move, struct wl_resource* resource,
     double end_pos = 0.0;
     uint32_t duration = 0;
 
-    clock_gettime(CLOCK_MONOTONIC, &time); //FIXME
     if (200 < from_motion_time) {
        pointer_v = 0.0;
     }
@@ -1250,11 +1250,11 @@ move_grab_update(struct move_grab *move, wl_fixed_t pointer[2])
 {
     struct timespec timestamp = {0};
     int32_t ii = 0;
-
-    double dt = (1e+3 * (timestamp.tv_sec  - move->pre_time.tv_sec) +
-                 1e-6 * (timestamp.tv_nsec - move->pre_time.tv_nsec));
+    double dt = 0.0;
 
     clock_gettime(CLOCK_MONOTONIC, &timestamp); //FIXME
+    dt = (1e+3 * (timestamp.tv_sec  - move->pre_time.tv_sec) +
+          1e-6 * (timestamp.tv_nsec - move->pre_time.tv_nsec));
 
     if (dt < 1e-6) {
         dt = 1e-6;
