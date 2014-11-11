@@ -212,6 +212,10 @@ getIdOfWlSurface(struct wlContextCommon *pCtx, struct wl_surface *wlSurface)
 static void
 set_pointer_image(struct wlContextCommon *pCtx, uint32_t index)
 {
+
+    struct wl_cursor_image *image = NULL;
+    struct wl_buffer *buffer = NULL;
+
     if (!pCtx->wlPointer ||
         !pCtx->cursors) {
         return;
@@ -233,8 +237,8 @@ set_pointer_image(struct wlContextCommon *pCtx, uint32_t index)
         return;
     }
 
-    struct wl_cursor_image *image = cursor->images[index];
-    struct wl_buffer *buffer = wl_cursor_image_get_buffer(image);
+    image = cursor->images[index];
+    buffer = wl_cursor_image_get_buffer(image);
 
     if (!buffer) {
         return;
