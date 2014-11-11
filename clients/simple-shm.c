@@ -448,7 +448,6 @@ destroy_display(struct display *display)
 		wl_compositor_destroy(display->compositor);
 
 	wl_registry_destroy(display->registry);
-
 	wl_display_flush(display->display);
 	wl_display_disconnect(display->display);
 	free(display);
