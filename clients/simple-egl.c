@@ -884,11 +884,6 @@ main(int argc, char **argv)
 		wl_compositor_destroy(display.compositor);
 
 	wl_registry_destroy(display.registry);
-
-/*
-	if (window.display->ivi_application)
-		wl_display_roundtrip(display.display);
-*/
 	wl_display_flush(display.display);
 	wl_display_disconnect(display.display);
 
