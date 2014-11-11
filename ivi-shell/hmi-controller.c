@@ -1587,13 +1587,14 @@ bind_hmi_controller(struct wl_client *client,
            void *data, uint32_t version, uint32_t id)
 {
     struct wl_resource *resource = NULL;
+    struct hmi_controller *hmi_ctrl = data;
 
     resource = wl_resource_create(
             client, &ivi_hmi_controller_interface, 1, id);
 
     wl_resource_set_implementation(
             resource, &ivi_hmi_controller_implementation,
-            data, unbind_hmi_controller);
+            hmi_ctrl, unbind_hmi_controller);
 }
 
 static void
