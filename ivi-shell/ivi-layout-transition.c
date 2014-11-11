@@ -31,7 +31,7 @@
 struct ivi_layout_transition;
 typedef void (*ivi_layout_transition_frame_func)(struct ivi_layout_transition *transition);
 typedef void (*ivi_layout_transition_destroy_func)(struct ivi_layout_transition* transition);
-typedef int32_t (*ivi_layout_transition_identifier_func)(void* private_data, void* id);
+typedef int32_t (*ivi_layout_is_transition_func)(void* private_data, void* id);
 
 struct ivi_layout_transition {
     enum ivi_layout_transition_type type;
@@ -42,7 +42,7 @@ struct ivi_layout_transition {
     uint32_t time_duration;
     uint32_t time_elapsed;
     uint32_t  is_done;
-    ivi_layout_transition_identifier_func id_func;
+    ivi_layout_is_transition_func is_transition_func;
     ivi_layout_transition_frame_func frame_func;
     ivi_layout_transition_destroy_func destroy_func;
 };
@@ -61,7 +61,7 @@ get_transition_from_type_and_id(enum ivi_layout_transition_type type, void* id_d
     struct transition_node *node=NULL;
     wl_list_for_each(node, &layout->transitions->transition_list, link){
         if(node->transition->type == type)
-            if(node->transition->id_func(node->transition->private_data, id_data))
+            if(node->transition->is_transition_func(node->transition->private_data, id_data))
                 return node->transition;
     }
     return NULL;
@@ -75,7 +75,7 @@ is_surface_transition(struct ivi_layout_surface* surface)
     wl_list_for_each(node, &layout->transitions->transition_list, link){
         if ( node->transition->type == IVI_LAYOUT_TRANSITION_VIEW_MOVE_RESIZE ||
              node->transition->type == IVI_LAYOUT_TRANSITION_VIEW_RESIZE)
-            if ( node->transition->id_func(node->transition->private_data, surface))
+            if ( node->transition->is_transition_func(node->transition->private_data, surface))
                 return 1; /* true */
     }
 
@@ -293,7 +293,7 @@ transition_move_resize_view_user_frame(struct ivi_layout_transition *transition)
 }
 
 static int32_t
-transition_move_resize_view_identifier(struct move_resize_view_data* data,
+is_transition_move_resize_view_func(struct move_resize_view_data* data,
                                       struct ivi_layout_surface* view)
 {
     return data->surface == view;
@@ -319,7 +319,7 @@ create_move_resize_view_transition(
     }
 
     transition->type = IVI_LAYOUT_TRANSITION_VIEW_MOVE_RESIZE;
-    transition->id_func = (ivi_layout_transition_identifier_func)transition_move_resize_view_identifier;
+    transition->is_transition_func = (ivi_layout_is_transition_func)is_transition_move_resize_view_func;
 
     transition->frame_func = frame_func;
     transition->destroy_func = destroy_func;
@@ -413,7 +413,7 @@ fade_view_user_frame(struct ivi_layout_transition *transition)
 }
 
 static int32_t
-transition_fade_view_identifier(struct fade_view_data* data,
+is_transition_fade_view_func(struct fade_view_data* data,
                                struct ivi_layout_surface* view)
 {
     return data->surface == view;
@@ -437,7 +437,7 @@ create_fade_view_transition(
     }
 
     transition->type = IVI_LAYOUT_TRANSITION_VIEW_FADE;
-    transition->id_func = (ivi_layout_transition_identifier_func)transition_fade_view_identifier;
+    transition->is_transition_func = (ivi_layout_is_transition_func)is_transition_fade_view_func;
 
     transition->user_data = user_data;
     transition->private_data = data;
@@ -643,7 +643,7 @@ transition_move_layer_destroy(struct ivi_layout_transition* transition)
 }
 
 static int32_t
-transition_move_layer_identifier(struct move_layer_data* data, struct ivi_layout_layer* layer)
+is_transition_move_layer_func(struct move_layer_data* data, struct ivi_layout_layer* layer)
 {
     return data->layer == layer;
 }
@@ -667,7 +667,7 @@ create_move_layer_transition(
     }
 
     transition->type = IVI_LAYOUT_TRANSITION_LAYER_MOVE;
-    transition->id_func = (ivi_layout_transition_identifier_func)transition_move_layer_identifier;
+    transition->is_transition_func = (ivi_layout_is_transition_func)is_transition_move_layer_func;
 
     transition->frame_func = transition_move_layer_user_frame;
     transition->destroy_func = transition_move_layer_destroy;
@@ -754,7 +754,7 @@ transition_fade_layer_user_frame(struct ivi_layout_transition *transition)
 }
 
 static int32_t
-transition_fade_layer_identifier(struct fade_layer_data* data, struct ivi_layout_layer* layer)
+is_transition_fade_layer_func(struct fade_layer_data* data, struct ivi_layout_layer* layer)
 {
     return data->layer == layer;
 }
@@ -804,7 +804,7 @@ ivi_layout_transition_fade_layer(struct ivi_layout_layer* layer,
     }
 
     transition->type = IVI_LAYOUT_TRANSITION_LAYER_FADE;
-    transition->id_func = (ivi_layout_transition_identifier_func)transition_fade_layer_identifier;
+    transition->is_transition_func = (ivi_layout_is_transition_func)is_transition_fade_layer_func;
 
     transition->private_data = data;
     transition->user_data = user_data;
@@ -933,7 +933,7 @@ static int32_t find_surface(struct ivi_layout_surface** surfaces,
 }
 
 static int32_t
-transition_change_order_identifier(struct change_order_data* data, struct ivi_layout_layer* layer)
+is_transition_change_order_func(struct change_order_data* data, struct ivi_layout_layer* layer)
 {
     return data->layer == layer;
 }
@@ -995,7 +995,7 @@ ivi_layout_transition_layer_render_order(struct ivi_layout_layer* layer,
     }
 
     transition->type = IVI_LAYOUT_TRANSITION_LAYER_VIEW_ORDER;
-    transition->id_func = (ivi_layout_transition_identifier_func)transition_change_order_identifier;
+    transition->is_transition_func = (ivi_layout_is_transition_func)is_transition_change_order_func;
 
     transition->private_data = data;
     transition->frame_func = transition_change_order_user_frame;
