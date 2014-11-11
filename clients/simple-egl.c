@@ -763,8 +763,7 @@ registry_handle_global(void *data, struct wl_registry *registry,
 			fprintf(stderr, "unable to load default left pointer\n");
 			// TODO: abort ?
 		}
-	}
-	else if (strcmp(interface, "ivi_application") == 0) {
+	} else if (strcmp(interface, "ivi_application") == 0) {
 		d->ivi_application =
 			wl_registry_bind(registry, name,
 					 &ivi_application_interface, 1);
