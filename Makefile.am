@@ -770,15 +770,13 @@ module_LTLIBRARIES +=				\
 
 ivi_layout = ivi-layout.la
 ivi_layout_la_LDFLAGS = -module -avoid-version
-ivi_layout_la_LIBADD = $(COMPOSITOR_LIBS) $(IVI_SHELL_LIBS) libshared.la
-ivi_layout_la_CFLAGS = $(GCC_CFLAGS) $(COMPOSITOR_CFLAGS) $(IVI_SHELL_CFLAGS)
+ivi_layout_la_LIBADD = $(COMPOSITOR_LIBS) libshared.la
+ivi_layout_la_CFLAGS = $(GCC_CFLAGS) $(COMPOSITOR_CFLAGS)
 ivi_layout_la_SOURCES =				\
 	ivi-shell/ivi-layout-export.h		\
+	ivi-shell/ivi-layout-private.h		\
 	ivi-shell/ivi-layout.c			\
 	ivi-shell/ivi-layout-transition.c
-nodist_ivi_layout_la_SOURCES =			\
-	protocol/ivi-application-protocol.c		\
-	protocol/ivi-application-server-protocol.h
 
 BUILT_SOURCES += $(nodist_ivi_layout_la_SOURCES)
 
