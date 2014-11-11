@@ -504,8 +504,7 @@ main(int argc, char **argv)
 
 	fprintf(stderr, "simple-shm exiting\n");
 
-	if (window->display->ivi_application)
-	{
+	if (window->display->ivi_application) {
 		ivi_surface_destroy(window->ivi_surface);
 		ivi_application_destroy(window->display->ivi_application);
 	}
