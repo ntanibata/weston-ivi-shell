@@ -767,7 +767,7 @@ if ENABLE_IVI_SHELL
 module_LTLIBRARIES +=				\
 	$(ivi_layout)				\
 	$(ivi_shell)				\
-        $(hmi_controller)
+	$(hmi_controller)
 
 ivi_layout = ivi-layout.la
 ivi_layout_la_LDFLAGS = -module -avoid-version
