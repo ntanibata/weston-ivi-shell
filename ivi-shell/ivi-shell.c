@@ -219,32 +219,33 @@ application_surface_create(struct wl_client *client,
 		wl_resource_get_user_data(surface_resource);
 	struct wl_resource *res;
 
-	if (weston_surface != NULL) {
-		/* check if a surface already has another role*/
-		if (weston_surface->configure) {
-			wl_resource_post_error(resource,
-					       WL_DISPLAY_ERROR_INVALID_OBJECT,
-					       "surface->configure already "
-					       "set");
-			return;
-		}
+	if (weston_surface == NULL) {
+		wl_resource_post_error(resource,
+				       WL_DISPLAY_ERROR_INVALID_OBJECT,
+				       "wl_surface is invalid");
+	}
 
-		layout_surface = ivi_layout->surface_create(weston_surface,
-							    id_surface);
-
-		if (layout_surface == NULL){
-			wl_resource_post_error(resource,
-					       IVI_APPLICATION_ERROR_IVI_ID,
-					       "surface_id is already assigned "
-					       "by another app");
-			return;
-		}
-	} else {
+	/* check if a wl_surface already has another role*/
+	if (weston_surface->configure) {
 		wl_resource_post_error(resource,
 				       IVI_APPLICATION_ERROR_ROLE,
-				       "wl_surface is invalid");
+				       "surface->configure already "
+				       "set");
 		return;
 	}
+
+	layout_surface = ivi_layout->surface_create(weston_surface,
+						    id_surface);
+
+	/* check if id_ivi is already used for wl_surface*/
+	if (layout_surface == NULL){
+		wl_resource_post_error(resource,
+				       IVI_APPLICATION_ERROR_IVI_ID,
+				       "surface_id is already assigned "
+				       "by another app");
+		return;
+	}
+
 
 	res = wl_resource_create(client, &ivi_surface_interface, 1, id);
 	if (res == NULL) {
