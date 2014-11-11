@@ -798,8 +798,8 @@ BUILT_SOURCES += $(nodist_ivi_shell_la_SOURCES)
 
 hmi_controller = hmi-controller.la
 hmi_controller_la_LDFLAGS = -module -avoid-version
-hmi_controller_la_LIBADD = $(IVI_SHELL_LIBS) $(COMPOSITOR_LIBS) libshared.la
-hmi_controller_la_CFLAGS = $(GCC_CFLAGS) $(IVI_SHELL_CFLAGS) $(COMPOSITOR_CFLAGS)
+hmi_controller_la_LIBADD = $(COMPOSITOR_LIBS) libshared.la
+hmi_controller_la_CFLAGS = $(GCC_CFLAGS) $(COMPOSITOR_CFLAGS)
 hmi_controller_la_SOURCES =				\
 	ivi-shell/ivi-layout-export.h			\
 	ivi-shell/hmi-controller.c
