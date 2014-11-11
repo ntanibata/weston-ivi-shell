@@ -123,7 +123,7 @@ static void *
 fail_on_null(void *p, size_t size, char* file, int32_t line)
 {
     if (size && !p) {
-        fprintf(stderr, "%s(%d) %zd: out of memory\n", file, line, size);
+        weston_log("%s(%d) %zd: out of memory\n", file, line, size);
         exit(EXIT_FAILURE);
     }
 
