@@ -1215,6 +1215,7 @@ int main(int argc, char **argv)
     struct wlContextStruct wlCtx_HomeButton;
     struct wlContextStruct wlCtx_WorkSpaceBackGround;
     struct wl_list         launcher_wlCtxList;
+    int                    ret = 0;
 
     memset(&wlCtxCommon, 0x00, sizeof(wlCtxCommon));
     memset(&wlCtx_BackGround, 0x00, sizeof(wlCtx_BackGround));
@@ -1299,8 +1300,8 @@ int main(int argc, char **argv)
     signal(SIGINT,  sigFunc);
     signal(SIGTERM, sigFunc);
 
-    while(gRun) {
-        wl_display_dispatch(wlCtxCommon.wlDisplay);
+    while(gRun && ret != -1) {
+        ret = wl_display_dispatch(wlCtxCommon.wlDisplay);
     }
 
     struct wlContextStruct* pWlCtxSt = NULL;
