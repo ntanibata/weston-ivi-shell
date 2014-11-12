@@ -592,35 +592,23 @@ registry_handle_global(void* data, struct wl_registry* registry, uint32_t name,
 {
     struct wlContextCommon* p_wlCtx = (struct wlContextCommon*)data;
 
-    do {
-        if (!strcmp(interface, "wl_compositor")) {
-            p_wlCtx->wlCompositor = wl_registry_bind(registry, name, &wl_compositor_interface, 1);
-            break;
-        }
-        if (!strcmp(interface, "wl_shm")) {
-            p_wlCtx->wlShm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
-            wl_shm_add_listener(p_wlCtx->wlShm, &shm_listenter, p_wlCtx);
-            break;
-        }
-        if (!strcmp(interface, "wl_seat")) {
-            p_wlCtx->wlSeat = wl_registry_bind(registry, name, &wl_seat_interface, 1);
-            wl_seat_add_listener(p_wlCtx->wlSeat, &seat_Listener, data);
-            break;
-        }
-        if (!strcmp(interface, "ivi_application")) {
-            p_wlCtx->iviApplication = wl_registry_bind(registry, name, &ivi_application_interface, 1);
-            break;
-        }
-        if (!strcmp(interface, "ivi_hmi_controller")) {
-            p_wlCtx->hmiCtrl = wl_registry_bind(registry, name, &ivi_hmi_controller_interface, 1);
+   if (!strcmp(interface, "wl_compositor")) {
+        p_wlCtx->wlCompositor = wl_registry_bind(registry, name, &wl_compositor_interface, 1);
+    } else if (!strcmp(interface, "wl_shm")) {
+        p_wlCtx->wlShm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
+        wl_shm_add_listener(p_wlCtx->wlShm, &shm_listenter, p_wlCtx);
+    } else if (!strcmp(interface, "wl_seat")) {
+        p_wlCtx->wlSeat = wl_registry_bind(registry, name, &wl_seat_interface, 1);
+        wl_seat_add_listener(p_wlCtx->wlSeat, &seat_Listener, data);
+    } else if (!strcmp(interface, "ivi_application")) {
+        p_wlCtx->iviApplication = wl_registry_bind(registry, name, &ivi_application_interface, 1);
+    } else if (!strcmp(interface, "ivi_hmi_controller")) {
+        p_wlCtx->hmiCtrl = wl_registry_bind(registry, name, &ivi_hmi_controller_interface, 1);
 
-            if (p_wlCtx->hmiCtrl) {
-                ivi_hmi_controller_add_listener(p_wlCtx->hmiCtrl, &hmi_controller_listener, p_wlCtx);
-            }
-            break;
+        if (p_wlCtx->hmiCtrl) {
+            ivi_hmi_controller_add_listener(p_wlCtx->hmiCtrl, &hmi_controller_listener, p_wlCtx);
         }
-
-    } while(0);
+    }
 }
 
 static const struct wl_registry_listener registry_listener = {
