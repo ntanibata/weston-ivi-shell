@@ -153,9 +153,12 @@ shell_destroy_shell_surface(struct wl_resource *resource)
 
 	assert(ivisurf == NULL);
 
-	ivisurf->surface->configure = NULL;
-	ivisurf->surface->configure_private = NULL;
-	ivisurf->surface = NULL;
+	if (ivisurf->surface!=NULL){
+		ivisurf->surface->configure = NULL;
+		ivisurf->surface->configure_private = NULL;
+		ivisurf->surface = NULL;
+	}
+
 	ivi_layout->surface_set_native_content(NULL, 0, 0,
 					       ivisurf->id_surface);
 	ivi_layout->remove_surface_configured_listener(
