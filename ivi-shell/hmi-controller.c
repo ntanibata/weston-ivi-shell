@@ -1159,25 +1159,27 @@ move_workspace_grab_end(struct move_grab *move, struct wl_resource* resource,
     int32_t width = hmi_ctrl->workspace_background_layer.width;
 
     struct timespec time = {0};
-    clock_gettime(CLOCK_MONOTONIC, &time);
-
-    double  grab_time = 1e+3 * (time.tv_sec  - move->start_time.tv_sec) +
-                        1e-6 * (time.tv_nsec - move->start_time.tv_nsec);
-
-    double  from_motion_time = 1e+3 * (time.tv_sec  - move->pre_time.tv_sec) +
-                               1e-6 * (time.tv_nsec - move->pre_time.tv_nsec);
-
-    double pointer_v = move->v[0];
-
-    int32_t is_flick = grab_time < 400 &&
-                       0.4 < fabs(pointer_v);
-
+    double grab_time = 0.0;
+    double  from_motion_time = 0.0;
+    double pointer_v = 0.0;
+    int32_t is_flick = 0;
     int32_t pos_x = 0;
     int32_t pos_y = 0;
     int page_no = 0;
     double end_pos = 0.0;
     uint32_t duration = 0;
 
+    clock_gettime(CLOCK_MONOTONIC, &time);
+
+    grab_time = 1e+3 * (time.tv_sec  - move->start_time.tv_sec) +
+		1e-6 * (time.tv_nsec - move->start_time.tv_nsec);
+
+    from_motion_time = 1e+3 * (time.tv_sec  - move->pre_time.tv_sec) +
+		       1e-6 * (time.tv_nsec - move->pre_time.tv_nsec);
+
+    pointer_v = move->v[0];
+
+    is_flick = grab_time < 400 && 0.4 < fabs(pointer_v);
     if (200 < from_motion_time) {
        pointer_v = 0.0;
     }
