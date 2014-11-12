@@ -1224,7 +1224,6 @@ int main(int argc, char **argv)
     wlCtxCommon.wlRegistry = wl_display_get_registry(wlCtxCommon.wlDisplay);
     wl_registry_add_listener(wlCtxCommon.wlRegistry,
                              &registry_listener, &wlCtxCommon);
-    wl_display_dispatch(wlCtxCommon.wlDisplay);
     wl_display_roundtrip(wlCtxCommon.wlDisplay);
 
     if (wlCtxCommon.hmi_setting->cursor_theme) {
