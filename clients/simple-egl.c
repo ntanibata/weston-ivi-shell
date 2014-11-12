@@ -344,6 +344,36 @@ static const struct ivi_surface_listener ivi_surface_listener = {
 };
 
 static void
+create_xdg_surface(struct window *window, struct display *display)
+{
+	window->xdg_surface = xdg_shell_get_xdg_surface(display->shell,
+							window->surface);
+
+	xdg_surface_add_listener(window->xdg_surface,
+				 &xdg_surface_listener, window);
+
+	xdg_surface_set_title(window->xdg_surface, "simple-egl");
+}
+
+static void
+create_ivi_surface(struct window *window, struct display *display)
+{
+	uint32_t id_ivisurf = IVI_SURFACE_ID + (uint32_t)getpid();
+	window->ivi_surface =
+		ivi_application_surface_create(display->ivi_application,
+					       id_ivisurf, window->surface);
+	handle_ivi_surface_configure(window, NULL, 250, 250);
+
+	if (window->ivi_surface == NULL) {
+		fprintf(stderr, "Failed to create ivi_client_surface\n");
+		abort();
+	}
+
+	ivi_surface_add_listener(window->ivi_surface,
+				 &ivi_surface_listener, window);
+}
+
+static void
 create_surface(struct window *window)
 {
 	struct display *display = window->display;
@@ -361,28 +391,9 @@ create_surface(struct window *window)
 				       window->native, NULL);
 
 	if (display->shell) {
-		window->xdg_surface = xdg_shell_get_xdg_surface(display->shell,
-								window->surface);
-
-		xdg_surface_add_listener(window->xdg_surface,
-					 &xdg_surface_listener, window);
-
-		xdg_surface_set_title(window->xdg_surface, "simple-egl");
+		create_xdg_surface(window, display);
 	} else if (display->ivi_application ) {
-		uint32_t id_ivisurf = IVI_SURFACE_ID + (uint32_t)getpid();
-		window->ivi_surface =
-			ivi_application_surface_create(display->ivi_application,
-						       id_ivisurf, window->surface);
-		handle_ivi_surface_configure(window, NULL, 250, 250);
-
-		if (window->ivi_surface == NULL) {
-			fprintf(stderr, "Failed to create ivi_client_surface\n");
-			abort();
-		}
-
-                ivi_surface_add_listener(window->ivi_surface,
-                                         &ivi_surface_listener, window);
-
+		create_ivi_surface(window, display);
 	} else {
 		assert(0);
 	}
