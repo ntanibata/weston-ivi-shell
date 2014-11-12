@@ -4535,8 +4535,7 @@ window_create(struct display *display)
 
 	window = window_create_internal(display, 0);
 
-	if (window->display->xdg_shell)
-	{
+	if (window->display->xdg_shell) {
 		window->xdg_surface =
 			xdg_shell_get_xdg_surface(window->display->xdg_shell,
 						  window->main_surface->surface);
@@ -4545,9 +4544,8 @@ window_create(struct display *display)
 		xdg_surface_set_user_data(window->xdg_surface, window);
 		xdg_surface_add_listener(window->xdg_surface,
 					 &xdg_surface_listener, window);
-	} else if (display->ivi_application)
-	{
-		//auto generation of ivi_id based on process id + basement of id
+	} else if (display->ivi_application) {
+		/* auto generation of ivi_id based on process id + basement of id */
 		id_ivisurf = IVI_SURFACE_ID + (uint32_t)getpid();
 		window->ivi_surface =
 			ivi_application_surface_create(display->ivi_application,
@@ -4812,7 +4810,8 @@ window_show_menu(struct display *display,
 
 	frame_interior(menu->frame, &ix, &iy, NULL, NULL);
 
-	if (!display->xdg_shell) return;
+	if (!display->xdg_shell)
+		return;
 
 	window->xdg_popup = xdg_shell_get_xdg_popup(display->xdg_shell,
 						    window->main_surface->surface,
@@ -4827,7 +4826,6 @@ window_show_menu(struct display *display,
 	xdg_popup_set_user_data(window->xdg_popup, window);
 	xdg_popup_add_listener(window->xdg_popup,
 			       &xdg_popup_listener, window);
-
 }
 
 void
