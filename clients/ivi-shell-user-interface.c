@@ -260,9 +260,6 @@ static void
 PointerHandleEnter(void* data, struct wl_pointer* wlPointer, uint32_t serial,
                    struct wl_surface* wlSurface, wl_fixed_t sx, wl_fixed_t sy)
 {
-    (void)wlPointer;
-    (void)serial;
-
     struct wlContextCommon *pCtx = data;
     pCtx->enter_serial = serial;
     pCtx->enterSurface = wlSurface;
@@ -276,9 +273,6 @@ static void
 PointerHandleLeave(void* data, struct wl_pointer* wlPointer, uint32_t serial,
                    struct wl_surface* wlSurface)
 {
-    (void)wlPointer;
-    (void)wlSurface;
-
     struct wlContextCommon *pCtx = data;
     pCtx->enterSurface = NULL;
 
@@ -291,10 +285,6 @@ static void
 PointerHandleMotion(void* data, struct wl_pointer* wlPointer, uint32_t time,
                     wl_fixed_t sx, wl_fixed_t sy)
 {
-    (void)data;
-    (void)wlPointer;
-    (void)time;
-
 #ifdef _DEBUG
     printf("ENTER PointerHandleMotion: x(%d), y(%d)\n", gPointerX, gPointerY);
 #endif
@@ -408,9 +398,6 @@ static void
 PointerHandleButton(void* data, struct wl_pointer* wlPointer, uint32_t serial,
                     uint32_t time, uint32_t button, uint32_t state)
 {
-    (void)wlPointer;
-    (void)serial;
-    (void)time;
     struct wlContextCommon *pCtx = data;
     struct ivi_hmi_controller *hmi_ctrl = pCtx->hmiCtrl;
 
@@ -442,9 +429,6 @@ static void
 PointerHandleAxis(void* data, struct wl_pointer* wlPointer, uint32_t time,
                   uint32_t axis, wl_fixed_t value)
 {
-    (void)data;
-    (void)wlPointer;
-    (void)time;
 #ifdef _DEBUG
     printf("ENTER PointerHandleAxis: axis(%d), value(%d)\n", axis, value);
 #endif
@@ -490,8 +474,6 @@ static void
 TouchHandleUp(void *data, struct wl_touch *wlTouch, uint32_t serial, uint32_t time,
               int32_t id)
 {
-    (void)serial;
-    (void)time;
     struct wlContextCommon *pCtx = data;
     struct ivi_hmi_controller *hmi_ctrl = pCtx->hmiCtrl;
 
@@ -535,7 +517,6 @@ static struct wl_touch_listener touch_listener = {
 static void
 seat_handle_capabilities(void* data, struct wl_seat* seat, uint32_t caps)
 {
-    (void)seat;
     struct wlContextCommon* p_wlCtx = (struct wlContextCommon*)data;
     struct wl_seat* wlSeat = p_wlCtx->wlSeat;
     struct wl_pointer* wlPointer = p_wlCtx->wlPointer;
@@ -610,7 +591,6 @@ static void
 registry_handle_global(void* data, struct wl_registry* registry, uint32_t name,
                        const char *interface, uint32_t version)
 {
-    (void)version;
     struct wlContextCommon* p_wlCtx = (struct wlContextCommon*)data;
 
     do {
