@@ -903,7 +903,6 @@ drawImage(struct wlContextStruct *p_wlCtx)
 
     wl_surface_commit(p_wlCtx->wlSurface);
 
-    wl_display_flush(p_wlCtx->cmm.wlDisplay);
     wl_display_roundtrip(p_wlCtx->cmm.wlDisplay);
 }
 
@@ -930,8 +929,6 @@ create_ivisurface(struct wlContextStruct *p_wlCtx,
     }
 
     drawImage(p_wlCtx);
-
-    wl_display_roundtrip(p_wlCtx->cmm.wlDisplay);
 }
 
 static void
