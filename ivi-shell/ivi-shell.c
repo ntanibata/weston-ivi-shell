@@ -193,19 +193,6 @@ static const struct ivi_surface_interface surface_implementation = {
 	surface_destroy,
 };
 
-static struct ivi_shell_surface *
-is_surf_in_surfaces(struct wl_list *surf_list, uint32_t id_surface)
-{
-	struct ivi_shell_surface *ivisurf;
-
-	wl_list_for_each(ivisurf, surf_list, link) {
-		if (ivisurf->id_surface == id_surface)
-			return ivisurf;
-	}
-
-	return NULL;
-}
-
 /**
  * Implementation of ivi_application::surface_create.
  * Creating new ivi_shell_surface with identification to identify the surface
