@@ -103,7 +103,7 @@ struct window {
 	struct ivi_surface *ivi_surface;
 	EGLSurface egl_surface;
 	struct wl_callback *callback;
-	int fullscreen, opaque, buffer_size, frame_sync;
+	int maximized, opaque, buffer_size, frame_sync;
 };
 
 static const char *vert_shader_text =
@@ -281,26 +281,26 @@ handle_surface_configure(void *data, struct xdg_surface *surface,
 	struct window *window = data;
 	uint32_t *p;
 
-	window->fullscreen = 0;
+	window->maximized = 0;
         if (states) {
             wl_array_for_each(p, states) {
 		uint32_t state = *p;
 		switch (state) {
 		case XDG_SURFACE_STATE_FULLSCREEN:
-                    window->fullscreen = 1;
+                    window->maximized = 1;
                     break;
 		}
             }
         }
 
 	if (width > 0 && height > 0) {
-		if (!window->fullscreen) {
+		if (!window->maximized) {
 			window->window_size.width = width;
 			window->window_size.height = height;
 		}
 		window->geometry.width = width;
 		window->geometry.height = height;
-	} else if (!window->fullscreen) {
+	} else if (!window->maximized) {
 		window->geometry = window->window_size;
 	}
 
@@ -335,7 +335,7 @@ handle_ivi_surface_configure(void *data, struct ivi_surface *ivi_surface,
 	window->geometry.width = width;
 	window->geometry.height = height;
 
-	if (!window->fullscreen)
+	if (!window->maximized)
 		window->window_size = window->geometry;
 }
 
@@ -394,7 +394,7 @@ create_surface(struct window *window)
 	if (!window->frame_sync)
 		eglSwapInterval(display->egl.dpy, 0);
 
-	if (window->fullscreen)
+	if (window->maximized)
 		xdg_surface_set_fullscreen(window->xdg_surface, NULL);
 }
 
@@ -491,7 +491,7 @@ redraw(void *data, struct wl_callback *callback, uint32_t time)
 	glDisableVertexAttribArray(window->gl.pos);
 	glDisableVertexAttribArray(window->gl.col);
 
-	if (window->opaque || window->fullscreen) {
+	if (window->opaque || window->maximized) {
 		region = wl_compositor_create_region(window->display->compositor);
 		wl_region_add(region, 0, 0,
 			      window->geometry.width,
@@ -526,7 +526,7 @@ pointer_handle_enter(void *data, struct wl_pointer *pointer,
 	struct wl_cursor *cursor = display->default_cursor;
 	struct wl_cursor_image *image;
 
-	if (display->window->fullscreen)
+	if (display->window->maximized)
 		wl_pointer_set_cursor(pointer, serial, NULL, 0, 0);
 	else if (cursor) {
 		image = display->default_cursor->images[0];
@@ -654,7 +654,7 @@ keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
 	struct display *d = data;
 
 	if (key == KEY_F11 && state) {
-		if (d->window->fullscreen)
+		if (d->window->maximized)
 			xdg_surface_unset_fullscreen(d->window->xdg_surface);
 		else
 			xdg_surface_set_fullscreen(d->window->xdg_surface, NULL);
@@ -791,7 +791,7 @@ static void
 usage(int error_code)
 {
 	fprintf(stderr, "Usage: simple-egl [OPTIONS]\n\n"
-		"  -f\tRun in fullscreen mode\n"
+		"  -f\tRun in maximized mode\n"
 		"  -o\tCreate an opaque surface\n"
 		"  -s\tUse a 16 bpp EGL config\n"
 		"  -b\tDon't sync to compositor redraw (eglSwapInterval 0)\n"
@@ -818,7 +818,7 @@ main(int argc, char **argv)
 
 	for (i = 1; i < argc; i++) {
 		if (strcmp("-f", argv[i]) == 0)
-			window.fullscreen = 1;
+			window.maximized = 1;
 		else if (strcmp("-o", argv[i]) == 0)
 			window.opaque = 1;
 		else if (strcmp("-s", argv[i]) == 0)
