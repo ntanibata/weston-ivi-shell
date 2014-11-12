@@ -863,8 +863,6 @@ destroyWLContextStruct(struct wlContextStruct *p_wlCtx)
 static int
 createWLContext(struct wlContextStruct *p_wlCtx)
 {
-    wl_display_roundtrip(p_wlCtx->cmm.wlDisplay);
-
     p_wlCtx->wlSurface = wl_compositor_create_surface(p_wlCtx->cmm.wlCompositor);
     if (NULL == p_wlCtx->wlSurface) {
         printf("Error: wl_compositor_create_surface failed.\n");
@@ -875,7 +873,6 @@ createWLContext(struct wlContextStruct *p_wlCtx)
 
     createShmBuffer(p_wlCtx);
 
-    wl_display_flush(p_wlCtx->cmm.wlDisplay);
     wl_display_roundtrip(p_wlCtx->cmm.wlDisplay);
 
     return 0;
