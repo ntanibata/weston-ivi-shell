@@ -309,6 +309,4 @@ struct ivi_layout_interface {
                                                struct wl_listener* listener);
 };
 
-WL_EXPORT struct ivi_layout_interface ivi_layout_interface;
-
 #endif
