@@ -2,7 +2,6 @@
  * Copyright © 2010-2012 Intel Corporation
  * Copyright © 2011-2012 Collabora, Ltd.
  * Copyright © 2013 Raspberry Pi Foundation
- * Copyright © 2013 DENSO CORPORATION
  *
  * Permission to use, copy, modify, distribute, and sell this software and
  * its documentation for any purpose is hereby granted without fee, provided
