@@ -495,7 +495,6 @@ static void
 set_notification_remove_surface(struct ivi_layout_surface *ivisurf,
                                 void *userdata)
 {
-    (void)ivisurf;
     struct hmi_controller* hmi_ctrl = userdata;
     switch_mode(hmi_ctrl, hmi_ctrl->layout_mode);
 }
@@ -504,7 +503,6 @@ static void
 set_notification_configure_surface(struct ivi_layout_surface *ivisurf,
                                    void *userdata)
 {
-    (void)ivisurf;
     struct hmi_controller* hmi_ctrl = userdata;
     switch_mode(hmi_ctrl, hmi_ctrl->layout_mode);
 }
