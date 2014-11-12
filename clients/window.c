@@ -4550,10 +4550,7 @@ window_create(struct display *display)
 		window->ivi_surface =
 			ivi_application_surface_create(display->ivi_application,
 						       id_ivisurf, window->main_surface->surface);
-		if (window->ivi_surface == NULL) {
-			fprintf(stderr, "Failed to create ivi_client_surface\n");
-			abort();
-		}
+		fail_on_null(window->ivi_surface);
 
 		ivi_surface_add_listener(window->ivi_surface,
 					 &ivi_surface_listener, window);
