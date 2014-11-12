@@ -2685,81 +2685,6 @@ ivi_layout_surface_configure(struct ivi_layout_surface *ivisurf,
     }
 }
 
-static int32_t
-ivi_layout_surface_set_native_content(struct weston_surface *surface,
-                                      int32_t width,
-                                      int32_t height,
-                                      uint32_t id_surface)
-{
-    struct ivi_layout *layout = get_instance();
-    struct ivi_layout_surface *ivisurf;
-    struct weston_view *tmpview = NULL;
-
-    ivisurf = get_surface(&layout->surface_list, id_surface);
-    if (ivisurf == NULL) {
-        weston_log("layout surface is not found\n");
-        return IVI_FAILED;
-    }
-
-    if (ivisurf->surface != NULL) {
-        if (surface != NULL) {
-            weston_log("id_surface(%d) is already set the native content\n",
-                       id_surface);
-            return IVI_FAILED;
-        }
-
-        wl_list_remove(&ivisurf->surface_destroy_listener.link);
-
-        ivisurf->surface = NULL;
-
-        wl_list_remove(&ivisurf->surface_rotation.link);
-        wl_list_remove(&ivisurf->layer_rotation.link);
-        wl_list_remove(&ivisurf->surface_pos.link);
-        wl_list_remove(&ivisurf->layer_pos.link);
-        wl_list_remove(&ivisurf->scaling.link);
-        wl_list_init(&ivisurf->surface_rotation.link);
-        wl_list_init(&ivisurf->layer_rotation.link);
-        wl_list_init(&ivisurf->surface_pos.link);
-        wl_list_init(&ivisurf->layer_pos.link);
-        wl_list_init(&ivisurf->scaling.link);
-
-    }
-
-    if (surface == NULL) {
-        if (ivisurf->content_observer.callback) {
-            (*(ivisurf->content_observer.callback))(ivisurf,
-                                    0, ivisurf->content_observer.userdata);
-        }
-
-        ivi_layout_surface_remove_notification(ivisurf);
-        return IVI_SUCCEEDED;
-    }
-
-    ivisurf->surface = surface;
-    ivisurf->surface_destroy_listener.notify =
-        westonsurface_destroy_from_ivisurface;
-    wl_resource_add_destroy_listener(surface->resource,
-                                     &ivisurf->surface_destroy_listener);
-
-    tmpview = weston_view_create(surface);
-    if (tmpview == NULL) {
-        weston_log("fails to allocate memory\n");
-        return IVI_FAILED;
-    }
-
-    ivisurf->surface->width_from_buffer  = width;
-    ivisurf->surface->height_from_buffer = height;
-
-    wl_signal_emit(&layout->surface_notification.created, ivisurf);
-
-    if (ivisurf->content_observer.callback) {
-        (*(ivisurf->content_observer.callback))(ivisurf,
-                                     1, ivisurf->content_observer.userdata);
-    }
-
-    return IVI_SUCCEEDED;
-}
-
 WL_EXPORT int32_t
 ivi_layout_surface_set_content_observer(struct ivi_layout_surface *ivisurf,
                                      ivi_controller_surface_content_callback callback,
@@ -2792,15 +2717,6 @@ ivi_layout_surface_create(struct weston_surface *wl_surface,
         if (ivisurf->surface != NULL) {
             weston_log("id_surface(%d) is already created\n", id_surface);
             return NULL;
-        } else {
-            /* if ivisurf->surface exist, wl_surface is tied to id_surface again */
-            /* This means client destroys ivi_surface once, and then tries to tie
-                the id_surface to new wl_surface again. The property of id_surface can
-                be inherited.
-            */
-            ivi_layout_surface_set_native_content(
-                wl_surface, wl_surface->width, wl_surface->height, id_surface);
-            return ivisurf;
         }
     }
 
@@ -2912,7 +2828,6 @@ ivi_layout_surface_remove_configured_listener(struct ivi_layout_surface* ivisurf
 WL_EXPORT struct ivi_layout_interface ivi_layout_interface = {
 	.get_weston_view = ivi_layout_get_weston_view,
 	.surface_configure = ivi_layout_surface_configure,
-	.surface_set_native_content = ivi_layout_surface_set_native_content,
 	.surface_create = ivi_layout_surface_create,
 	.init_with_compositor = ivi_layout_init_with_compositor,
         .get_surface_dimension = ivi_layout_surface_get_dimension,
