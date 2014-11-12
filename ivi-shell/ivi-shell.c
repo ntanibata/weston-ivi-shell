@@ -361,7 +361,6 @@ init_ivi_shell(struct weston_compositor *compositor, struct ivi_shell *shell)
 
 	wl_list_init(&shell->ivi_surface_list);
 
-	weston_layer_init(&shell->panel_layer, &compositor->cursor_layer.link);
 	weston_layer_init(&shell->input_panel_layer, NULL);
 }
 
