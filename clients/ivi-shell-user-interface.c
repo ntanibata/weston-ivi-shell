@@ -154,8 +154,6 @@ hmi_homescreen_setting {
     uint32_t transition_duration;
 };
 
-static volatile sig_atomic_t gRun = 0;
-
 static void *
 fail_on_null(void *p, size_t size, char* file, int32_t line)
 {
@@ -1082,11 +1080,6 @@ create_launchers(struct wlContextCommon *cmm, struct wl_list *launcher_list)
     free(launchers);
 }
 
-static void sigFunc(int signum)
-{
-    gRun = 0;
-}
-
 /**
  * Internal method to read out weston.ini to get configuration
  */
@@ -1239,8 +1232,6 @@ int main(int argc, char **argv)
 
     wlCtxCommon.hmi_setting = hmi_setting;
 
-    gRun = 1;
-
     wlCtxCommon.wlDisplay = wl_display_connect(NULL);
     if (NULL == wlCtxCommon.wlDisplay) {
         printf("Error: wl_display_connect failed.\n");
@@ -1301,11 +1292,7 @@ int main(int argc, char **argv)
 
     UI_ready(wlCtxCommon.hmiCtrl);
 
-    /* signal handling */
-    signal(SIGINT,  sigFunc);
-    signal(SIGTERM, sigFunc);
-
-    while(gRun && ret != -1) {
+    while(ret != -1) {
         ret = wl_display_dispatch(wlCtxCommon.wlDisplay);
     }
 
