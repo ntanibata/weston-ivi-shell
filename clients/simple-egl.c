@@ -282,16 +282,16 @@ handle_surface_configure(void *data, struct xdg_surface *surface,
 	uint32_t *p;
 
 	window->maximized = 0;
-        if (states) {
-            wl_array_for_each(p, states) {
-		uint32_t state = *p;
-		switch (state) {
-		case XDG_SURFACE_STATE_FULLSCREEN:
-                    window->maximized = 1;
-                    break;
+	if (states) {
+		wl_array_for_each(p, states) {
+			uint32_t state = *p;
+			switch (state) {
+				case XDG_SURFACE_STATE_FULLSCREEN:
+					window->maximized = 1;
+					break;
+			}
 		}
-            }
-        }
+	}
 
 	if (width > 0 && height > 0) {
 		if (!window->maximized) {
