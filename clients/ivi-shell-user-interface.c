@@ -526,7 +526,6 @@ seat_handle_capabilities(void* data, struct wl_seat* seat, uint32_t caps)
     if (p_wlCtx->hmi_setting->cursor_theme) {
         if ((caps & WL_SEAT_CAPABILITY_POINTER) && !wlPointer){
             wlPointer = wl_seat_get_pointer(wlSeat);
-            wl_pointer_set_user_data(wlPointer, data);
             wl_pointer_add_listener(wlPointer, &pointer_listener, data);
         } else
         if (!(caps & WL_SEAT_CAPABILITY_POINTER) && wlPointer){
@@ -538,7 +537,6 @@ seat_handle_capabilities(void* data, struct wl_seat* seat, uint32_t caps)
 
     if ((caps & WL_SEAT_CAPABILITY_TOUCH) && !wlTouch){
         wlTouch = wl_seat_get_touch(wlSeat);
-        wl_touch_set_user_data(wlTouch, data);
         wl_touch_add_listener(wlTouch, &touch_listener, data);
     } else
     if (!(caps & WL_SEAT_CAPABILITY_TOUCH) && wlTouch){
