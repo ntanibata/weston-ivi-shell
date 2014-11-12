@@ -253,6 +253,7 @@ struct window {
 
 	struct window *parent;
 	struct wl_surface *last_parent_surface;
+
 	struct ivi_surface *ivi_surface;
 
 	struct window_frame *frame;
