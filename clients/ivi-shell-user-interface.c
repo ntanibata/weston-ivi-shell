@@ -194,12 +194,13 @@ static struct wl_shm_listener shm_listenter = {
 static int32_t
 getIdOfWlSurface(struct wlContextCommon *pCtx, struct wl_surface *wlSurface)
 {
+    struct wlContextStruct* pWlCtxSt = NULL;
+
     if (NULL == pCtx ||
         NULL == wlSurface ) {
         return 0;
     }
 
-    struct wlContextStruct* pWlCtxSt = NULL;
     wl_list_for_each(pWlCtxSt, pCtx->list_wlContextStruct, link) {
         if (pWlCtxSt->wlSurface == wlSurface) {
             return pWlCtxSt->id_surface;
@@ -212,7 +213,7 @@ getIdOfWlSurface(struct wlContextCommon *pCtx, struct wl_surface *wlSurface)
 static void
 set_pointer_image(struct wlContextCommon *pCtx, uint32_t index)
 {
-
+    struct wl_cursor *cursor = NULL;
     struct wl_cursor_image *image = NULL;
     struct wl_buffer *buffer = NULL;
 
@@ -227,7 +228,7 @@ set_pointer_image(struct wlContextCommon *pCtx, uint32_t index)
         return;
     }
 
-    struct wl_cursor *cursor = pCtx->cursors[pCtx->current_cursor];
+    cursor = pCtx->cursors[pCtx->current_cursor];
     if (!cursor) {
         return;
     }
@@ -321,11 +322,12 @@ launcher_button(uint32_t surfaceId, struct wl_list *launcher_list)
     struct hmi_homescreen_launcher *launcher = NULL;
 
     wl_list_for_each(launcher, launcher_list, link) {
+        char *argv[] = {NULL};
+
         if (surfaceId != launcher->icon_surface_id) {
             continue;
         }
 
-        char *argv[] = {NULL};
         execute_process(launcher->path, argv);
 
         return 1;
@@ -342,11 +344,12 @@ launcher_button(uint32_t surfaceId, struct wl_list *launcher_list)
 static int32_t
 isWorkspaceSurface(uint32_t id, struct hmi_homescreen_setting *hmi_setting)
 {
+    struct hmi_homescreen_launcher *launcher = NULL;
+
     if (id == hmi_setting->workspace_background.id) {
         return 1;
     }
 
-    struct hmi_homescreen_launcher *launcher = NULL;
     wl_list_for_each(launcher, &hmi_setting->launcher_list, link) {
         if (id == launcher->icon_surface_id) {
             return 1;
@@ -400,12 +403,11 @@ PointerHandleButton(void* data, struct wl_pointer* wlPointer, uint32_t serial,
 {
     struct wlContextCommon *pCtx = data;
     struct ivi_hmi_controller *hmi_ctrl = pCtx->hmiCtrl;
+    const uint32_t id_surface = getIdOfWlSurface(pCtx, pCtx->enterSurface);
 
     if (BTN_RIGHT == button) {
         return;
     }
-
-    const uint32_t id_surface = getIdOfWlSurface(pCtx, pCtx->enterSurface);
 
     switch (state) {
     case WL_POINTER_BUTTON_STATE_RELEASED:
@@ -451,12 +453,13 @@ TouchHandleDown(void *data, struct wl_touch *wlTouch, uint32_t serial, uint32_t 
 {
     struct wlContextCommon *pCtx = data;
     struct ivi_hmi_controller *hmi_ctrl = pCtx->hmiCtrl;
+    uint32_t id_surface = 0;
 
     if (0 == id){
         pCtx->enterSurface = surface;
     }
 
-    const uint32_t id_surface = getIdOfWlSurface(pCtx, pCtx->enterSurface);
+    id_surface = getIdOfWlSurface(pCtx, pCtx->enterSurface);
 
     /**
      * When touch down happens on surfaces of workspace, ask hmi-controller to start
@@ -561,12 +564,12 @@ ivi_hmi_controller_workspace_end_control(void *data,
                                      struct ivi_hmi_controller *hmi_ctrl,
                                      int32_t is_controlled)
 {
+    struct wlContextCommon *pCtx = data;
+    const uint32_t id_surface = getIdOfWlSurface(pCtx, pCtx->enterSurface);
+
     if (is_controlled) {
         return;
     }
-
-    struct wlContextCommon *pCtx = data;
-    const uint32_t id_surface = getIdOfWlSurface(pCtx, pCtx->enterSurface);
 
     /**
      * During being controlled by hmi-controller, any input event is not
@@ -1041,33 +1044,32 @@ create_workspace_background(
 static void
 create_launchers(struct wlContextCommon *cmm, struct wl_list *launcher_list)
 {
+    struct hmi_homescreen_launcher** launchers;
+    struct hmi_homescreen_launcher *launcher = NULL;
+
     int launcher_count = wl_list_length(launcher_list);
+    int ii = 0;
+    int start = 0;
 
     if (0 == launcher_count) {
         return;
     }
 
-    struct hmi_homescreen_launcher** launchers;
     launchers = MEM_ALLOC(launcher_count * sizeof(*launchers));
-
-    int ii = 0;
-    struct hmi_homescreen_launcher *launcher = NULL;
 
     wl_list_for_each(launcher, launcher_list, link) {
         launchers[ii] = launcher;
         ii++;
     }
 
-    int start = 0;
-
     for (ii = 0; ii < launcher_count; ii++) {
+        int jj = 0;
 
         if (ii != launcher_count -1 &&
             launchers[ii]->workspace_id == launchers[ii + 1]->workspace_id) {
             continue;
         }
 
-        int jj = 0;
         for (jj = start; jj <= ii; jj++) {
             struct wlContextStruct *p_wlCtx = MEM_ALLOC(sizeof(*p_wlCtx));
             p_wlCtx->cmm = *cmm;
@@ -1091,15 +1093,19 @@ static void sigFunc(int signum)
 static struct hmi_homescreen_setting*
 hmi_homescreen_setting_create(void)
 {
+    struct weston_config *config = NULL;
+    struct weston_config_section *shellSection = NULL;
     struct hmi_homescreen_setting* setting = MEM_ALLOC(sizeof(*setting));
+    struct weston_config_section *section = NULL;
+    const char *name = NULL;
+    uint32_t workspace_layer_id;
+    uint32_t icon_surface_id = 0;
 
     wl_list_init(&setting->workspace_list);
     wl_list_init(&setting->launcher_list);
 
-    struct weston_config *config = NULL;
     config = weston_config_parse("weston.ini");
 
-    struct weston_config_section *shellSection = NULL;
     shellSection = weston_config_get_section(config, "ivi-shell", NULL, NULL);
 
     weston_config_section_get_string(
@@ -1107,7 +1113,6 @@ hmi_homescreen_setting_create(void)
 
     weston_config_section_get_int(shellSection, "cursor-size", &setting->cursor_size, 32);
 
-    uint32_t workspace_layer_id;
     weston_config_section_get_uint(
         shellSection, "workspace-layer-id", &workspace_layer_id, 3000);
 
@@ -1168,10 +1173,7 @@ hmi_homescreen_setting_create(void)
         shellSection, "workspace-background-id",
         &setting->workspace_background.id, 2001);
 
-    struct weston_config_section *section = NULL;
-    const char *name = NULL;
-
-    uint32_t icon_surface_id = workspace_layer_id + 1;
+    icon_surface_id = workspace_layer_id + 1;
 
     while (weston_config_next_section(config, &section, &name)) {
 
@@ -1217,6 +1219,10 @@ int main(int argc, char **argv)
     struct wl_list         launcher_wlCtxList;
     int                    ret = 0;
 
+    struct hmi_homescreen_setting *hmi_setting = hmi_homescreen_setting_create();
+
+    struct wlContextStruct* pWlCtxSt = NULL;
+
     memset(&wlCtxCommon, 0x00, sizeof(wlCtxCommon));
     memset(&wlCtx_BackGround, 0x00, sizeof(wlCtx_BackGround));
     memset(&wlCtx_Panel,      0x00, sizeof(wlCtx_Panel));
@@ -1231,7 +1237,6 @@ int main(int argc, char **argv)
     assert(wlCtxCommon.list_wlContextStruct);
     wl_list_init(wlCtxCommon.list_wlContextStruct);
 
-    struct hmi_homescreen_setting *hmi_setting = hmi_homescreen_setting_create();
     wlCtxCommon.hmi_setting = hmi_setting;
 
     gRun = 1;
@@ -1304,7 +1309,6 @@ int main(int argc, char **argv)
         ret = wl_display_dispatch(wlCtxCommon.wlDisplay);
     }
 
-    struct wlContextStruct* pWlCtxSt = NULL;
     wl_list_for_each(pWlCtxSt, wlCtxCommon.list_wlContextStruct, link) {
         destroyWLContextStruct(pWlCtxSt);
     }
