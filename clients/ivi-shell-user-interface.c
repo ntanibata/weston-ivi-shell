@@ -34,6 +34,7 @@
 #include <wayland-cursor.h>
 #include "../shared/cairo-util.h"
 #include "../shared/config-parser.h"
+#include "../shared/os-compatibility.h"
 #include "ivi-application-client-protocol.h"
 #include "ivi-hmi-controller-client-protocol.h"
 
@@ -787,28 +788,23 @@ createShmBuffer(struct wlContextStruct *p_wlCtx)
 {
     struct wl_shm_pool *pool;
 
-    char filename[] = "/tmp/wayland-shm-XXXXXX";
     int fd = -1;
     int size = 0;
     int width = 0;
     int height = 0;
     int stride = 0;
 
-    fd = mkstemp(filename);
-    if (fd < 0) {
-        fprintf(stderr, "open %s failed: %m\n", filename);
-        return;
-    }
-
     width  = cairo_image_surface_get_width(p_wlCtx->ctx_image);
     height = cairo_image_surface_get_height(p_wlCtx->ctx_image);
     stride = cairo_image_surface_get_stride(p_wlCtx->ctx_image);
 
     size = stride * height;
-    if (ftruncate(fd, size) < 0) {
-        fprintf(stderr, "ftruncate failed: %m\n");
-        close(fd);
-        return;
+
+    fd = os_create_anonymous_file(size);
+    if (fd < 0) {
+        fprintf(stderr, "creating a buffer file for %d B failed: %m\n",
+            size);
+        return ;
     }
 
     p_wlCtx->data = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
