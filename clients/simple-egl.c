@@ -565,11 +565,11 @@ pointer_handle_button(void *data, struct wl_pointer *wl_pointer,
 
 	if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED)
 	{
-		if (display->shell)
-		{
-			xdg_surface_move(display->window->xdg_surface,
-					 display->seat, serial);
-		}
+		if (!display->window->xdg_surface)
+			return;
+
+		xdg_surface_move(display->window->xdg_surface,
+						 display->seat, serial);
 	}
 }
 
