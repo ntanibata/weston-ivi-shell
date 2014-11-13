@@ -106,6 +106,8 @@ struct hmi_controller
 
     struct weston_compositor           *compositor;
     struct wl_listener                  destroy_listener;
+
+    struct wl_client                   *user_interface;
 };
 
 struct launcher_info
@@ -1592,6 +1594,10 @@ bind_hmi_controller(struct wl_client *client,
     struct wl_resource *resource = NULL;
     struct hmi_controller *hmi_ctrl = data;
 
+    if (hmi_ctrl->user_interface != client) {
+        return;
+    }
+
     resource = wl_resource_create(
             client, &ivi_hmi_controller_interface, 1, id);
 
@@ -1606,7 +1612,9 @@ launch_hmi_client_process(void *data)
     struct hmi_controller *hmi_ctrl =
         (struct hmi_controller *)data;
 
-    weston_client_start(hmi_ctrl->compositor, hmi_ctrl->hmi_setting->ivi_homescreen);
+    hmi_ctrl->user_interface =
+        weston_client_start(hmi_ctrl->compositor,
+                            hmi_ctrl->hmi_setting->ivi_homescreen);
 
     free(hmi_ctrl->hmi_setting->ivi_homescreen);
 }
