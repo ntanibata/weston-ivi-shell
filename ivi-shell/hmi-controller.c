@@ -546,6 +546,11 @@ hmi_server_setting_create(struct weston_compositor *ec)
     return setting;
 }
 
+static void
+hmi_controller_destroy(struct wl_listener *listener, void *data)
+{
+}
+
 /**
  * This is a starting method called from module_init.
  * This sets up scene graph of ivi_layers; base, application, workspace background,
@@ -640,6 +645,7 @@ hmi_controller_create(struct weston_compositor *ec)
     ivi_layout_add_notification_remove_surface(set_notification_remove_surface, hmi_ctrl);
     ivi_layout_add_notification_configure_surface(set_notification_configure_surface, hmi_ctrl);
 
+    hmi_ctrl->destroy_listener.notify = hmi_controller_destroy;
     wl_signal_add(&hmi_ctrl->compositor->destroy_signal, &hmi_ctrl->destroy_listener);
 
     free(pp_screen);
