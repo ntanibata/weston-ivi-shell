@@ -870,8 +870,6 @@ createSurface(struct wlContextStruct *p_wlCtx)
         abort();
     }
 
-    wl_display_roundtrip(p_wlCtx->cmm.wlDisplay);
-
     return 0;
 }
 
