@@ -1059,21 +1059,27 @@ ivi_hmi_controller_UI_ready(struct wl_client *client,
         }
     }
 
-    if (-1 != result)
+    if (-1 == result)
     {
-        ivi_hmi_controller_set_background(hmi_ctrl, dest.background_id);
-        ivi_hmi_controller_set_panel(hmi_ctrl, dest.panel_id);
-        ivi_hmi_controller_set_button(hmi_ctrl, dest.tiling_id, 0);
-        ivi_hmi_controller_set_button(hmi_ctrl, dest.sidebyside_id, 1);
-        ivi_hmi_controller_set_button(hmi_ctrl, dest.fullscreen_id, 2);
-        ivi_hmi_controller_set_button(hmi_ctrl, dest.random_id, 3);
-        ivi_hmi_controller_set_home_button(hmi_ctrl, dest.home_id);
-        ivi_hmi_controller_set_workspacebackground(hmi_ctrl, dest.workspace_background_id);
-        ivi_layout_commit_changes();
+        wl_resource_post_error(resource,
+                               IVI_HMI_CONTROLLER_ERROR_CODE_INIT_FAILED,
+                               "Failed to initialize hmi-controller.");
 
-        ivi_hmi_controller_add_launchers(resource, 256);
-        hmi_ctrl->is_initialized = 1;
+        return;
     }
+
+    ivi_hmi_controller_set_background(hmi_ctrl, dest.background_id);
+    ivi_hmi_controller_set_panel(hmi_ctrl, dest.panel_id);
+    ivi_hmi_controller_set_button(hmi_ctrl, dest.tiling_id, 0);
+    ivi_hmi_controller_set_button(hmi_ctrl, dest.sidebyside_id, 1);
+    ivi_hmi_controller_set_button(hmi_ctrl, dest.fullscreen_id, 2);
+    ivi_hmi_controller_set_button(hmi_ctrl, dest.random_id, 3);
+    ivi_hmi_controller_set_home_button(hmi_ctrl, dest.home_id);
+    ivi_hmi_controller_set_workspacebackground(hmi_ctrl, dest.workspace_background_id);
+    ivi_layout_commit_changes();
+
+    ivi_hmi_controller_add_launchers(resource, 256);
+    hmi_ctrl->is_initialized = 1;
 }
 
 /**
