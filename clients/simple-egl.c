@@ -330,7 +330,7 @@ handle_ivi_surface_configure(void *data, struct ivi_surface *ivi_surface,
 {
 	struct window *window = data;
 
-        wl_egl_window_resize(window->native, width, height, 0, 0);
+	wl_egl_window_resize(window->native, width, height, 0, 0);
 
 	window->geometry.width = width;
 	window->geometry.height = height;
