@@ -340,7 +340,7 @@ handle_ivi_surface_configure(void *data, struct ivi_surface *ivi_surface,
 }
 
 static const struct ivi_surface_listener ivi_surface_listener = {
-        handle_ivi_surface_configure,
+	handle_ivi_surface_configure,
 };
 
 static void
