@@ -62,6 +62,7 @@ struct ivi_layout_surface {
     } content_observer;
 
     struct wl_signal configured;
+    struct wl_signal removed;
 };
 
 struct ivi_layout_layer {
@@ -303,6 +304,10 @@ struct ivi_layout_interface {
                                             struct wl_listener* listener);
     void (*remove_surface_configured_listener)(struct ivi_layout_surface *ivisurf,
                                                struct wl_listener* listener);
+    void (*add_surface_removed_listener)(struct ivi_layout_surface *ivisurf,
+                                         struct wl_listener* listener);
+    void (*remove_surface_removed_listener)(struct ivi_layout_surface *ivisurf,
+                                            struct wl_listener* listener);
 };
 
 #endif
