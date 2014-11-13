@@ -861,7 +861,7 @@ destroyWLContextStruct(struct wlContextStruct *p_wlCtx)
 }
 
 static int
-createWLContext(struct wlContextStruct *p_wlCtx)
+createSurface(struct wlContextStruct *p_wlCtx)
 {
     p_wlCtx->wlSurface = wl_compositor_create_surface(p_wlCtx->cmm.wlCompositor);
     if (NULL == p_wlCtx->wlSurface) {
@@ -869,9 +869,6 @@ createWLContext(struct wlContextStruct *p_wlCtx)
         destroyWLContextCommon(&p_wlCtx->cmm);
         abort();
     }
-
-
-    createShmBuffer(p_wlCtx);
 
     wl_display_roundtrip(p_wlCtx->cmm.wlDisplay);
 
@@ -919,7 +916,8 @@ create_ivisurface(struct wlContextStruct *p_wlCtx,
     wl_list_init(&p_wlCtx->link);
     wl_list_insert(p_wlCtx->cmm.list_wlContextStruct, &p_wlCtx->link);
 
-    createWLContext(p_wlCtx);
+    createSurface(p_wlCtx);
+    createShmBuffer(p_wlCtx);
 
     ivisurf = ivi_application_surface_create(p_wlCtx->cmm.iviApplication,
                                              id_surface, p_wlCtx->wlSurface);
