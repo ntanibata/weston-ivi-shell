@@ -83,35 +83,35 @@ enum cursor_type {
 	CURSOR_BLANK
 };
 struct wlContextCommon {
-	struct wl_display	  *wlDisplay;
-	struct wl_registry	 *wlRegistry;
-	struct wl_compositor   *wlCompositor;
-	struct wl_shm		  *wlShm;
-	struct wl_seat		 *wlSeat;
-	struct wl_pointer	  *wlPointer;
-	struct wl_touch		*wlTouch;
-	struct ivi_application *iviApplication;
-	struct ivi_hmi_controller  *hmiCtrl;
-	struct hmi_homescreen_setting *hmi_setting;
-	struct wl_list		 *list_wlContextStruct;
-	struct wl_surface	  *enterSurface;
-	int32_t				 is_home_on;
-	struct wl_cursor_theme  *cursor_theme;
+	struct wl_display		*wlDisplay;
+	struct wl_registry		*wlRegistry;
+	struct wl_compositor		*wlCompositor;
+	struct wl_shm			*wlShm;
+	struct wl_seat			*wlSeat;
+	struct wl_pointer		*wlPointer;
+	struct wl_touch			*wlTouch;
+	struct ivi_application		*iviApplication;
+	struct ivi_hmi_controller	*hmiCtrl;
+	struct hmi_homescreen_setting	*hmi_setting;
+	struct wl_list			*list_wlContextStruct;
+	struct wl_surface		*enterSurface;
+	int32_t				is_home_on;
+	struct wl_cursor_theme		*cursor_theme;
 	struct wl_cursor		**cursors;
-	struct wl_surface	   *pointer_surface;
-	enum   cursor_type	  current_cursor;
-	uint32_t				enter_serial;
+	struct wl_surface		*pointer_surface;
+	enum   cursor_type		current_cursor;
+	uint32_t			enter_serial;
 };
 
 struct wlContextStruct {
-	struct wlContextCommon  cmm;
-	struct wl_surface	   *wlSurface;
-	struct wl_buffer		*wlBuffer;
-	uint32_t				formats;
-	cairo_surface_t		 *ctx_image;
-	void					*data;
-	uint32_t				id_surface;
-	struct wl_list		  link;
+	struct wlContextCommon	cmm;
+	struct wl_surface	*wlSurface;
+	struct wl_buffer	*wlBuffer;
+	uint32_t		formats;
+	cairo_surface_t		*ctx_image;
+	void			*data;
+	uint32_t		id_surface;
+	struct wl_list		link;
 };
 
 struct
@@ -123,36 +123,36 @@ hmi_homescreen_srf {
 
 struct
 hmi_homescreen_workspace {
-	struct wl_array	 launcher_id_array;
-	struct wl_list	  link;
+	struct wl_array	launcher_id_array;
+	struct wl_list	link;
 };
 
 struct
 hmi_homescreen_launcher {
-	uint32_t			icon_surface_id;
-	uint32_t			workspace_id;
-	char*			   icon;
-	char*			   path;
-	struct wl_list	  link;
+	uint32_t	icon_surface_id;
+	uint32_t	workspace_id;
+	char*		icon;
+	char*		path;
+	struct wl_list	link;
 };
 
 struct
 hmi_homescreen_setting {
-	struct hmi_homescreen_srf  background;
-	struct hmi_homescreen_srf  panel;
-	struct hmi_homescreen_srf  tiling;
-	struct hmi_homescreen_srf  sidebyside;
-	struct hmi_homescreen_srf  fullscreen;
-	struct hmi_homescreen_srf  random;
-	struct hmi_homescreen_srf  home;
-	struct hmi_homescreen_srf  workspace_background;
+	struct hmi_homescreen_srf background;
+	struct hmi_homescreen_srf panel;
+	struct hmi_homescreen_srf tiling;
+	struct hmi_homescreen_srf sidebyside;
+	struct hmi_homescreen_srf fullscreen;
+	struct hmi_homescreen_srf random;
+	struct hmi_homescreen_srf home;
+	struct hmi_homescreen_srf workspace_background;
 
 	struct wl_list workspace_list;
 	struct wl_list launcher_list;
 
-	char	 *cursor_theme;
-	int32_t  cursor_size;
-	uint32_t transition_duration;
+	char		*cursor_theme;
+	int32_t		cursor_size;
+	uint32_t	transition_duration;
 };
 
 static void *
