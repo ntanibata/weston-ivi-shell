@@ -57,6 +57,7 @@
 
 #include "ivi-layout-export.h"
 #include "ivi-hmi-controller-server-protocol.h"
+#include "ivi-layout-private.h"
 
 /*****************************************************************************
  *  structure, globals
@@ -192,6 +193,45 @@ compare_launcher_info(const void *lhs, const void *rhs)
 		return 1;
 
 	return 0;
+}
+
+static void
+mode_orig(struct hmi_controller *hmi_ctrl,
+	  struct ivi_layout_surface **ppSurface,
+	  int32_t surface_length,
+	  struct hmi_controller_layer *layer)
+{
+	struct ivi_layout_surface *ivisurf  = NULL;
+	struct ivi_layout_surface *surfaces[1024] = {}; //FIXME
+
+	const uint32_t duration = hmi_ctrl->hmi_setting->transition_duration;
+
+	int32_t i = 0;
+	int32_t surf_num = 0;
+	for (i = 0; i < surface_length; i++) {
+		ivisurf = ppSurface[i];
+
+		/* skip ui widgets */
+		if (is_surf_in_ui_widget(hmi_ctrl, ivisurf)) {
+			continue;
+		}
+
+		surfaces[surf_num++] = ivisurf;
+	}
+
+	for(i=0; i < surf_num; i++){
+
+		ivisurf = surfaces[i % surf_num];
+
+		ivi_controller_interface->surface_set_transition(ivisurf,IVI_LAYOUT_TRANSITION_VIEW_DEFAULT, duration);
+		ivi_controller_interface->surface_set_visibility(ivisurf, 1);
+		ivi_controller_interface->surface_set_destination_rectangle(ivisurf, 0, 0,
+		(uint32_t) ivisurf->prop.source_width, (uint32_t)ivisurf->prop.source_height);
+	}
+
+	if(surf_num > 0){
+		ivi_controller_interface->layer_set_transition(layer->ivilayer,IVI_LAYOUT_TRANSITION_LAYER_VIEW_ORDER,duration);
+	}
 }
 
 /**
@@ -450,6 +490,9 @@ switch_mode(struct hmi_controller *hmi_ctrl,
 	case IVI_HMI_CONTROLLER_LAYOUT_MODE_RANDOM:
 		mode_random_replace(hmi_ctrl, pp_surface, surface_length,
 				    layer);
+		break;
+	case IVI_HMI_CONTROLLER_LAYOUT_MODE_ORIG:
+		mode_orig(hmi_ctrl, pp_surface, surface_length, layer);
 		break;
 	}
 
