@@ -335,6 +335,12 @@ static const struct xdg_surface_listener xdg_surface_listener = {
 };
 
 static void
+handle_ivi_surface_visibility(void *data, struct ivi_surface *ivi_surface,
+		   int32_t visibility)
+{
+}
+
+static void
 handle_ivi_surface_configure(void *data, struct ivi_surface *ivi_surface,
                              int32_t width, int32_t height)
 {
@@ -350,7 +356,7 @@ handle_ivi_surface_configure(void *data, struct ivi_surface *ivi_surface,
 }
 
 static const struct ivi_surface_listener ivi_surface_listener = {
-        NULL,
+        handle_ivi_surface_visibility,
         handle_ivi_surface_configure,
 };
 
