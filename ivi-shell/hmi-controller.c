@@ -1595,6 +1595,8 @@ bind_hmi_controller(struct wl_client *client,
     struct hmi_controller *hmi_ctrl = data;
 
     if (hmi_ctrl->user_interface != client) {
+        wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "hmi-controller failed: permission denied");
         return;
     }
 
