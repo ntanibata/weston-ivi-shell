@@ -551,6 +551,19 @@ hmi_server_setting_create(struct weston_compositor *ec)
 static void
 hmi_controller_destroy(struct wl_listener *listener, void *data)
 {
+    struct link_layer *link = NULL;
+    struct link_layer *next = NULL;
+    struct hmi_controller *hmi_ctrl =
+            container_of(listener, struct hmi_controller, destroy_listener);
+
+    wl_list_for_each_safe(link, next, &hmi_ctrl->workspace_fade.layer_list, link) {
+            wl_list_remove(&link->link);
+            free(link);
+    }
+
+    wl_array_release(&hmi_ctrl->ui_widgets);
+    free(hmi_ctrl->hmi_setting);
+    free(hmi_ctrl);
 }
 
 /**
