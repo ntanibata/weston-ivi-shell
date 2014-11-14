@@ -827,6 +827,9 @@ createShmBuffer(struct wlContextStruct *p_wlCtx)
         close(fd);
         return;
     }
+
+    wl_display_roundtrip(p_wlCtx->cmm.wlDisplay);
+
     wl_shm_pool_destroy(pool);
     close(fd);
 
