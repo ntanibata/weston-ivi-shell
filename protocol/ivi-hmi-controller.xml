@@ -51,6 +51,7 @@
             <entry name="side_by_side" value="1"/>
             <entry name="full_screen" value="2"/>
             <entry name="random" value="3" />
+            <entry name="orig" value="4" />
         </enum>
 
         <request name="switch_mode">

@@ -56,6 +56,7 @@
 #include "ivi-layout-export.h"
 #include "ivi-hmi-controller-server-protocol.h"
 #include "ivi-layout-transition.h"
+#include "ivi-layout-private.h"
 
 /*****************************************************************************
  *  structure, globals
@@ -178,6 +179,51 @@ compare_launcher_info(const void *lhs, const void *rhs)
     }
 
     return 0;
+}
+
+static void
+mode_orig(struct hmi_controller *hmi_ctrl,
+                        struct ivi_layout_surface **ppSurface,
+                        int32_t surface_length,
+                        struct hmi_controller_layer *layer)
+{
+    struct ivi_layout_surface *ivisurf  = NULL;
+    struct ivi_layout_surface *surfaces[1024] = {}; //FIXME
+    struct ivi_layout_surface *new_order[1024] = {}; //FIXME
+
+    const uint32_t duration = hmi_ctrl->hmi_setting->transition_duration;
+
+    int32_t i = 0;
+    int32_t surf_num = 0;
+    for (i = 0; i < surface_length; i++) {
+        ivisurf = ppSurface[i];
+
+        /* skip ui widgets */
+        if (is_surf_in_uiWidget(hmi_ctrl, ivisurf)) {
+            continue;
+        }
+
+        surfaces[surf_num++] = ivisurf;
+    }
+
+    for(i=0; i < surf_num; i++){
+
+        ivisurf = surfaces[i % surf_num];
+
+		ivi_layout_surfaceSetTransition(ivisurf,IVI_LAYOUT_TRANSITION_VIEW_DEFAULT, duration);
+		ivi_layout_surfaceSetVisibility(ivisurf, 1);
+		ivi_layout_surfaceSetDestinationRectangle(ivisurf, 0, 0,
+				(uint32_t) ivisurf->prop.sourceWidth, (uint32_t)ivisurf->prop.sourceHeight);
+    }
+
+    if(surf_num > 0){
+        ivi_layout_layerSetTransition(layer->ivilayer,IVI_LAYOUT_TRANSITION_LAYER_VIEW_ORDER,duration);
+        //TODO: implement IVI_LAYOUT_TRANSITION_LAYER_VIEW_ORDER later.
+        ivi_layout_transition_layer_render_order(layer->ivilayer,
+                                                    new_order,
+                                                    surf_num,
+                                                    duration);
+    }
 }
 
 /**
@@ -426,6 +472,9 @@ switch_mode(struct hmi_controller *hmi_ctrl,
         break;
     case IVI_HMI_CONTROLLER_LAYOUT_MODE_RANDOM:
         mode_random_replace(hmi_ctrl, ppSurface, surface_length, layer);
+        break;
+    case IVI_HMI_CONTROLLER_LAYOUT_MODE_ORIG:
+        mode_orig(hmi_ctrl, ppSurface, surface_length, layer);
         break;
     }
 
