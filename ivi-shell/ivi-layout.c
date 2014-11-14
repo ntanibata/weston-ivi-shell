@@ -3055,10 +3055,6 @@ ivi_layout_surfaceSetNativeContent(struct weston_surface *surface,
             return -1;
         }
 
-        wl_list_remove(&ivisurf->surface_destroy_listener.link);
-
-        ivisurf->surface = NULL;
-
         wl_list_remove(&ivisurf->surface_rotation.link);
         wl_list_remove(&ivisurf->layer_rotation.link);
         wl_list_remove(&ivisurf->surface_pos.link);
