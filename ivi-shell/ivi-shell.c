@@ -162,7 +162,7 @@ shell_handle_surface_destroy(struct wl_listener *listener, void *data)
 			container_of(listener, struct ivi_shell_surface,
 				     surface_destroy_listener);
 
-	assert(ivisurf == NULL);
+	assert(ivisurf != NULL);
 
 	/* FIXME: When I see desktop-shell, the following part is divided as
 		  subfuction, destroy_shell_surface.	
