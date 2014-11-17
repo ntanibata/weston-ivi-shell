@@ -125,19 +125,13 @@ add_link_to_surface(struct ivi_layout_layer *ivilayer,
 		    struct link_layer *link_layer)
 {
 	struct link_layer *link = NULL;
-	int found = 0;
 
 	wl_list_for_each(link, &ivilayer->link_to_surface, link_to_layer) {
-		if (link == link_layer) {
-			found = 1;
-			break;
-		}
+		if (link == link_layer)
+			return;
 	}
 
-	if (found == 0) {
-		wl_list_init(&link_layer->link_to_layer);
-		wl_list_insert(&ivilayer->link_to_surface, &link_layer->link_to_layer);
-	}
+	wl_list_insert(&ivilayer->link_to_surface, &link_layer->link_to_layer);
 }
 
 static void
