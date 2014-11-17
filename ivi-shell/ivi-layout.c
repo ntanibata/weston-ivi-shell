@@ -406,7 +406,7 @@ update_opacity(struct ivi_layout_layer *ivilayer,
 	double surf_alpha  = wl_fixed_to_double(ivisurf->prop.opacity);
 
 	if ((ivilayer->event_mask & IVI_NOTIFICATION_OPACITY) ||
-		(ivisurf->event_mask  & IVI_NOTIFICATION_OPACITY)) {
+	    (ivisurf->event_mask  & IVI_NOTIFICATION_OPACITY)) {
 		struct weston_view *tmpview = NULL;
 		wl_list_for_each(tmpview, &ivisurf->surface->views, surface_link) {
 			if (tmpview == NULL) {
@@ -1045,7 +1045,7 @@ clear_surface_order_list(struct ivi_layout_layer *ivilayer)
 static void
 layer_created(struct wl_listener *listener, void *data)
 {
-	struct ivi_layout_layer *ivilayer = (struct ivi_layout_layer *)data;
+	struct ivi_layout_layer *ivilayer = data;
 
 	struct listener_layout_notification *notification =
 		container_of(listener,
@@ -1053,7 +1053,7 @@ layer_created(struct wl_listener *listener, void *data)
 			     listener);
 
 	struct ivi_layout_notification_callback *created_callback =
-		(struct ivi_layout_notification_callback *)notification->userdata;
+		notification->userdata;
 
 	((layer_create_notification_func)created_callback->callback)
 		(ivilayer, created_callback->data);
@@ -1062,7 +1062,7 @@ layer_created(struct wl_listener *listener, void *data)
 static void
 layer_removed(struct wl_listener *listener, void *data)
 {
-	struct ivi_layout_layer *ivilayer = (struct ivi_layout_layer *)data;
+	struct ivi_layout_layer *ivilayer = data;
 
 	struct listener_layout_notification *notification =
 		container_of(listener,
@@ -1070,7 +1070,7 @@ layer_removed(struct wl_listener *listener, void *data)
 			     listener);
 
 	struct ivi_layout_notification_callback *removed_callback =
-		(struct ivi_layout_notification_callback *)notification->userdata;
+		notification->userdata;
 
 	((layer_remove_notification_func)removed_callback->callback)
 		(ivilayer, removed_callback->data);
@@ -1079,7 +1079,7 @@ layer_removed(struct wl_listener *listener, void *data)
 static void
 layer_prop_changed(struct wl_listener *listener, void *data)
 {
-	struct ivi_layout_layer *ivilayer = (struct ivi_layout_layer *)data;
+	struct ivi_layout_layer *ivilayer = data;
 
 	struct listener_layout_notification *layout_listener =
 		container_of(listener,
@@ -1087,7 +1087,7 @@ layer_prop_changed(struct wl_listener *listener, void *data)
 			     listener);
 
 	struct ivi_layout_notification_callback *prop_callback =
-		(struct ivi_layout_notification_callback *)layout_listener->userdata;
+		layout_listener->userdata;
 
 	((layer_property_notification_func)prop_callback->callback)
 		(ivilayer, &ivilayer->prop, ivilayer->event_mask, prop_callback->data);
@@ -1096,7 +1096,7 @@ layer_prop_changed(struct wl_listener *listener, void *data)
 static void
 surface_created(struct wl_listener *listener, void *data)
 {
-	struct ivi_layout_surface *ivisurface = (struct ivi_layout_surface *)data;
+	struct ivi_layout_surface *ivisurface = data;
 
 	struct listener_layout_notification *notification =
 		container_of(listener,
@@ -1104,7 +1104,7 @@ surface_created(struct wl_listener *listener, void *data)
 			     listener);
 
 	struct ivi_layout_notification_callback *created_callback =
-		(struct ivi_layout_notification_callback *)notification->userdata;
+		notification->userdata;
 
 	((surface_create_notification_func)created_callback->callback)
 		(ivisurface, created_callback->data);
@@ -1113,7 +1113,7 @@ surface_created(struct wl_listener *listener, void *data)
 static void
 surface_removed(struct wl_listener *listener, void *data)
 {
-	struct ivi_layout_surface *ivisurface = (struct ivi_layout_surface *)data;
+	struct ivi_layout_surface *ivisurface = data;
 
 	struct listener_layout_notification *notification =
 		container_of(listener,
@@ -1121,7 +1121,7 @@ surface_removed(struct wl_listener *listener, void *data)
 			     listener);
 
 	struct ivi_layout_notification_callback *removed_callback =
-		(struct ivi_layout_notification_callback *)notification->userdata;
+		notification->userdata;
 
 	((surface_remove_notification_func)removed_callback->callback)
 		(ivisurface, removed_callback->data);
@@ -1130,7 +1130,7 @@ surface_removed(struct wl_listener *listener, void *data)
 static void
 surface_prop_changed(struct wl_listener *listener, void *data)
 {
-	struct ivi_layout_surface *ivisurf = (struct ivi_layout_surface *)data;
+	struct ivi_layout_surface *ivisurf = data;
 
 	struct listener_layout_notification *layout_listener =
 		container_of(listener,
@@ -1138,7 +1138,7 @@ surface_prop_changed(struct wl_listener *listener, void *data)
 			     listener);
 
 	struct ivi_layout_notification_callback *prop_callback =
-		(struct ivi_layout_notification_callback *)layout_listener->userdata;
+		layout_listener->userdata;
 
 	((surface_property_notification_func)prop_callback->callback)
 		(ivisurf, &ivisurf->prop, ivisurf->event_mask, prop_callback->data);
@@ -1150,7 +1150,7 @@ static void
 surface_configure_changed(struct wl_listener *listener,
 			  void *data)
 {
-	struct ivi_layout_surface *ivisurface = (struct ivi_layout_surface *)data;
+	struct ivi_layout_surface *ivisurface = data;
 
 	struct listener_layout_notification *notification =
 		container_of(listener,
@@ -1158,7 +1158,7 @@ surface_configure_changed(struct wl_listener *listener,
 			     listener);
 
 	struct ivi_layout_notification_callback *configure_changed_callback =
-		(struct ivi_layout_notification_callback *)notification->userdata;
+		notification->userdata;
 
 	((surface_configure_notification_func)configure_changed_callback->callback)
 		(ivisurface, configure_changed_callback->data);
@@ -1199,7 +1199,7 @@ remove_notification(struct wl_list *listener_list, void *callback, void *userdat
 				     listener);
 
 		struct ivi_layout_notification_callback *notification_callback =
-			(struct ivi_layout_notification_callback *)notification->userdata;
+			notification->userdata;
 
 		if ((notification_callback->callback != callback) ||
 		    (notification_callback->data != userdata)) {
@@ -2635,7 +2635,10 @@ static struct weston_view *
 ivi_layout_get_weston_view(struct ivi_layout_surface *surface)
 {
 	struct weston_view *tmpview = NULL;
-	if(surface == NULL) return NULL;
+
+	if(surface == NULL)
+		return NULL;
+
 	wl_list_for_each(tmpview, &surface->surface->views, surface_link)
 	{
 		if (tmpview != NULL) {
@@ -2681,6 +2684,7 @@ ivi_layout_surface_set_content_observer(struct ivi_layout_surface *ivisurf,
 					void* userdata)
 {
 	int32_t ret = IVI_FAILED;
+
 	if (ivisurf != NULL) {
 		ivisurf->content_observer.callback = callback;
 		ivisurf->content_observer.userdata = userdata;
