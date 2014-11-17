@@ -2787,26 +2787,11 @@ ivi_layout_surface_add_configured_listener(struct ivi_layout_surface* ivisurf,
 	wl_signal_add(&ivisurf->configured, listener);
 }
 
-static void
-ivi_layout_surface_remove_configured_listener(struct ivi_layout_surface* ivisurf,
-					      struct wl_listener* target)
-{
-	struct wl_listener *listener = NULL;
-	struct wl_listener *next = NULL;
-
-	wl_list_for_each_safe(listener, next, &ivisurf->configured.listener_list, link) {
-		if (target == listener) {
-			wl_list_remove(&listener->link);
-		}
-	}
-}
-
 WL_EXPORT struct ivi_layout_interface ivi_layout_interface = {
 	.get_weston_view = ivi_layout_get_weston_view,
 	.surface_configure = ivi_layout_surface_configure,
 	.surface_create = ivi_layout_surface_create,
 	.init_with_compositor = ivi_layout_init_with_compositor,
 	.get_surface_dimension = ivi_layout_surface_get_dimension,
-	.add_surface_configured_listener = ivi_layout_surface_add_configured_listener,
-	.remove_surface_configured_listener = ivi_layout_surface_remove_configured_listener
+	.add_surface_configured_listener = ivi_layout_surface_add_configured_listener
 };

@@ -314,10 +314,6 @@ struct ivi_layout_interface {
 	void (*add_surface_configured_listener)(
 				struct ivi_layout_surface *ivisurf,
 				struct wl_listener* listener);
-
-	void (*remove_surface_configured_listener)(
-				struct ivi_layout_surface *ivisurf,
-				struct wl_listener* listener);
 };
 
 #endif
