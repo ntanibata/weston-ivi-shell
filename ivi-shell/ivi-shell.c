@@ -151,11 +151,22 @@ shell_destroy_shell_surface(struct wl_resource *resource)
 {
 /* FIXME: When I compare destruction logic of desktop-shell,
 	  this part shall be done in shell_handle_surface_destroy, not here?
+FIXED: moved.
 */
-	struct ivi_shell_surface *ivisurf = wl_resource_get_user_data(resource);
+}
+
+static void
+shell_handle_surface_destroy(struct wl_listener *listener, void *data)
+{
+	struct ivi_shell_surface *ivisurf =
+			container_of(listener, struct ivi_shell_surface,
+				     surface_destroy_listener);
 
 	assert(ivisurf == NULL);
 
+	/* FIXME: When I see desktop-shell, the following part is divided as
+		  subfuction, destroy_shell_surface.	
+	*/
 	if (ivisurf->surface!=NULL) {
 		ivisurf->surface->configure = NULL;
 		ivisurf->surface->configure_private = NULL;
@@ -169,12 +180,7 @@ shell_destroy_shell_surface(struct wl_resource *resource)
 	wl_list_remove(&ivisurf->surface_destroy_listener.link);
 	ivisurf->resource = NULL;
 	free(ivisurf);
-}
 
-static void
-shell_handle_surface_destroy(struct wl_listener *listener, void *data)
-{
-	/* FIXME: carefully re-consider destruction flow*/
 }
 
 static void
