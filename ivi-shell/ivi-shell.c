@@ -171,13 +171,7 @@ shell_destroy_shell_surface(struct wl_resource *resource)
 static void
 shell_handle_surface_destroy(struct wl_listener *listener, void *data)
 {
-	struct ivi_shell_surface *ivisurf = container_of(listener,
-							 struct ivi_shell_surface,
-							 surface_destroy_listener);
-
-	if (ivisurf->resource) {
-		wl_resource_destroy(ivisurf->resource);
-	}
+	/* FIXME: carefully re-consider destruction flow*/
 }
 
 static void
