@@ -1552,7 +1552,6 @@ ivi_layout_surface_remove(struct ivi_layout_surface *ivisurf)
 	}
 	remove_ordersurface_from_layer(ivisurf);
 
-	wl_signal_emit(&ivisurf->removed, ivisurf);
 	wl_signal_emit(&layout->surface_notification.removed, ivisurf);
 
 	ivi_layout_surface_remove_notification(ivisurf);
@@ -2707,7 +2706,6 @@ ivi_layout_surface_create(struct weston_surface *wl_surface,
 	wl_list_init(&ivisurf->link);
 	wl_signal_init(&ivisurf->property_changed);
 	wl_signal_init(&ivisurf->configured);
-	wl_signal_init(&ivisurf->removed);
 	wl_list_init(&ivisurf->layer_list);
 	ivisurf->id_surface = id_surface;
 	ivisurf->layout = layout;
@@ -2803,27 +2801,6 @@ ivi_layout_surface_remove_configured_listener(struct ivi_layout_surface* ivisurf
 	}
 }
 
-static void
-ivi_layout_surface_add_removed_listener(struct ivi_layout_surface* ivisurf,
-					struct wl_listener* listener)
-{
-	wl_signal_add(&ivisurf->removed, listener);
-}
-
-static void
-ivi_layout_surface_remove_removed_listener(struct ivi_layout_surface* ivisurf,
-					   struct wl_listener* target)
-{
-	struct wl_listener *listener = NULL;
-	struct wl_listener *next = NULL;
-
-	wl_list_for_each_safe(listener, next, &ivisurf->removed.listener_list, link) {
-		if (target == listener) {
-			wl_list_remove(&listener->link);
-		}
-	}
-}
-
 WL_EXPORT struct ivi_layout_interface ivi_layout_interface = {
 	.get_weston_view = ivi_layout_get_weston_view,
 	.surface_configure = ivi_layout_surface_configure,
@@ -2831,7 +2808,5 @@ WL_EXPORT struct ivi_layout_interface ivi_layout_interface = {
 	.init_with_compositor = ivi_layout_init_with_compositor,
 	.get_surface_dimension = ivi_layout_surface_get_dimension,
 	.add_surface_configured_listener = ivi_layout_surface_add_configured_listener,
-	.remove_surface_configured_listener = ivi_layout_surface_remove_configured_listener,
-	.add_surface_removed_listener = ivi_layout_surface_add_removed_listener,
-	.remove_surface_removed_listener = ivi_layout_surface_remove_removed_listener
+	.remove_surface_configured_listener = ivi_layout_surface_remove_configured_listener
 };
