@@ -149,6 +149,9 @@ ivi_shell_surface_configure(struct weston_surface *surface,
 static void
 shell_destroy_shell_surface(struct wl_resource *resource)
 {
+/* FIXME: When I compare destruction logic of desktop-shell,
+	  this part shall be done in shell_handle_surface_destroy, not here?
+*/
 	struct ivi_shell_surface *ivisurf = wl_resource_get_user_data(resource);
 
 	assert(ivisurf == NULL);
@@ -188,6 +191,7 @@ static const struct ivi_surface_interface surface_implementation = {
  * Implementation of ivi_application::surface_create.
  * Creating new ivi_shell_surface with identification to identify the surface
  * in the system.
+ * This function is the same level as shell_get_shell_surface of desktop_shell
  */
 static void
 application_surface_create(struct wl_client *client,
@@ -203,12 +207,16 @@ application_surface_create(struct wl_client *client,
 		wl_resource_get_user_data(surface_resource);
 	struct wl_resource *res;
 
+
+	/* FIXME: This is not checked in desktop_shell, required to check? */
 	if (weston_surface == NULL) {
 		wl_resource_post_error(resource,
 				       WL_DISPLAY_ERROR_INVALID_OBJECT,
 				       "wl_surface is invalid");
 	}
 
+	/* FIXME: This is the similar check with
+		  desktop-shell::get_shell_surface */
 	/* check if a wl_surface already has another role*/
 	if (weston_surface->configure) {
 		wl_resource_post_error(resource,
@@ -218,6 +226,9 @@ application_surface_create(struct wl_client *client,
 		return;
 	}
 
+
+	/* FIXME: from here, it is the similar functionality
+		  with desktop-shell::create_common_surface */
 	layout_surface = ivi_layout->surface_create(weston_surface,
 						    id_surface);
 
@@ -230,7 +241,8 @@ application_surface_create(struct wl_client *client,
 		return;
 	}
 
-
+	/* FIXME: this shall be done below:TAG_1, if I use the same order of calling in
+		  create_common_surface*/
 	res = wl_resource_create(client, &ivi_surface_interface, 1, id);
 	if (res == NULL) {
 		wl_client_post_no_memory(client);
@@ -240,7 +252,7 @@ application_surface_create(struct wl_client *client,
 	ivisurf = zalloc(sizeof *ivisurf);
 	if (ivisurf == NULL) {
 		wl_resource_post_no_memory(resource);
-		wl_resource_destroy(res);
+		wl_resource_destroy(res); /*FIXME: not required if move res to below:TAG_1*/
 		return;
 	}
 
@@ -250,13 +262,22 @@ application_surface_create(struct wl_client *client,
 	ivisurf->shell = shell;
 	ivisurf->id_surface = id_surface;
 
-	ivisurf->resource = res;
+	ivisurf->resource = res; /*FIXME: Move below:TAG_1*/
 	ivisurf->width = 0;
 	ivisurf->height = 0;
 	ivisurf->layout_surface = layout_surface;
 	ivisurf->configured_listener.notify = surface_configure_notify;
 	ivi_layout->add_surface_configured_listener(layout_surface,
 						&ivisurf->configured_listener);
+
+	/*FIXME: when I compare this logic with desktop shell: create_common_surface
+
+shsurf->resource_destroy_listener.notify = handle_resource_destroy;
+wl_resource_add_destroy_listener(surface->resource,
+&shsurf->resource_destroy_listener);
+
+		to be add the above lisnter??		 
+	*/
 
 	ivisurf->surface_destroy_listener.notify = shell_handle_surface_destroy;
 	wl_signal_add(&weston_surface->destroy_signal,
@@ -267,10 +288,13 @@ application_surface_create(struct wl_client *client,
 	weston_surface->configure = ivi_shell_surface_configure;
 	weston_surface->configure_private = ivisurf;
 
+	/* FIXME: End of desktop-shell::create_common_surface */
+	/* FIXME: TAG_1 */
 	wl_resource_set_implementation(res, &surface_implementation,
 				       ivisurf, shell_destroy_shell_surface);
 }
 
+/* To be called to get shell surface; ivi_surface */
 static const struct ivi_application_interface application_implementation = {
 	application_surface_create
 };
