@@ -63,7 +63,8 @@ struct ivi_shell_surface
 	struct wl_list link;
 
 	struct wl_listener configured_listener;
-	struct wl_listener removed_listener;
+	struct wl_listener surface_destroy_listener;
+	struct wl_listener resource_destroy_listener;
 };
 
 struct ivi_shell_setting
@@ -149,31 +150,43 @@ ivi_shell_surface_configure(struct weston_surface *surface,
 static void
 destroy_shell_surface(struct ivi_shell_surface *ivisurf)
 {
+	if (ivisurf->surface!=NULL) {
+		ivisurf->surface->configure = NULL;
+		ivisurf->surface->configure_private = NULL;
+		ivisurf->surface = NULL;
+	}
+
+	ivi_layout->remove_surface_configured_listener(
+			ivisurf->layout_surface,
+			&ivisurf->configured_listener);
+
+	wl_list_remove(&ivisurf->surface_destroy_listener.link);
 	ivisurf->resource = NULL;
-	wl_list_remove(&ivisurf->link);
 	free(ivisurf);
 }
 
 static void
 shell_destroy_shell_surface(struct wl_resource *resource)
 {
-	/**
-	 * No need to destroy resources about ivi_surface because
-	 * it can be destroyed from surface_removed_listener() of ivi_layout_surface.
-	 */
+	struct ivi_shell_surface *ivisurf = wl_resource_get_user_data(resource);
+
+	assert(ivisurf == NULL);
+
+	ivisurf->resource = NULL;
 }
 
 static void
-surface_removed_notify(struct wl_listener *listener, void *data)
+shell_handle_surface_destroy(struct wl_listener *listener, void *data)
 {
-	struct ivi_shell_surface *ivisurf =
-		container_of(listener,
-			     struct ivi_shell_surface,
-			     removed_listener);
+	struct ivi_shell_surface *ivisurf = container_of(listener,
+							 struct ivi_shell_surface,
+							 surface_destroy_listener);
 
-	if (ivisurf->resource != NULL) {
-		destroy_shell_surface(ivisurf);
+	if (ivisurf->resource) {
+		wl_resource_destroy(ivisurf->resource);
 	}
+
+	destroy_shell_surface(ivisurf);
 }
 
 static void
@@ -185,6 +198,28 @@ surface_destroy(struct wl_client *client, struct wl_resource *resource)
 static const struct ivi_surface_interface surface_implementation = {
 	surface_destroy,
 };
+
+static void
+handle_resource_destroy(struct wl_listener *listener,
+			void *data)
+{
+	struct ivi_shell_surface *shsurf =
+		container_of(listener, struct ivi_shell_surface,
+			     resource_destroy_listener);
+
+	if (!weston_surface_is_mapped(shsurf->surface))
+		return;
+
+	shsurf->surface->ref_count++;
+
+	pixman_region32_fini(&shsurf->surface->pending.input);
+	pixman_region32_init(&shsurf->surface->pending.input);
+	pixman_region32_fini(&shsurf->surface->input);
+	pixman_region32_init(&shsurf->surface->input);
+	weston_surface_destroy(shsurf->surface);
+}
+
+
 
 /**
  * Implementation of ivi_application::surface_create.
@@ -260,13 +295,18 @@ application_surface_create(struct wl_client *client,
 	ivi_layout->add_surface_configured_listener(layout_surface,
 						&ivisurf->configured_listener);
 
-	ivisurf->removed_listener.notify = surface_removed_notify;
-	ivi_layout->add_surface_removed_listener(layout_surface, &ivisurf->removed_listener);
+	ivisurf->surface_destroy_listener.notify = shell_handle_surface_destroy;
+	wl_signal_add(&weston_surface->destroy_signal,
+		      &ivisurf->surface_destroy_listener);
 
 	ivisurf->surface = weston_surface;
 
 	weston_surface->configure = ivi_shell_surface_configure;
 	weston_surface->configure_private = ivisurf;
+
+	ivisurf->resource_destroy_listener.notify = handle_resource_destroy;
+	wl_resource_add_destroy_listener(weston_surface->resource,
+					 &ivisurf->resource_destroy_listener);
 
 	wl_resource_set_implementation(res, &surface_implementation,
 				       ivisurf, shell_destroy_shell_surface);
