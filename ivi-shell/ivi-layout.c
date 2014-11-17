@@ -23,8 +23,8 @@
 /**
  * Implementation of ivi-layout library. The actual view on ivi_screen is
  * not updated till calling ivi_layout_commit_changes. A overview from
- * calling API for updating properties of ivi_surface/ivi_layer to asking compositor
- * to compose them by using weston_compositor_schedule_repaint,
+ * calling API for updating properties of ivi_surface/ivi_layer to asking
+ * compositor to compose them by using weston_compositor_schedule_repaint,
  * 0/ initialize this library by ivi_layout_init_with_compositor
  *    with (struct weston_compositor *ec) from ivi-shell.
  * 1/ When a API for updating properties of ivi_surface/ivi_layer, it updates
@@ -36,14 +36,15 @@
  *    are applied to properties.
  *
  *    *) ivi_layout_commitChanges is also called by transition animation 
- *    per each frame. See ivi-layout-transition.c in details. Transition animation
- *    interpolates frames between previous properties of ivi_surface and new ones.
- *    For example, when a property of ivi_surface is changed from invisibility to
- *    visibility, it behaves like fade-in. When ivi_layout_commitChange is called
- *    during transition animation, it cancels the transition and re-start transition
- *    to new properties from current properties of final frame just before the
- *    the cancellation.
-
+ *    per each frame. See ivi-layout-transition.c in details. Transition
+ *    animation interpolates frames between previous properties of ivi_surface
+ *    and new ones.
+ *    For example, when a property of ivi_surface is changed from invisibility
+ *    to visibility, it behaves like fade-in. When ivi_layout_commitChange is
+ *    called during transition animation, it cancels the transition and
+ *    re-start transition to new properties from current properties of final
+ *    frame just before the the cancellation.
+ *
  * 4/ According properties, set transformation by using weston_matrix and
  *    weston_view per ivi_surfaces and ivi_layers in while loop.
  * 5/ Set damage and trigger transform by using weston_view_geometry_dirty.
