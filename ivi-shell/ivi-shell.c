@@ -173,10 +173,6 @@ shell_handle_surface_destroy(struct wl_listener *listener, void *data)
 		ivisurf->surface = NULL;
 	}
 
-	ivi_layout->remove_surface_configured_listener(
-			ivisurf->layout_surface,
-			&ivisurf->configured_listener);
-
 	wl_list_remove(&ivisurf->surface_destroy_listener.link);
 	ivisurf->resource = NULL;
 	free(ivisurf);
