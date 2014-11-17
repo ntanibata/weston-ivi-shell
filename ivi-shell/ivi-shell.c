@@ -48,6 +48,7 @@
 
 #include "../shared/os-compatibility.h"
 
+/* Representation of ivi_surface protocol object. */
 struct ivi_shell_surface
 {
 	struct wl_resource* resource;
@@ -55,6 +56,8 @@ struct ivi_shell_surface
 	struct ivi_layout_surface *layout_surface;
 
 	struct weston_surface *surface;
+	struct wl_listener surface_destroy_listener;
+
 	uint32_t id_surface;
 
 	int32_t width;
@@ -63,7 +66,6 @@ struct ivi_shell_surface
 	struct wl_list link;
 
 	struct wl_listener configured_listener;
-	struct wl_listener surface_destroy_listener;
 };
 
 struct ivi_shell_setting
@@ -94,6 +96,10 @@ surface_configure_notify(struct wl_listener *listener, void *data)
 	ivi_layout->get_surface_dimension(layout_surf,
 					  &dest_width, &dest_height);
 
+	/* FIXME: shell_surf->resource might be NULL,
+	 * if controller decides to reconfigure a surface after a client
+	 * has destroyed it.
+	 */
 	ivi_surface_send_configure(shell_surf->resource,
 				   dest_width, dest_height);
 }
@@ -146,6 +152,11 @@ ivi_shell_surface_configure(struct weston_surface *surface,
 	}
 }
 
+/*
+ * The ivi_surface wl_resource destructor.
+ *
+ * Gets called via ivi_surface.destroy request or automatic wl_client clean-up.
+ */
 static void
 shell_destroy_shell_surface(struct wl_resource *resource)
 {
@@ -153,8 +164,10 @@ shell_destroy_shell_surface(struct wl_resource *resource)
 	  this part shall be done in shell_handle_surface_destroy, not here?
 FIXED: moved.
 */
+	/* FIXME: Need to set ivisurf->resource = NULL. */
 }
 
+/* Gets called through the weston_surface destroy signal. */
 static void
 shell_handle_surface_destroy(struct wl_listener *listener, void *data)
 {
@@ -165,7 +178,10 @@ shell_handle_surface_destroy(struct wl_listener *listener, void *data)
 	assert(ivisurf != NULL);
 
 	/* FIXME: When I see desktop-shell, the following part is divided as
-		  subfuction, destroy_shell_surface.	
+		  subfuction, destroy_shell_surface.
+	 * - Looking at shell.c, looks like destroy_shell_surface() would
+	 * not need to be a separate function. It could be done in
+	 * shell_handle_surface_destroy() too.
 	*/
 	if (ivisurf->surface!=NULL) {
 		ivisurf->surface->configure = NULL;
@@ -180,9 +196,14 @@ shell_handle_surface_destroy(struct wl_listener *listener, void *data)
 
 }
 
+/* Gets called, when a client sends ivi_surface.destroy request. */
 static void
 surface_destroy(struct wl_client *client, struct wl_resource *resource)
 {
+	/*
+	 * Fires the wl_resource destroy signal, and then calls
+	 * ivi_surface wl_resource destructor: shell_destroy_shell_surface()
+	 */
 	wl_resource_destroy(resource);
 }
 
@@ -191,10 +212,20 @@ static const struct ivi_surface_interface surface_implementation = {
 };
 
 /**
- * Implementation of ivi_application::surface_create.
- * Creating new ivi_shell_surface with identification to identify the surface
- * in the system.
- * This function is the same level as shell_get_shell_surface of desktop_shell
+ * Request handler for ivi_application.surface_create.
+ *
+ * Creates an ivi_surface protocol object associated with the given wl_surface.
+ * ivi_surface protocol object is represented by struct ivi_shell_surface.
+ *
+ * \param client The client.
+ * \param resource The ivi_application protocol object.
+ * \param id_surface The IVI surface ID.
+ * \param surface_resource The wl_surface protocol object.
+ * \param id The protocol object id for the new ivi_surface protocol object.
+ *
+ * The wl_surface is given the ivi_surface role and associated with a unique
+ * IVI ID which is used to identify the surface in a controller
+ * (window manager).
  */
 static void
 application_surface_create(struct wl_client *client,
@@ -211,7 +242,12 @@ application_surface_create(struct wl_client *client,
 	struct wl_resource *res;
 
 
-	/* FIXME: This is not checked in desktop_shell, required to check? */
+	/* FIXME: This is not checked in desktop_shell, required to check?
+	 * - Not required to check this, because libwayland-server will raise
+	 * a protocol error automatically, if the passed in object is null
+	 * but the protocol XML does not specify allow-null="true" for the
+	 * argument.
+	 */
 	if (weston_surface == NULL) {
 		wl_resource_post_error(resource,
 				       WL_DISPLAY_ERROR_INVALID_OBJECT,
@@ -219,7 +255,10 @@ application_surface_create(struct wl_client *client,
 	}
 
 	/* FIXME: This is the similar check with
-		  desktop-shell::get_shell_surface */
+		  desktop-shell::get_shell_surface
+	 * - Yes. To be changed into a weston_surface_set_role() call,
+	 * rebasing on top of upstream master branch.
+	 */
 	/* check if a wl_surface already has another role*/
 	if (weston_surface->configure) {
 		wl_resource_post_error(resource,
@@ -279,8 +318,13 @@ shsurf->resource_destroy_listener.notify = handle_resource_destroy;
 wl_resource_add_destroy_listener(surface->resource,
 &shsurf->resource_destroy_listener);
 
-		to be add the above lisnter??		 
-	*/
+		to be add the above lisnter??
+	 * - That is linking to the wl_resource destroy signal, this below
+	 * here is linking to the weston_surface destroy signal. They have
+	 * a different purpose, and you need to choose which suits the
+	 * semantics you want, or if might need both. So, figure out what
+	 * semantics you want first.
+	 */
 
 	ivisurf->surface_destroy_listener.notify = shell_handle_surface_destroy;
 	wl_signal_add(&weston_surface->destroy_signal,
@@ -297,11 +341,13 @@ wl_resource_add_destroy_listener(surface->resource,
 				       ivisurf, shell_destroy_shell_surface);
 }
 
-/* To be called to get shell surface; ivi_surface */
 static const struct ivi_application_interface application_implementation = {
 	application_surface_create
 };
 
+/*
+ * Handle wl_registry.bind of ivi_application global singleton.
+ */
 static void
 bind_ivi_application(struct wl_client *client,
 		     void *data, uint32_t version, uint32_t id)
@@ -343,7 +389,7 @@ get_default_view(struct weston_surface *surface)
 }
 
 /*
- * Initialization/destruction method of ivi-shell
+ * Called through the compositor's destroy signal.
  */
 static void
 shell_destroy(struct wl_listener *listener, void *data)
