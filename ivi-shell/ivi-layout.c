@@ -1531,6 +1531,17 @@ ivi_layout_surface_remove_notification(struct ivi_layout_surface *ivisurf)
 	remove_all_notification(&ivisurf->property_changed.listener_list);
 }
 
+static void
+remove_configured_listener(struct ivi_layout_surface *ivisurf)
+{
+	struct wl_listener *link = NULL;
+	struct wl_listener *next = NULL;
+
+	wl_list_for_each_safe(link, next, &ivisurf->configured.listener_list, link) {
+		wl_list_remove(&link->link);
+	}
+}
+
 void
 ivi_layout_surface_remove(struct ivi_layout_surface *ivisurf)
 {
@@ -1553,6 +1564,8 @@ ivi_layout_surface_remove(struct ivi_layout_surface *ivisurf)
 	remove_ordersurface_from_layer(ivisurf);
 
 	wl_signal_emit(&layout->surface_notification.removed, ivisurf);
+
+	remove_configured_listener(ivisurf);
 
 	ivi_layout_surface_remove_notification(ivisurf);
 
