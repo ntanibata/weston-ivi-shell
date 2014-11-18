@@ -154,8 +154,8 @@ is_surf_in_ui_widget(struct hmi_controller *hmi_ctrl,
 static int
 compare_launcher_info(const void *lhs, const void *rhs)
 {
-	const struct launcher_info *left = (const struct launcher_info *)lhs;
-	const struct launcher_info *right = (const struct launcher_info *)rhs;
+	const struct launcher_info *left = lhs;
+	const struct launcher_info *right = rhs;
 
 	if (left->workspace_id < right->workspace_id)
 		return -1;
