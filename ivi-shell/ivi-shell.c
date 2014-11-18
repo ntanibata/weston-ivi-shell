@@ -164,7 +164,11 @@ shell_destroy_shell_surface(struct wl_resource *resource)
 	  this part shall be done in shell_handle_surface_destroy, not here?
 FIXED: moved.
 */
-	/* FIXME: Need to set ivisurf->resource = NULL. */
+	/* FIXME: Need to set ivisurf->resource = NULL.
+	 * FIXED: ivisurf->resource = NULL
+	 */
+	struct ivi_shell_surface *ivisurf = wl_resource_get_user_data(resource);
+	ivisurf->resource = NULL;
 }
 
 /* Gets called through the weston_surface destroy signal. */
