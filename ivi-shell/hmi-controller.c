@@ -60,7 +60,7 @@
  *  structure, globals
  ****************************************************************************/
 struct hmi_controller_layer {
-	struct ivi_layout_layer  *ivilayer;
+	struct ivi_layout_layer *ivilayer;
 	uint32_t id_layer;
 	int32_t x;
 	int32_t y;
@@ -118,7 +118,7 @@ struct launcher_info {
  *  local functions
  ****************************************************************************/
 static void *
-fail_on_null(void *p, size_t size, char* file, int32_t line)
+fail_on_null(void *p, size_t size, char *file, int32_t line)
 {
 	if (size && !p) {
 		weston_log("%s(%d) %zd: out of memory\n", file, line, size);
@@ -129,7 +129,7 @@ fail_on_null(void *p, size_t size, char* file, int32_t line)
 }
 
 static void *
-mem_alloc(size_t size, char* file, int32_t line)
+mem_alloc(size_t size, char *file, int32_t line)
 {
 	return fail_on_null(calloc(1, size), size, file, line);
 }
@@ -207,7 +207,7 @@ mode_divided_into_tiling(struct hmi_controller *hmi_ctrl,
 		surfaces[surf_num++] = ivisurf;
 	}
 
-	for(i=0; i < surf_num; i++){
+	for (i = 0; i < surf_num; i++) {
 		ivisurf = surfaces[i];
 		new_order[i] = ivisurf;
 
@@ -215,13 +215,12 @@ mode_divided_into_tiling(struct hmi_controller *hmi_ctrl,
 			if (num < 5) {
 				surface_x = (int32_t)((num - 1) * (surface_width));
 				surface_y = 0;
-			}
-			else {
+			} else {
 				surface_x = (int32_t)((num - 5) * (surface_width));
 				surface_y = (int32_t)surface_height;
 			}
 
-			ivi_layout_surface_set_transition(ivisurf,IVI_LAYOUT_TRANSITION_VIEW_DEFAULT, duration);
+			ivi_layout_surface_set_transition(ivisurf, IVI_LAYOUT_TRANSITION_VIEW_DEFAULT, duration);
 			ivi_layout_surface_set_visibility(ivisurf, true);
 			ivi_layout_surface_set_destination_rectangle(ivisurf, surface_x, surface_y,
 				(int32_t)surface_width, (int32_t)surface_height);
@@ -232,8 +231,8 @@ mode_divided_into_tiling(struct hmi_controller *hmi_ctrl,
 		ivi_layout_surface_set_visibility(ivisurf, false);
 	}
 
-	if(surf_num > 0){
-		ivi_layout_layer_set_transition(layer->ivilayer,IVI_LAYOUT_TRANSITION_LAYER_VIEW_ORDER,duration);
+	if (surf_num > 0) {
+		ivi_layout_layer_set_transition(layer->ivilayer, IVI_LAYOUT_TRANSITION_LAYER_VIEW_ORDER, duration);
 		//TODO: implement IVI_LAYOUT_TRANSITION_LAYER_VIEW_ORDER later.
 		ivi_layout_transition_layer_render_order(layer->ivilayer,
 							 new_order,
@@ -258,6 +257,7 @@ mode_divided_into_sidebyside(struct hmi_controller *hmi_ctrl,
 	const uint32_t duration = hmi_ctrl->hmi_setting->transition_duration;
 	int32_t i = 0;
 	int32_t num = 1;
+
 	for (i = 0; i < surface_length; i++) {
 		ivisurf = pp_surface[i];
 
@@ -266,16 +266,15 @@ mode_divided_into_sidebyside(struct hmi_controller *hmi_ctrl,
 			continue;
 
 		if (num == 1) {
-			ivi_layout_surface_set_transition(ivisurf,IVI_LAYOUT_TRANSITION_VIEW_DEFAULT,duration);
+			ivi_layout_surface_set_transition(ivisurf, IVI_LAYOUT_TRANSITION_VIEW_DEFAULT, duration);
 			ivi_layout_surface_set_visibility(ivisurf, true);
 			ivi_layout_surface_set_destination_rectangle(ivisurf, 0, 0,
 								     surface_width, surface_height);
 
 			num++;
 			continue;
-		}
-		else if (num == 2) {
-			ivi_layout_surface_set_transition(ivisurf,IVI_LAYOUT_TRANSITION_VIEW_DEFAULT,duration);
+		} else if (num == 2) {
+			ivi_layout_surface_set_transition(ivisurf, IVI_LAYOUT_TRANSITION_VIEW_DEFAULT, duration);
 			ivi_layout_surface_set_visibility(ivisurf, true);
 			ivi_layout_surface_set_destination_rectangle(ivisurf, surface_width, 0,
 								     surface_width, surface_height);
@@ -283,7 +282,7 @@ mode_divided_into_sidebyside(struct hmi_controller *hmi_ctrl,
 			num++;
 			continue;
 		}
-		ivi_layout_surface_set_transition(ivisurf,IVI_LAYOUT_TRANSITION_VIEW_FADE_ONLY,duration);
+		ivi_layout_surface_set_transition(ivisurf, IVI_LAYOUT_TRANSITION_VIEW_FADE_ONLY, duration);
 		ivi_layout_surface_set_visibility(ivisurf, false);
 	}
 }
@@ -297,9 +296,9 @@ mode_fullscreen_someone(struct hmi_controller *hmi_ctrl,
 	const int32_t  surface_width  = layer->width;
 	const int32_t  surface_height = layer->height;
 	struct ivi_layout_surface *ivisurf  = NULL;
-
 	int32_t i = 0;
 	const uint32_t duration = hmi_ctrl->hmi_setting->transition_duration;
+
 	for (i = 0; i < surface_length; i++) {
 		ivisurf = pp_surface[i];
 
@@ -324,13 +323,10 @@ mode_random_replace(struct hmi_controller *hmi_ctrl,
 	const int32_t surface_height = (int32_t)(layer->height * 0.25f);
 	int32_t surface_x = 0;
 	int32_t surface_y = 0;
-
-
 	struct ivi_layout_surface *ivisurf  = NULL;
-
 	const uint32_t duration = hmi_ctrl->hmi_setting->transition_duration;
-
 	int32_t i = 0;
+
 	for (i = 0; i < surface_length; i++) {
 		ivisurf = pp_surface[i];
 
@@ -338,7 +334,7 @@ mode_random_replace(struct hmi_controller *hmi_ctrl,
 		if (is_surf_in_ui_widget(hmi_ctrl, ivisurf))
 			continue;
 
-		ivi_layout_surface_set_transition(ivisurf,IVI_LAYOUT_TRANSITION_VIEW_DEFAULT,duration);
+		ivi_layout_surface_set_transition(ivisurf, IVI_LAYOUT_TRANSITION_VIEW_DEFAULT, duration);
 		ivi_layout_surface_set_visibility(ivisurf, true);
 		surface_x = rand() % (layer->width - surface_width);
 		surface_y = rand() % (layer->height - surface_height);
@@ -419,17 +415,17 @@ switch_mode(struct hmi_controller *hmi_ctrl,
  * Internal method for transition
  */
 static void
-hmi_controller_fade_run(struct hmi_controller* hmi_ctrl, uint32_t is_fade_in, struct hmi_controller_fade *fade)
+hmi_controller_fade_run(struct hmi_controller *hmi_ctrl, uint32_t is_fade_in, struct hmi_controller_fade *fade)
 {
 	double tint = is_fade_in ? 1.0 : 0.0;
-	struct link_layer* linklayer = NULL;
+	struct link_layer *linklayer = NULL;
 	const uint32_t duration = hmi_ctrl->hmi_setting->transition_duration;
 
 	fade->is_fade_in = is_fade_in;
 
-	wl_list_for_each(linklayer, &fade->layer_list, link){
-		ivi_layout_layer_set_transition(linklayer->layout_layer,IVI_LAYOUT_TRANSITION_LAYER_FADE,duration);
-		ivi_layout_layer_set_fade_info(linklayer->layout_layer,is_fade_in,1.0 - tint, tint);
+	wl_list_for_each(linklayer, &fade->layer_list, link) {
+		ivi_layout_layer_set_transition(linklayer->layout_layer, IVI_LAYOUT_TRANSITION_LAYER_FADE, duration);
+		ivi_layout_layer_set_fade_info(linklayer->layout_layer, is_fade_in, 1.0 - tint, tint);
 	}
 }
 
@@ -437,7 +433,7 @@ hmi_controller_fade_run(struct hmi_controller* hmi_ctrl, uint32_t is_fade_in, st
  * Internal method to create ivi_layer with hmi_controller_layer and add to a ivi_screen
  */
 static void
-create_layer(struct ivi_layout_screen  *iviscrn,
+create_layer(struct ivi_layout_screen *iviscrn,
 	     struct hmi_controller_layer *layer)
 {
 	int32_t ret = 0;
@@ -464,7 +460,7 @@ static void
 set_notification_create_surface(struct ivi_layout_surface *ivisurf,
 				void *userdata)
 {
-	struct hmi_controller* hmi_ctrl = userdata;
+	struct hmi_controller *hmi_ctrl = userdata;
 	struct ivi_layout_layer *application_layer = hmi_ctrl->application_layer.ivilayer;
 	int32_t ret = 0;
 
@@ -480,7 +476,7 @@ static void
 set_notification_remove_surface(struct ivi_layout_surface *ivisurf,
 				void *userdata)
 {
-	struct hmi_controller* hmi_ctrl = userdata;
+	struct hmi_controller *hmi_ctrl = userdata;
 
 	switch_mode(hmi_ctrl, hmi_ctrl->layout_mode);
 }
@@ -489,7 +485,7 @@ static void
 set_notification_configure_surface(struct ivi_layout_surface *ivisurf,
 				   void *userdata)
 {
-	struct hmi_controller* hmi_ctrl = userdata;
+	struct hmi_controller *hmi_ctrl = userdata;
 
 	switch_mode(hmi_ctrl, hmi_ctrl->layout_mode);
 }
@@ -502,7 +498,7 @@ set_notification_configure_surface(struct ivi_layout_surface *ivisurf,
 static struct hmi_server_setting *
 hmi_server_setting_create(struct weston_compositor *ec)
 {
-	struct hmi_server_setting* setting = MEM_ALLOC(sizeof(*setting));
+	struct hmi_server_setting *setting = MEM_ALLOC(sizeof(*setting));
 	struct weston_config *config = ec->config;
 	struct weston_config_section *shell_section = NULL;
 
@@ -939,8 +935,7 @@ ivi_hmi_controller_add_launchers(struct wl_resource *resource,
 
 	qsort(launchers.data, launcher_count, sizeof(struct launcher_info), compare_launcher_info);
 
-	wl_array_for_each(data, &launchers)
-	{
+	wl_array_for_each(data, &launchers) {
 		x = 0;
 		y = 0;
 		ret = 0;
@@ -1032,8 +1027,7 @@ ivi_hmi_controller_UI_ready(struct wl_client *client,
 
 	section = weston_config_get_section(config, "ivi-shell", NULL, NULL);
 
-	for (i = 0; -1 != result; ++i)
-	{
+	for (i = 0; -1 != result; ++i) {
 		const struct config_command *command = &uint_commands[i];
 
 		if (!command->key)
@@ -1044,8 +1038,7 @@ ivi_hmi_controller_UI_ready(struct wl_client *client,
 			result = -1;
 	}
 
-	if (-1 == result)
-	{
+	if (-1 == result) {
 		wl_resource_post_error(resource,
 				       IVI_HMI_CONTROLLER_ERROR_CODE_INIT_FAILED,
 				       "Failed to initialize hmi-controller.");
@@ -1197,7 +1190,7 @@ move_workspace_grab_end(struct move_grab *move, struct wl_resource* resource,
 
 	duration = hmi_ctrl->hmi_setting->transition_duration;
 	ivi_hmi_controller_send_workspace_end_control(resource, move->is_moved);
-	ivi_layout_layer_set_transition(layer,IVI_LAYOUT_TRANSITION_LAYER_MOVE,duration);
+	ivi_layout_layer_set_transition(layer, IVI_LAYOUT_TRANSITION_LAYER_MOVE, duration);
 	ivi_layout_layer_set_destination_rectangle(layer,
 		end_pos, pos_y,
 		hmi_ctrl->workspace_background_layer.width,
@@ -1208,7 +1201,7 @@ move_workspace_grab_end(struct move_grab *move, struct wl_resource* resource,
 static void
 pointer_move_workspace_grab_end(struct pointer_grab *grab)
 {
-	struct pointer_move_grab *pnt_move_grab = (struct pointer_move_grab *) grab;
+	struct pointer_move_grab *pnt_move_grab = (struct pointer_move_grab *)grab;
 	struct ivi_layout_layer *layer = pnt_move_grab->base.layer;
 
 	move_workspace_grab_end(&pnt_move_grab->move, grab->resource,
@@ -1220,7 +1213,7 @@ pointer_move_workspace_grab_end(struct pointer_grab *grab)
 static void
 touch_move_workspace_grab_end(struct touch_grab *grab)
 {
-	struct touch_move_grab *tch_move_grab = (struct touch_move_grab *) grab;
+	struct touch_move_grab *tch_move_grab = (struct touch_move_grab *)grab;
 	struct ivi_layout_layer *layer = tch_move_grab->base.layer;
 
 	move_workspace_grab_end(&tch_move_grab->move, grab->resource,
@@ -1286,8 +1279,9 @@ static void
 pointer_move_grab_motion(struct weston_pointer_grab *grab, uint32_t time,
 			 wl_fixed_t x, wl_fixed_t y)
 {
-	struct pointer_move_grab *pnt_move_grab = (struct pointer_move_grab *) grab;
+	struct pointer_move_grab *pnt_move_grab = (struct pointer_move_grab *)grab;
 	wl_fixed_t pointer_pos[2] = {x, y};
+
 	move_grab_update(&pnt_move_grab->move, pointer_pos);
 	layer_set_pos(pnt_move_grab->base.layer,
 		      pnt_move_grab->move.pos[0], pnt_move_grab->move.pos[1]);
@@ -1298,12 +1292,13 @@ static void
 touch_move_grab_motion(struct weston_touch_grab *grab, uint32_t time,
 		       int touch_id, wl_fixed_t x, wl_fixed_t y)
 {
-	struct touch_move_grab *tch_move_grab = (struct touch_move_grab *) grab;
+	struct touch_move_grab *tch_move_grab = (struct touch_move_grab *)grab;
 
 	if (!tch_move_grab->is_active)
 		return;
 
-	wl_fixed_t pointer_pos[2] = {grab->touch->grab_x, grab->touch->grab_y};
+	wl_fixed_t pointer_pos[2] = { grab->touch->grab_x, grab->touch->grab_y };
+
 	move_grab_update(&tch_move_grab->move, pointer_pos);
 	layer_set_pos(tch_move_grab->base.layer,
 		      tch_move_grab->move.pos[0], tch_move_grab->move.pos[1]);
@@ -1375,8 +1370,7 @@ static const struct weston_touch_grab_interface touch_move_grab_workspace_interf
 	touch_move_workspace_grab_cancel
 };
 
-enum HMI_GRAB_DEVICE
-{
+enum HMI_GRAB_DEVICE {
 	HMI_GRAB_DEVICE_NONE,
 	HMI_GRAB_DEVICE_POINTER,
 	HMI_GRAB_DEVICE_TOUCH
@@ -1428,7 +1422,7 @@ move_grab_init_workspace(struct move_grab* move,
 	int32_t layer_pos_y = 0;
 	wl_fixed_t start_pos[2] = {0};
 	wl_fixed_t rgn[2][2] = {{0}};
-	wl_fixed_t grab_pos[2] = {grab_x, grab_y};
+	wl_fixed_t grab_pos[2] = { grab_x, grab_y };
 
 	ivi_layout_layer_get_position(layer, &layer_pos_x, &layer_pos_y);
 
@@ -1451,6 +1445,7 @@ create_workspace_pointer_move(struct weston_pointer *pointer, struct wl_resource
 
 	pnt_move_grab->base.resource = resource;
 	move_grab_init_workspace(&pnt_move_grab->move, pointer->grab_x, pointer->grab_y, resource);
+
 	return pnt_move_grab;
 }
 
@@ -1461,7 +1456,8 @@ create_workspace_touch_move(struct weston_touch *touch, struct wl_resource* reso
 
 	tch_move_grab->base.resource = resource;
 	tch_move_grab->is_active = 1;
-	move_grab_init_workspace(&tch_move_grab->move, touch->grab_x,touch->grab_y, resource);
+	move_grab_init_workspace(&tch_move_grab->move, touch->grab_x, touch->grab_y, resource);
+
 	return tch_move_grab;
 }
 
@@ -1475,7 +1471,7 @@ ivi_hmi_controller_workspace_control(struct wl_client *client,
 	struct ivi_layout_layer *layer = NULL;
 	struct pointer_move_grab *pnt_move_grab = NULL;
 	struct touch_move_grab *tch_move_grab = NULL;
-	struct weston_seat* seat = NULL;
+	struct weston_seat *seat = NULL;
 	enum HMI_GRAB_DEVICE device;
 
 	if (hmi_ctrl->workspace_count < 2)
