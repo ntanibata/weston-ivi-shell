@@ -73,8 +73,9 @@ struct ivi_shell_setting
 	char *ivi_module;
 };
 
-/* FIXME: move this static variable into struct ivi_shell. */
-static struct ivi_layout_interface *ivi_layout;
+/* FIXME: move this static variable into struct ivi_shell.
+ * FIXED: Moved
+ */
 
 /*
  * Implementation of ivi_surface
@@ -93,7 +94,7 @@ surface_configure_notify(struct wl_listener *listener, void *data)
 
 	int32_t dest_width = 0;
 	int32_t dest_height = 0;
-	ivi_layout->get_surface_dimension(layout_surf,
+	shell_surf->shell->ivi_layout->get_surface_dimension(layout_surf,
 					  &dest_width, &dest_height);
 
 	/* FIXME: shell_surf->resource might be NULL,
@@ -132,7 +133,7 @@ ivi_shell_surface_configure(struct weston_surface *surface,
 	if (surface->width == 0 || surface->height == 0 || ivisurf == NULL)
 		return;
 
-	view = ivi_layout->get_weston_view(ivisurf->layout_surface);
+	view = ivisurf->shell->ivi_layout->get_weston_view(ivisurf->layout_surface);
 	if (view == NULL)
 		return;
 
@@ -149,7 +150,7 @@ ivi_shell_surface_configure(struct weston_surface *surface,
 					 view->geometry.y + to_y - from_y);
 		weston_view_update_transform(view);
 
-		ivi_layout->surface_configure(ivisurf->layout_surface,
+		ivisurf->shell->ivi_layout->surface_configure(ivisurf->layout_surface,
 					      surface->width, surface->height);
 	}
 }
@@ -273,7 +274,7 @@ application_surface_create(struct wl_client *client,
 
 	/* FIXME: from here, it is the similar functionality
 		  with desktop-shell::create_common_surface */
-	layout_surface = ivi_layout->surface_create(weston_surface,
+	layout_surface = shell->ivi_layout->surface_create(weston_surface,
 						    id_surface);
 
 	/* check if id_ivi is already used for wl_surface*/
@@ -312,7 +313,7 @@ application_surface_create(struct wl_client *client,
 	ivisurf->height = 0;
 	ivisurf->layout_surface = layout_surface;
 	ivisurf->configured_listener.notify = surface_configure_notify;
-	ivi_layout->add_surface_configured_listener(layout_surface,
+	ivisurf->shell->ivi_layout->add_surface_configured_listener(layout_surface,
 						&ivisurf->configured_listener);
 
 	/*FIXME: when I compare this logic with desktop shell: create_common_surface
@@ -385,7 +386,7 @@ get_default_view(struct weston_surface *surface)
 
 	shsurf = get_ivi_shell_surface(surface);
 	if (shsurf && shsurf->layout_surface) {
-		view = ivi_layout->get_weston_view(shsurf->layout_surface);
+		view = shsurf->shell->ivi_layout->get_weston_view(shsurf->layout_surface);
 		if (view)
 			return view;
 	}
@@ -536,15 +537,15 @@ module_init(struct weston_compositor *compositor,
 		return -1;
 	}
 
-	ivi_layout = dlsym(module,"ivi_layout_interface");
-	if (!ivi_layout){
+	shell->ivi_layout = dlsym(module,"ivi_layout_interface");
+	if (!shell->ivi_layout){
 		weston_log("ivi-shell: couldn't find ivi_layout_interface in '%s'\n", ivi_layout_path);
 		free(setting.ivi_module);
 		dlclose(module);
 		return -1;
 	}
 
-	ivi_layout->init_with_compositor(compositor);
+	shell->ivi_layout->init_with_compositor(compositor);
 
 	/* Call module_init of ivi-modules which are defined in weston.ini */
 	if (ivi_load_modules(compositor, setting.ivi_module, argc, argv) < 0) {
