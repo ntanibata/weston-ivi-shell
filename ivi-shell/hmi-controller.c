@@ -144,9 +144,8 @@ is_surf_in_ui_widget(struct hmi_controller *hmi_ctrl,
 
 	uint32_t *ui_widget_id = NULL;
 	wl_array_for_each(ui_widget_id, &hmi_ctrl->ui_widgets) {
-		if (*ui_widget_id == id) {
+		if (*ui_widget_id == id)
 			return 1;
-		}
 	}
 
 	return 0;
@@ -158,21 +157,17 @@ compare_launcher_info(const void *lhs, const void *rhs)
 	const struct launcher_info *left = (const struct launcher_info *)lhs;
 	const struct launcher_info *right = (const struct launcher_info *)rhs;
 
-	if (left->workspace_id < right->workspace_id) {
+	if (left->workspace_id < right->workspace_id)
 		return -1;
-	}
 
-	if (left->workspace_id > right->workspace_id) {
+	if (left->workspace_id > right->workspace_id)
 		return 1;
-	}
 
-	if (left->index < right->index) {
+	if (left->index < right->index)
 		return -1;
-	}
 
-	if (left->index > right->index) {
+	if (left->index > right->index)
 		return 1;
-	}
 
 	return 0;
 }
@@ -206,9 +201,8 @@ mode_divided_into_tiling(struct hmi_controller *hmi_ctrl,
 		ivisurf = pp_surface[i];
 
 		/* skip ui widgets */
-		if (is_surf_in_ui_widget(hmi_ctrl, ivisurf)) {
+		if (is_surf_in_ui_widget(hmi_ctrl, ivisurf))
 			continue;
-		}
 
 		surfaces[surf_num++] = ivisurf;
 	}
@@ -268,9 +262,8 @@ mode_divided_into_sidebyside(struct hmi_controller *hmi_ctrl,
 		ivisurf = pp_surface[i];
 
 		/* skip ui widgets */
-		if (is_surf_in_ui_widget(hmi_ctrl, ivisurf)) {
+		if (is_surf_in_ui_widget(hmi_ctrl, ivisurf))
 			continue;
-		}
 
 		if (num == 1) {
 			ivi_layout_surface_set_transition(ivisurf,IVI_LAYOUT_TRANSITION_VIEW_DEFAULT,duration);
@@ -311,10 +304,10 @@ mode_fullscreen_someone(struct hmi_controller *hmi_ctrl,
 		ivisurf = pp_surface[i];
 
 		/* skip ui widgets */
-		if (is_surf_in_ui_widget(hmi_ctrl, ivisurf)) {
+		if (is_surf_in_ui_widget(hmi_ctrl, ivisurf))
 			continue;
-		}
-		ivi_layout_surface_set_transition(ivisurf,IVI_LAYOUT_TRANSITION_VIEW_DEFAULT,duration);
+
+		ivi_layout_surface_set_transition(ivisurf, IVI_LAYOUT_TRANSITION_VIEW_DEFAULT, duration);
 		ivi_layout_surface_set_visibility(ivisurf, true);
 		ivi_layout_surface_set_destination_rectangle(ivisurf, 0, 0,
 							     surface_width, surface_height);
@@ -342,9 +335,8 @@ mode_random_replace(struct hmi_controller *hmi_ctrl,
 		ivisurf = pp_surface[i];
 
 		/* skip ui widgets */
-		if (is_surf_in_ui_widget(hmi_ctrl, ivisurf)) {
+		if (is_surf_in_ui_widget(hmi_ctrl, ivisurf))
 			continue;
-		}
 
 		ivi_layout_surface_set_transition(ivisurf,IVI_LAYOUT_TRANSITION_VIEW_DEFAULT,duration);
 		ivi_layout_surface_set_visibility(ivisurf, true);
@@ -368,9 +360,8 @@ has_application_surface(struct hmi_controller *hmi_ctrl,
 		ivisurf = pp_surface[i];
 
 		/* skip ui widgets */
-		if (is_surf_in_ui_widget(hmi_ctrl, ivisurf)) {
+		if (is_surf_in_ui_widget(hmi_ctrl, ivisurf))
 			continue;
-		}
 
 		return 1;
 	}
@@ -391,9 +382,8 @@ switch_mode(struct hmi_controller *hmi_ctrl,
 	int32_t surface_length = 0;
 	int32_t ret = 0;
 
-	if (!hmi_ctrl->is_initialized) {
+	if (!hmi_ctrl->is_initialized)
 		return;
-	}
 
 	hmi_ctrl->layout_mode = layout_mode;
 
@@ -479,9 +469,8 @@ set_notification_create_surface(struct ivi_layout_surface *ivisurf,
 	int32_t ret = 0;
 
 	/* skip ui widgets */
-	if (is_surf_in_ui_widget(hmi_ctrl, ivisurf)) {
+	if (is_surf_in_ui_widget(hmi_ctrl, ivisurf))
 		return;
-	}
 
 	ret = ivi_layout_layer_add_surface(application_layer, ivisurf);
 	assert(!ret);
@@ -909,23 +898,19 @@ ivi_hmi_controller_add_launchers(struct wl_resource *resource,
 	struct ivi_layout_surface* layout_surface = NULL;
 	uint32_t *add_surface_id = NULL;
 
-	if (0 == x_count) {
+	if (0 == x_count)
 		x_count = 1;
-	}
 
-	if (0 == y_count) {
+	if (0 == y_count)
 		y_count  = 1;
-	}
 
 	config = hmi_ctrl->compositor->config;
-	if (!config) {
+	if (!config)
 		return;
-	}
 
 	section = weston_config_get_section(config, "ivi-shell", NULL, NULL);
-	if (!section) {
+	if (!section)
 		return;
-	}
 
 	wl_array_init(&launchers);
 
@@ -933,17 +918,14 @@ ivi_hmi_controller_add_launchers(struct wl_resource *resource,
 		surfaceid = 0;
 		workspaceid = 0;
 		info = NULL;
-		if (0 != strcmp(name, "ivi-launcher")) {
+		if (0 != strcmp(name, "ivi-launcher"))
 			continue;
-		}
 
-		if (0 != weston_config_section_get_uint(section, "icon-id", &surfaceid, 0)) {
+		if (0 != weston_config_section_get_uint(section, "icon-id", &surfaceid, 0))
 			continue;
-		}
 
-		if (0 != weston_config_section_get_uint(section, "workspace-id", &workspaceid, 0)) {
+		if (0 != weston_config_section_get_uint(section, "workspace-id", &workspaceid, 0))
 			continue;
-		}
 
 		info = wl_array_add(&launchers, sizeof(*info));
 
@@ -972,9 +954,8 @@ ivi_hmi_controller_add_launchers(struct wl_resource *resource,
 			ny = 0;
 			prev = data->workspace_id;
 
-			if (0 <= prev) {
+			if (0 <= prev)
 				hmi_ctrl->workspace_count++;
-			}
 		}
 
 		if (y_count == ny) {
@@ -1056,15 +1037,11 @@ ivi_hmi_controller_UI_ready(struct wl_client *client,
 		const struct config_command *command = &uint_commands[i];
 
 		if (!command->key)
-		{
 			break;
-		}
 
 		if (weston_config_section_get_uint(
 		    section, command->key, command->dest, 0) != 0)
-		{
 			result = -1;
-		}
 	}
 
 	if (-1 == result)
@@ -1159,13 +1136,11 @@ touch_grab_start(struct touch_grab *grab,
 static int32_t
 clamp(int32_t val, int32_t min, int32_t max)
 {
-	if (val < min) {
+	if (val < min)
 		return min;
-	}
 
-	if (max < val) {
+	if (max < val)
 		return max;
-	}
 
 	return val;
 }
@@ -1199,9 +1174,8 @@ move_workspace_grab_end(struct move_grab *move, struct wl_resource* resource,
 	pointer_v = move->v[0];
 
 	is_flick = grab_time < 400 && 0.4 < fabs(pointer_v);
-	if (200 < from_motion_time) {
+	if (200 < from_motion_time)
 		pointer_v = 0.0;
-	}
 
 	ivi_layout_layer_get_position(layer, &pos_x, &pos_y);
 
@@ -1210,12 +1184,11 @@ move_workspace_grab_end(struct move_grab *move, struct wl_resource* resource,
 		int orgx = wl_fixed_to_int(move->dst[0] + grab_x);
 		page_no = (-orgx + width / 2) / width;
 
-		if (pointer_v < 0.0) {
+		if (pointer_v < 0.0)
 			page_no++;
-		}else {
+		else
 			page_no--;
-		}
-	}else {
+	} else {
 		page_no = (-pos_x + width / 2) / width;
 	}
 
@@ -1272,9 +1245,8 @@ move_grab_update(struct move_grab *move, wl_fixed_t pointer[2])
 	dt = (1e+3 * (timestamp.tv_sec  - move->pre_time.tv_sec) +
 	      1e-6 * (timestamp.tv_nsec - move->pre_time.tv_nsec));
 
-	if (dt < 1e-6) {
+	if (dt < 1e-6)
 		dt = 1e-6;
-	}
 
 	move->pre_time = timestamp;
 
@@ -1293,9 +1265,8 @@ move_grab_update(struct move_grab *move, wl_fixed_t pointer[2])
 		move->v[ii] = wl_fixed_to_double(move->pos[ii] - prepos) / dt;
 
 		if (!move->is_moved &&
-		    0 < wl_fixed_to_int(move->pos[ii] - move->start_pos[ii])) {
+		    0 < wl_fixed_to_int(move->pos[ii] - move->start_pos[ii]))
 			move->is_moved = 1;
-		}
 	}
 }
 
@@ -1329,9 +1300,8 @@ touch_move_grab_motion(struct weston_touch_grab *grab, uint32_t time,
 {
 	struct touch_move_grab *tch_move_grab = (struct touch_move_grab *) grab;
 
-	if (!tch_move_grab->is_active) {
+	if (!tch_move_grab->is_active)
 		return;
-	}
 
 	wl_fixed_t pointer_pos[2] = {grab->touch->grab_x, grab->touch->grab_y};
 	move_grab_update(&tch_move_grab->move, pointer_pos);
@@ -1364,9 +1334,8 @@ touch_move_workspace_grab_up(struct weston_touch_grab *grab, uint32_t time, int 
 {
 	struct touch_move_grab *tch_move_grab = (struct touch_move_grab *)grab;
 
-	if (0 == touch_id) {
+	if (0 == touch_id)
 		tch_move_grab->is_active = 0;
-	}
 
 	if (0 == grab->touch->num_tp) {
 		touch_move_workspace_grab_end(&tch_move_grab->base);
@@ -1419,15 +1388,13 @@ get_hmi_grab_device(struct weston_seat *seat, uint32_t serial)
 	if (seat->pointer &&
 	    seat->pointer->focus &&
 	    seat->pointer->button_count &&
-	    seat->pointer->grab_serial == serial) {
+	    seat->pointer->grab_serial == serial)
 		return HMI_GRAB_DEVICE_POINTER;
-	}
 
 	if (seat->touch &&
 	    seat->touch->focus &&
-	    seat->touch->grab_serial == serial) {
+	    seat->touch->grab_serial == serial)
 		return HMI_GRAB_DEVICE_TOUCH;
-	}
 
 	return HMI_GRAB_DEVICE_NONE;
 }
@@ -1511,17 +1478,15 @@ ivi_hmi_controller_workspace_control(struct wl_client *client,
 	struct weston_seat* seat = NULL;
 	enum HMI_GRAB_DEVICE device;
 
-	if (hmi_ctrl->workspace_count < 2) {
+	if (hmi_ctrl->workspace_count < 2)
 		return;
-	}
 
 	seat = wl_resource_get_user_data(seat_resource);
 	device = get_hmi_grab_device(seat, serial);
 
 	if (HMI_GRAB_DEVICE_POINTER != device &&
-	    HMI_GRAB_DEVICE_TOUCH != device) {
+	    HMI_GRAB_DEVICE_TOUCH != device)
 		return;
-	}
 
 	layer = hmi_ctrl->workspace_layer.ivilayer;
 
