@@ -196,17 +196,14 @@ getIdOfWlSurface(struct wlContextCommon *pCtx, struct wl_surface *wlSurface)
 {
 	struct wlContextStruct *pWlCtxSt = NULL;
 
-	if (NULL == pCtx ||
-		NULL == wlSurface ) {
+	if (NULL == pCtx || NULL == wlSurface )
 		return 0;
-	}
 
 	wl_list_for_each(pWlCtxSt, pCtx->list_wlContextStruct, link) {
-		if (pWlCtxSt->wlSurface == wlSurface) {
+		if (pWlCtxSt->wlSurface == wlSurface)
 			return pWlCtxSt->id_surface;
-		}
-		continue;
 	}
+
 	return -1;
 }
 
@@ -217,10 +214,8 @@ set_pointer_image(struct wlContextCommon *pCtx, uint32_t index)
 	struct wl_cursor_image *image = NULL;
 	struct wl_buffer *buffer = NULL;
 
-	if (!pCtx->wlPointer ||
-		!pCtx->cursors) {
+	if (!pCtx->wlPointer || !pCtx->cursors)
 		return;
-	}
 
 	if (CURSOR_BLANK == pCtx->current_cursor) {
 		wl_pointer_set_cursor(pCtx->wlPointer, pCtx->enter_serial,
@@ -229,9 +224,8 @@ set_pointer_image(struct wlContextCommon *pCtx, uint32_t index)
 	}
 
 	cursor = pCtx->cursors[pCtx->current_cursor];
-	if (!cursor) {
+	if (!cursor)
 		return;
-	}
 
 	if (cursor->image_count <= index) {
 		fprintf(stderr, "cursor index out of range\n");
@@ -241,9 +235,8 @@ set_pointer_image(struct wlContextCommon *pCtx, uint32_t index)
 	image = cursor->images[index];
 	buffer = wl_cursor_image_get_buffer(image);
 
-	if (!buffer) {
+	if (!buffer)
 		return;
-	}
 
 	wl_pointer_set_cursor(pCtx->wlPointer, pCtx->enter_serial,
 			      pCtx->pointer_surface,
@@ -304,13 +297,11 @@ static pid_t
 execute_process(char *path, char *argv[])
 {
 	pid_t pid = fork();
-	if (pid < 0) {
+	if (pid < 0)
 		fprintf(stderr, "Failed to fork\n");
-	}
 
-	if (pid) {
+	if (pid)
 		return pid;
-	}
 
 	if (-1 == execve(path, argv, environ)) {
 		fprintf(stderr, "Failed to execve %s\n", path);
@@ -328,9 +319,8 @@ launcher_button(uint32_t surfaceId, struct wl_list *launcher_list)
 	wl_list_for_each(launcher, launcher_list, link) {
 		char *argv[] = { NULL };
 
-		if (surfaceId != launcher->icon_surface_id) {
+		if (surfaceId != launcher->icon_surface_id)
 			continue;
-		}
 
 		execute_process(launcher->path, argv);
 
@@ -350,14 +340,12 @@ isWorkspaceSurface(uint32_t id, struct hmi_homescreen_setting *hmi_setting)
 {
 	struct hmi_homescreen_launcher *launcher = NULL;
 
-	if (id == hmi_setting->workspace_background.id) {
+	if (id == hmi_setting->workspace_background.id)
 		return 1;
-	}
 
 	wl_list_for_each(launcher, &hmi_setting->launcher_list, link) {
-		if (id == launcher->icon_surface_id) {
+		if (id == launcher->icon_surface_id)
 			return 1;
-		}
 	}
 
 	return 0;
@@ -411,9 +399,8 @@ PointerHandleButton(void *data, struct wl_pointer *wlPointer, uint32_t serial,
 	struct ivi_hmi_controller *hmi_ctrl = pCtx->hmiCtrl;
 	const uint32_t id_surface = getIdOfWlSurface(pCtx, pCtx->enterSurface);
 
-	if (BTN_RIGHT == button) {
+	if (BTN_RIGHT == button)
 		return;
-	}
 
 	switch (state) {
 	case WL_POINTER_BUTTON_STATE_RELEASED:
@@ -466,9 +453,8 @@ TouchHandleDown(void *data, struct wl_touch *wlTouch, uint32_t serial,
 	struct ivi_hmi_controller *hmi_ctrl = pCtx->hmiCtrl;
 	uint32_t id_surface = 0;
 
-	if (0 == id){
+	if (0 == id)
 		pCtx->enterSurface = surface;
-	}
 
 	id_surface = getIdOfWlSurface(pCtx, pCtx->enterSurface);
 
@@ -580,9 +566,8 @@ ivi_hmi_controller_workspace_end_control(void *data,
 	struct wlContextCommon *pCtx = data;
 	const uint32_t id_surface = getIdOfWlSurface(pCtx, pCtx->enterSurface);
 
-	if (is_controlled) {
+	if (is_controlled)
 		return;
-	}
 
 	/**
 	 * During being controlled by hmi-controller, any input event is not
@@ -651,9 +636,8 @@ static const struct wl_registry_listener registry_listener = {
 static void
 frame_listener_func(void *data, struct wl_callback *callback, uint32_t time)
 {
-	if (callback) {
+	if (callback)
 		wl_callback_destroy(callback);
-	}
 }
 
 static const struct wl_callback_listener frame_listener = {
@@ -800,9 +784,8 @@ create_cursors(struct wlContextCommon *cmm)
 static void
 destroy_cursors(struct wlContextCommon *cmm)
 {
-	if (cmm->cursor_theme) {
+	if (cmm->cursor_theme)
 		wl_cursor_theme_destroy(cmm->cursor_theme);
-	}
 
 	free(cmm->cursors);
 }
@@ -869,21 +852,18 @@ destroyWLContextCommon(struct wlContextCommon *p_wlCtx)
 {
 	destroy_cursors(p_wlCtx);
 
-	if (p_wlCtx->pointer_surface) {
+	if (p_wlCtx->pointer_surface)
 		wl_surface_destroy(p_wlCtx->pointer_surface);
-	}
 
-	if (p_wlCtx->wlCompositor) {
+	if (p_wlCtx->wlCompositor)
 		wl_compositor_destroy(p_wlCtx->wlCompositor);
-	}
 }
 
 static void
 destroyWLContextStruct(struct wlContextStruct *p_wlCtx)
 {
-	if (p_wlCtx->wlSurface) {
+	if (p_wlCtx->wlSurface)
 		wl_surface_destroy(p_wlCtx->wlSurface);
-	}
 
 	if (p_wlCtx->ctx_image) {
 		cairo_surface_destroy(p_wlCtx->ctx_image);
@@ -1061,9 +1041,8 @@ create_launchers(struct wlContextCommon *cmm, struct wl_list *launcher_list)
 	int ii = 0;
 	int start = 0;
 
-	if (0 == launcher_count) {
+	if (0 == launcher_count)
 		return;
-	}
 
 	launchers = MEM_ALLOC(launcher_count * sizeof(*launchers));
 
@@ -1077,9 +1056,8 @@ create_launchers(struct wlContextCommon *cmm, struct wl_list *launcher_list)
 
 		if (ii != launcher_count - 1 &&
 		    launchers[ii]->workspace_id ==
-		    launchers[ii + 1]->workspace_id) {
+		    launchers[ii + 1]->workspace_id)
 			continue;
-		}
 
 		for (jj = start; jj <= ii; jj++) {
 			struct wlContextStruct *p_wlCtx;
@@ -1316,9 +1294,8 @@ int main(int argc, char **argv)
 
 	UI_ready(wlCtxCommon.hmiCtrl);
 
-	while(ret != -1) {
+	while(ret != -1)
 		ret = wl_display_dispatch(wlCtxCommon.wlDisplay);
-	}
 
 	wl_list_for_each(pWlCtxSt, wlCtxCommon.list_wlContextStruct, link) {
 		destroyWLContextStruct(pWlCtxSt);
