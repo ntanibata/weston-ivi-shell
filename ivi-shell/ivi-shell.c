@@ -99,9 +99,11 @@ surface_configure_notify(struct wl_listener *listener, void *data)
 	/* FIXME: shell_surf->resource might be NULL,
 	 * if controller decides to reconfigure a surface after a client
 	 * has destroyed it.
+	 * FIXED: Add NULL Check
 	 */
-	ivi_surface_send_configure(shell_surf->resource,
-				   dest_width, dest_height);
+	if (shell_surf->resource)
+		ivi_surface_send_configure(shell_surf->resource,
+					   dest_width, dest_height);
 }
 
 static void
