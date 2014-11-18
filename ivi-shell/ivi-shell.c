@@ -286,17 +286,16 @@ application_surface_create(struct wl_client *client,
 	}
 
 	/* FIXME: this shall be done below:TAG_1, if I use the same order of calling in
-		  create_common_surface*/
-	res = wl_resource_create(client, &ivi_surface_interface, 1, id);
-	if (res == NULL) {
-		wl_client_post_no_memory(client);
-		return;
-	}
+		  create_common_surface
+	 * FIXED: Moved
+	 */
 
 	ivisurf = zalloc(sizeof *ivisurf);
 	if (ivisurf == NULL) {
 		wl_resource_post_no_memory(resource);
-		wl_resource_destroy(res); /*FIXME: not required if move res to below:TAG_1*/
+		/*FIXME: not required if move res to below:TAG_1
+		 *FIXED: Delete
+		 */
 		return;
 	}
 
@@ -306,7 +305,9 @@ application_surface_create(struct wl_client *client,
 	ivisurf->shell = shell;
 	ivisurf->id_surface = id_surface;
 
-	ivisurf->resource = res; /*FIXME: Move below:TAG_1*/
+	/*FIXME: Move below:TAG_1
+	 *FIXED: Moved
+	 */
 	ivisurf->width = 0;
 	ivisurf->height = 0;
 	ivisurf->layout_surface = layout_surface;
@@ -339,6 +340,14 @@ wl_resource_add_destroy_listener(surface->resource,
 
 	/* FIXME: End of desktop-shell::create_common_surface */
 	/* FIXME: TAG_1 */
+	res = wl_resource_create(client, &ivi_surface_interface, 1, id);
+	if (res == NULL) {
+		wl_client_post_no_memory(client);
+		return;
+	}
+
+	ivisurf->resource = res;
+
 	wl_resource_set_implementation(res, &surface_implementation,
 				       ivisurf, shell_destroy_shell_surface);
 }
