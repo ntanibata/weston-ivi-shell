@@ -131,8 +131,8 @@ struct
 hmi_homescreen_launcher {
 	uint32_t	icon_surface_id;
 	uint32_t	workspace_id;
-	char*		icon;
-	char*		path;
+	char		*icon;
+	char		*path;
 	struct wl_list	link;
 };
 
@@ -156,7 +156,7 @@ hmi_homescreen_setting {
 };
 
 static void *
-fail_on_null(void *p, size_t size, char* file, int32_t line)
+fail_on_null(void *p, size_t size, char *file, int32_t line)
 {
 	if (size && !p) {
 		fprintf(stderr, "%s(%d) %zd: out of memory\n", file, line, size);
@@ -167,7 +167,7 @@ fail_on_null(void *p, size_t size, char* file, int32_t line)
 }
 
 static void *
-mem_alloc(size_t size, char* file, int32_t line)
+mem_alloc(size_t size, char *file, int32_t line)
 {
 	return fail_on_null(calloc(1, size), size, file, line);
 }
@@ -180,9 +180,9 @@ mem_alloc(size_t size, char* file, int32_t line)
  ****************************************************************************/
 
 static void
-shm_format(void* data, struct wl_shm* pWlShm, uint32_t format)
+shm_format(void *data, struct wl_shm *pWlShm, uint32_t format)
 {
-	struct wlContextStruct* pDsp = data;
+	struct wlContextStruct *pDsp = data;
 	pDsp->formats |= (1 << format);
 }
 
@@ -193,7 +193,7 @@ static struct wl_shm_listener shm_listenter = {
 static int32_t
 getIdOfWlSurface(struct wlContextCommon *pCtx, struct wl_surface *wlSurface)
 {
-	struct wlContextStruct* pWlCtxSt = NULL;
+	struct wlContextStruct *pWlCtxSt = NULL;
 
 	if (NULL == pCtx ||
 		NULL == wlSurface ) {
@@ -257,10 +257,11 @@ set_pointer_image(struct wlContextCommon *pCtx, uint32_t index)
 }
 
 static void
-PointerHandleEnter(void* data, struct wl_pointer* wlPointer, uint32_t serial,
-		   struct wl_surface* wlSurface, wl_fixed_t sx, wl_fixed_t sy)
+PointerHandleEnter(void *data, struct wl_pointer *wlPointer, uint32_t serial,
+		   struct wl_surface *wlSurface, wl_fixed_t sx, wl_fixed_t sy)
 {
 	struct wlContextCommon *pCtx = data;
+
 	pCtx->enter_serial = serial;
 	pCtx->enterSurface = wlSurface;
 	set_pointer_image(pCtx, 0);
@@ -270,10 +271,11 @@ PointerHandleEnter(void* data, struct wl_pointer* wlPointer, uint32_t serial,
 }
 
 static void
-PointerHandleLeave(void* data, struct wl_pointer* wlPointer, uint32_t serial,
-		   struct wl_surface* wlSurface)
+PointerHandleLeave(void *data, struct wl_pointer *wlPointer, uint32_t serial,
+		   struct wl_surface *wlSurface)
 {
 	struct wlContextCommon *pCtx = data;
+
 	pCtx->enterSurface = NULL;
 
 #ifdef _DEBUG
@@ -282,7 +284,7 @@ PointerHandleLeave(void* data, struct wl_pointer* wlPointer, uint32_t serial,
 }
 
 static void
-PointerHandleMotion(void* data, struct wl_pointer* wlPointer, uint32_t time,
+PointerHandleMotion(void *data, struct wl_pointer *wlPointer, uint32_t time,
 		    wl_fixed_t sx, wl_fixed_t sy)
 {
 #ifdef _DEBUG
@@ -296,7 +298,8 @@ PointerHandleMotion(void* data, struct wl_pointer* wlPointer, uint32_t time,
  */
 extern char **environ; /*defied by libc */
 
-static pid_t execute_process(char* path, char *argv[])
+static pid_t
+execute_process(char *path, char *argv[])
 {
 	pid_t pid = fork();
 	if (pid < 0) {
@@ -321,7 +324,7 @@ launcher_button(uint32_t surfaceId, struct wl_list *launcher_list)
 	struct hmi_homescreen_launcher *launcher = NULL;
 
 	wl_list_for_each(launcher, launcher_list, link) {
-		char *argv[] = {NULL};
+		char *argv[] = { NULL };
 
 		if (surfaceId != launcher->icon_surface_id) {
 			continue;
@@ -363,7 +366,7 @@ isWorkspaceSurface(uint32_t id, struct hmi_homescreen_setting *hmi_setting)
  */
 static void
 touch_up(struct ivi_hmi_controller *hmi_ctrl, uint32_t id_surface,
-	 int32_t *is_home_on, struct hmi_homescreen_setting* hmi_setting)
+	 int32_t *is_home_on, struct hmi_homescreen_setting *hmi_setting)
 {
 	if (launcher_button(id_surface, &hmi_setting->launcher_list)) {
 		*is_home_on = 0;
@@ -397,7 +400,7 @@ touch_up(struct ivi_hmi_controller *hmi_ctrl, uint32_t id_surface,
  * Pressed is the same behavior as touch on
  */
 static void
-PointerHandleButton(void* data, struct wl_pointer* wlPointer, uint32_t serial,
+PointerHandleButton(void *data, struct wl_pointer *wlPointer, uint32_t serial,
 		    uint32_t time, uint32_t button, uint32_t state)
 {
 	struct wlContextCommon *pCtx = data;
@@ -427,7 +430,7 @@ PointerHandleButton(void* data, struct wl_pointer* wlPointer, uint32_t serial,
 }
 
 static void
-PointerHandleAxis(void* data, struct wl_pointer* wlPointer, uint32_t time,
+PointerHandleAxis(void *data, struct wl_pointer *wlPointer, uint32_t time,
 		  uint32_t axis, wl_fixed_t value)
 {
 #ifdef _DEBUG
@@ -517,12 +520,12 @@ static struct wl_touch_listener touch_listener = {
  * Handler of capabilities
  */
 static void
-seat_handle_capabilities(void* data, struct wl_seat* seat, uint32_t caps)
+seat_handle_capabilities(void *data, struct wl_seat *seat, uint32_t caps)
 {
-	struct wlContextCommon* p_wlCtx = (struct wlContextCommon*)data;
-	struct wl_seat* wlSeat = p_wlCtx->wlSeat;
-	struct wl_pointer* wlPointer = p_wlCtx->wlPointer;
-	struct wl_touch* wlTouch = p_wlCtx->wlTouch;
+	struct wlContextCommon *p_wlCtx = (struct wlContextCommon*)data;
+	struct wl_seat *wlSeat = p_wlCtx->wlSeat;
+	struct wl_pointer *wlPointer = p_wlCtx->wlPointer;
+	struct wl_touch *wlTouch = p_wlCtx->wlTouch;
 
 	if (p_wlCtx->hmi_setting->cursor_theme) {
 		if ((caps & WL_SEAT_CAPABILITY_POINTER) && !wlPointer){
@@ -588,12 +591,12 @@ static const struct ivi_hmi_controller_listener hmi_controller_listener = {
  * Registration of interfaces
  */
 static void
-registry_handle_global(void* data, struct wl_registry* registry, uint32_t name,
+registry_handle_global(void *data, struct wl_registry *registry, uint32_t name,
 		       const char *interface, uint32_t version)
 {
-	struct wlContextCommon* p_wlCtx = (struct wlContextCommon*)data;
+	struct wlContextCommon *p_wlCtx = (struct wlContextCommon*)data;
 
-   if (!strcmp(interface, "wl_compositor")) {
+	if (!strcmp(interface, "wl_compositor")) {
 		p_wlCtx->wlCompositor = wl_registry_bind(registry, name, &wl_compositor_interface, 1);
 	} else if (!strcmp(interface, "wl_shm")) {
 		p_wlCtx->wlShm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
@@ -725,19 +728,19 @@ struct cursor_alternatives {
 };
 
 static const struct cursor_alternatives cursors[] = {
-	{bottom_left_corners, ARRAY_LENGTH(bottom_left_corners)},
-	{bottom_right_corners, ARRAY_LENGTH(bottom_right_corners)},
-	{bottom_sides, ARRAY_LENGTH(bottom_sides)},
-	{grabbings, ARRAY_LENGTH(grabbings)},
-	{left_ptrs, ARRAY_LENGTH(left_ptrs)},
-	{left_sides, ARRAY_LENGTH(left_sides)},
-	{right_sides, ARRAY_LENGTH(right_sides)},
-	{top_left_corners, ARRAY_LENGTH(top_left_corners)},
-	{top_right_corners, ARRAY_LENGTH(top_right_corners)},
-	{top_sides, ARRAY_LENGTH(top_sides)},
-	{xterms, ARRAY_LENGTH(xterms)},
-	{hand1s, ARRAY_LENGTH(hand1s)},
-	{watches, ARRAY_LENGTH(watches)},
+	{ bottom_left_corners, ARRAY_LENGTH(bottom_left_corners) },
+	{ bottom_right_corners, ARRAY_LENGTH(bottom_right_corners) },
+	{ bottom_sides, ARRAY_LENGTH(bottom_sides) },
+	{ grabbings, ARRAY_LENGTH(grabbings) },
+	{ left_ptrs, ARRAY_LENGTH(left_ptrs) },
+	{ left_sides, ARRAY_LENGTH(left_sides) },
+	{ right_sides, ARRAY_LENGTH(right_sides) },
+	{ top_left_corners, ARRAY_LENGTH(top_left_corners) },
+	{ top_right_corners, ARRAY_LENGTH(top_right_corners) },
+	{ top_sides, ARRAY_LENGTH(top_sides) },
+	{ xterms, ARRAY_LENGTH(xterms) },
+	{ hand1s, ARRAY_LENGTH(hand1s) },
+	{ watches, ARRAY_LENGTH(watches) },
 };
 
 static void
@@ -746,7 +749,7 @@ create_cursors(struct wlContextCommon *cmm)
 	uint32_t i = 0;
 	uint32_t j = 0;
 	struct wl_cursor *cursor = NULL;
-	char* cursor_theme = cmm->hmi_setting->cursor_theme;
+	char *cursor_theme = cmm->hmi_setting->cursor_theme;
 	int32_t cursor_size = cmm->hmi_setting->cursor_size;
 
 	cmm->cursor_theme = wl_cursor_theme_load(cursor_theme, cursor_size, cmm->wlShm);
@@ -907,7 +910,7 @@ drawImage(struct wlContextStruct *p_wlCtx)
 static void
 create_ivisurface(struct wlContextStruct *p_wlCtx,
 				  uint32_t id_surface,
-				  cairo_surface_t* surface)
+				  cairo_surface_t *surface)
 {
 	struct ivi_surface *ivisurf = NULL;
 
@@ -933,9 +936,9 @@ create_ivisurface(struct wlContextStruct *p_wlCtx,
 static void
 create_ivisurfaceFromFile(struct wlContextStruct *p_wlCtx,
 			  uint32_t id_surface,
-			  const char* imageFile)
+			  const char *imageFile)
 {
-	cairo_surface_t* surface = load_cairo_surface(imageFile);
+	cairo_surface_t *surface = load_cairo_surface(imageFile);
 
 	if (NULL == surface) {
 		fprintf(stderr, "Failed to load_cairo_surface %s\n", imageFile);
@@ -987,28 +990,28 @@ UI_ready(struct ivi_hmi_controller *controller)
  */
 static void
 create_background(struct wlContextStruct *p_wlCtx, const uint32_t id_surface,
-		  const char* imageFile)
+		  const char *imageFile)
 {
 	create_ivisurfaceFromFile(p_wlCtx, id_surface, imageFile);
 }
 
 static void
 create_panel(struct wlContextStruct *p_wlCtx, const uint32_t id_surface,
-	     const char* imageFile)
+	     const char *imageFile)
 {
 	create_ivisurfaceFromFile(p_wlCtx, id_surface, imageFile);
 }
 
 static void
 create_button(struct wlContextStruct *p_wlCtx, const uint32_t id_surface,
-	      const char* imageFile, uint32_t number)
+	      const char *imageFile, uint32_t number)
 {
 	create_ivisurfaceFromFile(p_wlCtx, id_surface, imageFile);
 }
 
 static void
 create_home_button(struct wlContextStruct *p_wlCtx, const uint32_t id_surface,
-		   const char* imageFile)
+		   const char *imageFile)
 {
 	create_ivisurfaceFromFile(p_wlCtx, id_surface, imageFile);
 }
@@ -1023,7 +1026,7 @@ create_workspace_background(struct wlContextStruct *p_wlCtx,
 static void
 create_launchers(struct wlContextCommon *cmm, struct wl_list *launcher_list)
 {
-	struct hmi_homescreen_launcher** launchers;
+	struct hmi_homescreen_launcher **launchers;
 	struct hmi_homescreen_launcher *launcher = NULL;
 
 	int launcher_count = wl_list_length(launcher_list);
@@ -1065,12 +1068,12 @@ create_launchers(struct wlContextCommon *cmm, struct wl_list *launcher_list)
 /**
  * Internal method to read out weston.ini to get configuration
  */
-static struct hmi_homescreen_setting*
+static struct hmi_homescreen_setting *
 hmi_homescreen_setting_create(void)
 {
 	struct weston_config *config = NULL;
 	struct weston_config_section *shellSection = NULL;
-	struct hmi_homescreen_setting* setting = MEM_ALLOC(sizeof(*setting));
+	struct hmi_homescreen_setting *setting = MEM_ALLOC(sizeof(*setting));
 	struct weston_config_section *section = NULL;
 	const char *name = NULL;
 	uint32_t workspace_layer_id;
@@ -1197,7 +1200,7 @@ int main(int argc, char **argv)
 
 	struct hmi_homescreen_setting *hmi_setting = hmi_homescreen_setting_create();
 
-	struct wlContextStruct* pWlCtxSt = NULL;
+	struct wlContextStruct *pWlCtxSt = NULL;
 
 	memset(&wlCtxCommon, 0x00, sizeof(wlCtxCommon));
 	memset(&wlCtx_BackGround, 0x00, sizeof(wlCtx_BackGround));
@@ -1237,7 +1240,7 @@ int main(int argc, char **argv)
 	}
 
 	wlCtx_BackGround.cmm = wlCtxCommon;
-	wlCtx_Panel.cmm	  = wlCtxCommon;
+	wlCtx_Panel.cmm      = wlCtxCommon;
 	wlCtx_Button_1.cmm   = wlCtxCommon;
 	wlCtx_Button_2.cmm   = wlCtxCommon;
 	wlCtx_Button_3.cmm   = wlCtxCommon;
