@@ -251,12 +251,8 @@ application_surface_create(struct wl_client *client,
 	 * a protocol error automatically, if the passed in object is null
 	 * but the protocol XML does not specify allow-null="true" for the
 	 * argument.
+	 * FIXED: Delete NULL check
 	 */
-	if (weston_surface == NULL) {
-		wl_resource_post_error(resource,
-				       WL_DISPLAY_ERROR_INVALID_OBJECT,
-				       "wl_surface is invalid");
-	}
 
 	/* FIXME: This is the similar check with
 		  desktop-shell::get_shell_surface
