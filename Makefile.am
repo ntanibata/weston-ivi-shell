@@ -779,8 +779,6 @@ ivi_layout_la_SOURCES =				\
 	ivi-shell/ivi-layout.c			\
 	ivi-shell/ivi-layout-transition.c
 
-BUILT_SOURCES += $(nodist_ivi_layout_la_SOURCES)
-
 ivi_shell = ivi-shell.la
 ivi_shell_la_LDFLAGS = -module -avoid-version
 ivi_shell_la_LIBADD = $(COMPOSITOR_LIBS) libshared.la
