@@ -307,9 +307,6 @@ handle_surface_configure(void *data, struct xdg_surface *surface,
 				     window->geometry.width,
 				     window->geometry.height, 0, 0);
 
-	if (!window->display || !window->display->shell)
-		return;
-
 	xdg_surface_ack_configure(surface, serial);
 }
 
