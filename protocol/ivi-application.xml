@@ -84,7 +84,10 @@
         logic of the application about where it shall be located.
         The server regards following cases as protocol errors and disconnects the client.
          - wl_surface already has an nother role.
-         - ivi_id is already assigned to an another wl_surface    
+         - ivi_id is already assigned to an another wl_surface.
+
+        If client destroys ivi_surface or wl_surface which is assigne to the ivi_surface,
+        ivi_id which is assigned to the ivi_surface is free for reuse.
       </description>
       <arg name="ivi_id" type="uint"/>
       <arg name="surface" type="object" interface="wl_surface"/>
