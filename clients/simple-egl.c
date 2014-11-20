@@ -573,14 +573,12 @@ pointer_handle_button(void *data, struct wl_pointer *wl_pointer,
 {
 	struct display *display = data;
 
-	if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED)
-	{
-		if (!display->window->xdg_surface)
-			return;
+	if (!display->window->xdg_surface)
+		return;
 
+	if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED)
 		xdg_surface_move(display->window->xdg_surface,
 						 display->seat, serial);
-	}
 }
 
 static void
