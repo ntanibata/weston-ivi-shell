@@ -615,10 +615,8 @@ registry_handle_global(void *data, struct wl_registry *registry, uint32_t name,
 			wl_registry_bind(registry, name,
 					 &ivi_hmi_controller_interface, 1);
 
-		if (p_wlCtx->hmiCtrl) {
-			ivi_hmi_controller_add_listener(p_wlCtx->hmiCtrl,
-					&hmi_controller_listener, p_wlCtx);
-		}
+		ivi_hmi_controller_add_listener(p_wlCtx->hmiCtrl,
+				&hmi_controller_listener, p_wlCtx);
 	}
 }
 
