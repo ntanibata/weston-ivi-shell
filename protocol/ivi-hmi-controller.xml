@@ -27,10 +27,6 @@
   <interface name="ivi_hmi_controller" version="1">
     <description summary="set up and control IVI style UI"/>
 
-    <enum name="error_code">
-      <entry name="init_failed" value="0"/>
-    </enum>
-
     <request name="UI_ready">
       <description summary="inform the ready for drawing desktop." />
     </request>
