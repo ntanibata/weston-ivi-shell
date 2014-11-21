@@ -2444,35 +2444,6 @@ ivi_layout_surface_get_weston_surface(struct ivi_layout_surface *ivisurf)
 	return ivisurf != NULL ? ivisurf->surface : NULL;
 }
 
-/**
- * This function is used by the additional ivi-module because of dumping ivi_surface sceenshot.
- * The ivi-module, e.g. ivi-controller.so, is in wayland-ivi-extension of Genivi's Layer Management.
- * This function is used to get the region and the stride.
- */
-WL_EXPORT int32_t
-ivi_layout_surface_get_size(struct ivi_layout_surface *ivisurf, int32_t *width, int32_t *height, int32_t *stride)
-{
-	if (ivisurf == NULL) {
-		return IVI_FAILED;
-	}
-
-	if (width != NULL) {
-		*width = ivisurf->prop.source_width;
-	}
-
-	if (height != NULL) {
-		*height = ivisurf->prop.source_height;
-	}
-
-	if (stride != NULL &&
-		ivisurf->surface->buffer_ref.buffer != NULL &&
-		ivisurf->surface->buffer_ref.buffer->shm_buffer != NULL) {
-		*stride = wl_shm_buffer_get_stride(ivisurf->surface->buffer_ref.buffer->shm_buffer);
-	}
-
-	return IVI_SUCCEEDED;
-}
-
 WL_EXPORT int32_t
 ivi_layout_layer_add_notification(struct ivi_layout_layer *ivilayer,
 				  layer_property_notification_func callback,

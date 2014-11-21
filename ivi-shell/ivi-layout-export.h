@@ -643,12 +643,6 @@ struct weston_surface *
 ivi_layout_surface_get_weston_surface(struct ivi_layout_surface *ivisurf);
 
 int32_t
-ivi_layout_surface_get_size(struct ivi_layout_surface *ivisurf,
-			    int32_t *width,
-			    int32_t *height,
-			    int32_t *stride);
-
-int32_t
 ivi_layout_layer_set_transition(struct ivi_layout_layer *ivilayer,
 				enum ivi_layout_transition_type type,
 				uint32_t duration);
