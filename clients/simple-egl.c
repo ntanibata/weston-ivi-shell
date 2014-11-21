@@ -798,7 +798,7 @@ static void
 usage(int error_code)
 {
 	fprintf(stderr, "Usage: simple-egl [OPTIONS]\n\n"
-		"  -f\tRun in maximized mode\n"
+		"  -f\tRun in fullscreen mode\n"
 		"  -o\tCreate an opaque surface\n"
 		"  -s\tUse a 16 bpp EGL config\n"
 		"  -b\tDon't sync to compositor redraw (eglSwapInterval 0)\n"
