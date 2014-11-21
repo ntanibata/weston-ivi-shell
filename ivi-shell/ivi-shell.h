@@ -26,7 +26,6 @@
 
 struct ivi_shell
 {
-	struct wl_resource *resource;
 	struct wl_listener destroy_listener;
 
 	struct weston_compositor *compositor;
