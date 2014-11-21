@@ -90,6 +90,17 @@ struct hmi_server_setting {
 	char       *ivi_homescreen;
 };
 
+struct ui_setting {
+	uint32_t background_id;
+	uint32_t panel_id;
+	uint32_t tiling_id;
+	uint32_t sidebyside_id;
+	uint32_t fullscreen_id;
+	uint32_t random_id;
+	uint32_t home_id;
+	uint32_t workspace_background_id;
+};
+
 struct hmi_controller {
 	struct hmi_server_setting          *hmi_setting;
 	struct hmi_controller_layer         base_layer;
@@ -108,6 +119,7 @@ struct hmi_controller {
 	struct wl_listener                  destroy_listener;
 
 	struct wl_client                   *user_interface;
+	struct ui_setting                   ui_setting;
 };
 
 struct launcher_info {
@@ -919,10 +931,9 @@ ivi_hmi_controller_set_workspacebackground(struct hmi_controller *hmi_ctrl,
  * of ivi_surfaces
  */
 static void
-ivi_hmi_controller_add_launchers(struct wl_resource *resource,
+ivi_hmi_controller_add_launchers(struct hmi_controller *hmi_ctrl,
 				 int32_t icon_size)
 {
-	struct hmi_controller *hmi_ctrl = wl_resource_get_user_data(resource);
 	struct ivi_layout_layer *layer = hmi_ctrl->workspace_layer.ivilayer;
 	int32_t minspace_x = 10;
 	int32_t minspace_y = minspace_x;
@@ -1060,73 +1071,19 @@ static void
 ivi_hmi_controller_UI_ready(struct wl_client *client,
 			    struct wl_resource *resource)
 {
-	struct setting {
-		uint32_t background_id;
-		uint32_t panel_id;
-		uint32_t tiling_id;
-		uint32_t sidebyside_id;
-		uint32_t fullscreen_id;
-		uint32_t random_id;
-		uint32_t home_id;
-		uint32_t workspace_background_id;
-	};
-
-	struct config_command {
-		char *key;
-		uint32_t *dest;
-	};
-
 	struct hmi_controller *hmi_ctrl = wl_resource_get_user_data(resource);
-	struct weston_config *config = hmi_ctrl->compositor->config;
-	struct weston_config_section *section = NULL;
-	struct setting dest;
-	int result = 0;
-	int i = 0;
 
-	const struct config_command uint_commands[] = {
-		{ "background-id", &dest.background_id },
-		{ "panel-id", &dest.panel_id },
-		{ "tiling-id", &dest.tiling_id },
-		{ "sidebyside-id", &dest.sidebyside_id },
-		{ "fullscreen-id", &dest.fullscreen_id },
-		{ "random-id", &dest.random_id },
-		{ "home-id", &dest.home_id },
-		{ "workspace-background-id", &dest.workspace_background_id },
-		{ NULL, NULL }
-	};
-
-	section = weston_config_get_section(config, "ivi-shell", NULL, NULL);
-
-	for (i = 0; -1 != result; ++i) {
-		const struct config_command *command = &uint_commands[i];
-
-		if (!command->key)
-			break;
-
-		if (weston_config_section_get_uint(
-		    section, command->key, command->dest, 0) != 0)
-			result = -1;
-	}
-
-	if (-1 == result) {
-		wl_resource_post_error(resource,
-			IVI_HMI_CONTROLLER_ERROR_CODE_INIT_FAILED,
-			"Failed to initialize hmi-controller.");
-		return;
-	}
-
-	ivi_hmi_controller_set_background(hmi_ctrl, dest.background_id);
-	ivi_hmi_controller_set_panel(hmi_ctrl, dest.panel_id);
-	ivi_hmi_controller_set_button(hmi_ctrl, dest.tiling_id, 0);
-	ivi_hmi_controller_set_button(hmi_ctrl, dest.sidebyside_id, 1);
-	ivi_hmi_controller_set_button(hmi_ctrl, dest.fullscreen_id, 2);
-	ivi_hmi_controller_set_button(hmi_ctrl, dest.random_id, 3);
-	ivi_hmi_controller_set_home_button(hmi_ctrl, dest.home_id);
-	ivi_hmi_controller_set_workspacebackground(hmi_ctrl,
-						dest.workspace_background_id);
+	ivi_hmi_controller_set_background(hmi_ctrl, hmi_ctrl->ui_setting.background_id);
+	ivi_hmi_controller_set_panel(hmi_ctrl, hmi_ctrl->ui_setting.panel_id);
+	ivi_hmi_controller_set_button(hmi_ctrl, hmi_ctrl->ui_setting.tiling_id, 0);
+	ivi_hmi_controller_set_button(hmi_ctrl, hmi_ctrl->ui_setting.sidebyside_id, 1);
+	ivi_hmi_controller_set_button(hmi_ctrl, hmi_ctrl->ui_setting.fullscreen_id, 2);
+	ivi_hmi_controller_set_button(hmi_ctrl, hmi_ctrl->ui_setting.random_id, 3);
+	ivi_hmi_controller_set_home_button(hmi_ctrl, hmi_ctrl->ui_setting.home_id);
+	ivi_hmi_controller_set_workspacebackground(hmi_ctrl, hmi_ctrl->ui_setting.workspace_background_id);
 	ivi_layout_commit_changes();
 
-	ivi_hmi_controller_add_launchers(resource, 256);
+	ivi_hmi_controller_add_launchers(hmi_ctrl, 256);
 	hmi_ctrl->is_initialized = 1;
 }
 
@@ -1673,6 +1630,58 @@ bind_hmi_controller(struct wl_client *client,
 		hmi_ctrl, unbind_hmi_controller);
 }
 
+static int32_t
+initialize(struct hmi_controller *hmi_ctrl)
+{
+	struct config_command {
+		char *key;
+		uint32_t *dest;
+	};
+
+	struct weston_config *config = hmi_ctrl->compositor->config;
+	struct weston_config_section *section = NULL;
+	int result = 0;
+	int i = 0;
+
+	const struct config_command uint_commands[] = {
+		{ "background-id", &hmi_ctrl->ui_setting.background_id },
+		{ "panel-id", &hmi_ctrl->ui_setting.panel_id },
+		{ "tiling-id", &hmi_ctrl->ui_setting.tiling_id },
+		{ "sidebyside-id", &hmi_ctrl->ui_setting.sidebyside_id },
+		{ "fullscreen-id", &hmi_ctrl->ui_setting.fullscreen_id },
+		{ "random-id", &hmi_ctrl->ui_setting.random_id },
+		{ "home-id", &hmi_ctrl->ui_setting.home_id },
+		{ "workspace-background-id", &hmi_ctrl->ui_setting.workspace_background_id },
+		{ NULL, NULL }
+	};
+
+	section = weston_config_get_section(config, "ivi-shell", NULL, NULL);
+
+	for (i = 0; -1 != result; ++i)
+	{
+		const struct config_command *command = &uint_commands[i];
+
+		if (!command->key)
+		{
+			break;
+		}
+
+		if (weston_config_section_get_uint(
+					section, command->key, command->dest, 0) != 0)
+		{
+			result = -1;
+		}
+	}
+
+	if (-1 == result)
+	{
+		weston_log("Failed to initialize hmi-controller\n");
+		return 0;
+	}
+
+	return 1;
+}
+
 static void
 launch_hmi_client_process(void *data)
 {
@@ -1696,6 +1705,10 @@ module_init(struct weston_compositor *ec,
 {
 	struct hmi_controller *hmi_ctrl = hmi_controller_create(ec);
 	struct wl_event_loop *loop = NULL;
+
+	if (!initialize(hmi_ctrl)) {
+		return -1;
+	}
 
 	if (wl_global_create(ec->wl_display,
 			     &ivi_hmi_controller_interface, 1,
