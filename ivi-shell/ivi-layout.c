@@ -284,11 +284,11 @@ westonsurface_destroy_from_ivisurface(struct wl_listener *listener, void *data)
 	ivisurf = container_of(listener, struct ivi_layout_surface,
 			       surface_destroy_listener);
 
-	wl_list_init(&ivisurf->surface_rotation.link);
-	wl_list_init(&ivisurf->layer_rotation.link);
-	wl_list_init(&ivisurf->surface_pos.link);
-	wl_list_init(&ivisurf->layer_pos.link);
-	wl_list_init(&ivisurf->scaling.link);
+	wl_list_remove(&ivisurf->surface_rotation.link);
+	wl_list_remove(&ivisurf->layer_rotation.link);
+	wl_list_remove(&ivisurf->surface_pos.link);
+	wl_list_remove(&ivisurf->layer_pos.link);
+	wl_list_remove(&ivisurf->scaling.link);
 
 	ivisurf->surface = NULL;
 	ivi_layout_surface_remove(ivisurf);
