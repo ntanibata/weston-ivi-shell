@@ -843,8 +843,6 @@ createShmBuffer(struct wlContextStruct *p_wlCtx)
 
 	wl_shm_pool_destroy(pool);
 	close(fd);
-
-	return;
 }
 
 static void
