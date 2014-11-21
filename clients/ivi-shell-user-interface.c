@@ -282,8 +282,7 @@ PointerHandleMotion(void *data, struct wl_pointer *wlPointer, uint32_t time,
 		    wl_fixed_t sx, wl_fixed_t sy)
 {
 #ifdef _DEBUG
-	printf("ENTER PointerHandleMotion: x(%d), y(%d)\n",
-	       gPointerX, gPointerY);
+	printf("ENTER PointerHandleMotion: x(%d), y(%d)\n", sx, sy);
 #endif
 }
 
