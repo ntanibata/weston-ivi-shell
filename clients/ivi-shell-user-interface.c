@@ -907,8 +907,6 @@ drawImage(struct wlContextStruct *p_wlCtx)
 	wl_callback_add_listener(callback, &frame_listener, NULL);
 
 	wl_surface_commit(p_wlCtx->wlSurface);
-
-	wl_display_roundtrip(p_wlCtx->cmm.wlDisplay);
 }
 
 static void
