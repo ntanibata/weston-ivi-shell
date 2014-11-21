@@ -417,6 +417,8 @@ destroy_surface(struct window *window)
 	wl_egl_window_destroy(window->native);
 
 	xdg_surface_destroy(window->xdg_surface);
+	if (window->display->ivi_application)
+		ivi_surface_destroy(window->ivi_surface);
 	wl_surface_destroy(window->surface);
 
 	if (window->callback)
@@ -868,11 +870,6 @@ main(int argc, char **argv)
 
 	fprintf(stderr, "simple-egl exiting\n");
 
-	if (window.display->ivi_application) {
-		ivi_surface_destroy(window.ivi_surface);
-		ivi_application_destroy(window.display->ivi_application);
-	}
-
 	destroy_surface(&window);
 	fini_egl(&display);
 
@@ -882,6 +879,9 @@ main(int argc, char **argv)
 
 	if (display.shell)
 		xdg_shell_destroy(display.shell);
+
+	if (display.ivi_application)
+		ivi_application_destroy(display.ivi_application);
 
 	if (display.compositor)
 		wl_compositor_destroy(display.compositor);
