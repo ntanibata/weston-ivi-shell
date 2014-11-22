@@ -285,9 +285,9 @@ handle_surface_configure(void *data, struct xdg_surface *surface,
 	wl_array_for_each(p, states) {
 		uint32_t state = *p;
 		switch (state) {
-			case XDG_SURFACE_STATE_FULLSCREEN:
-				window->fullscreen = 1;
-				break;
+		case XDG_SURFACE_STATE_FULLSCREEN:
+			window->fullscreen = 1;
+			break;
 		}
 	}
 
