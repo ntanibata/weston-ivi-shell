@@ -93,7 +93,7 @@ struct wlContextCommon {
 	struct ivi_application		*iviApplication;
 	struct ivi_hmi_controller	*hmiCtrl;
 	struct hmi_homescreen_setting	*hmi_setting;
-	struct wl_list			*list_wlContextStruct;
+	struct wl_list			list_wlContextStruct;
 	struct wl_surface		*enterSurface;
 	int32_t				is_home_on;
 	struct wl_cursor_theme		*cursor_theme;
@@ -104,7 +104,7 @@ struct wlContextCommon {
 };
 
 struct wlContextStruct {
-	struct wlContextCommon	cmm;
+	struct wlContextCommon	*cmm;
 	struct wl_surface	*wlSurface;
 	struct wl_buffer	*wlBuffer;
 	uint32_t		formats;
@@ -199,7 +199,7 @@ getIdOfWlSurface(struct wlContextCommon *pCtx, struct wl_surface *wlSurface)
 	if (NULL == pCtx || NULL == wlSurface )
 		return 0;
 
-	wl_list_for_each(pWlCtxSt, pCtx->list_wlContextStruct, link) {
+	wl_list_for_each(pWlCtxSt, &pCtx->list_wlContextStruct, link) {
 		if (pWlCtxSt->wlSurface == wlSurface)
 			return pWlCtxSt->id_surface;
 	}
@@ -823,7 +823,7 @@ createShmBuffer(struct wlContextStruct *p_wlCtx)
 		return;
 	}
 
-	pool = wl_shm_create_pool(p_wlCtx->cmm.wlShm, fd, size);
+	pool = wl_shm_create_pool(p_wlCtx->cmm->wlShm, fd, size);
 	p_wlCtx->wlBuffer = wl_shm_pool_create_buffer(pool, 0,
 						      width,
 						      height,
@@ -868,10 +868,10 @@ static int
 createSurface(struct wlContextStruct *p_wlCtx)
 {
 	p_wlCtx->wlSurface =
-		wl_compositor_create_surface(p_wlCtx->cmm.wlCompositor);
+		wl_compositor_create_surface(p_wlCtx->cmm->wlCompositor);
 	if (NULL == p_wlCtx->wlSurface) {
 		printf("Error: wl_compositor_create_surface failed.\n");
-		destroyWLContextCommon(&p_wlCtx->cmm);
+		destroyWLContextCommon(p_wlCtx->cmm);
 		abort();
 	}
 
@@ -915,12 +915,12 @@ create_ivisurface(struct wlContextStruct *p_wlCtx,
 
 	p_wlCtx->id_surface = id_surface;
 	wl_list_init(&p_wlCtx->link);
-	wl_list_insert(p_wlCtx->cmm.list_wlContextStruct, &p_wlCtx->link);
+	wl_list_insert(&p_wlCtx->cmm->list_wlContextStruct, &p_wlCtx->link);
 
 	createSurface(p_wlCtx);
 	createShmBuffer(p_wlCtx);
 
-	ivisurf = ivi_application_surface_create(p_wlCtx->cmm.iviApplication,
+	ivisurf = ivi_application_surface_create(p_wlCtx->cmm->iviApplication,
 						 id_surface,
 						 p_wlCtx->wlSurface);
 	if (ivisurf == NULL) {
@@ -1054,7 +1054,7 @@ create_launchers(struct wlContextCommon *cmm, struct wl_list *launcher_list)
 			struct wlContextStruct *p_wlCtx;
 
 			p_wlCtx = MEM_ALLOC(sizeof(*p_wlCtx));
-			p_wlCtx->cmm = *cmm;
+			p_wlCtx->cmm = cmm;
 			create_ivisurfaceFromFile(p_wlCtx,
 						  launchers[jj]->icon_surface_id,
 						  launchers[jj]->icon);
@@ -1220,9 +1220,7 @@ int main(int argc, char **argv)
 	memset(&wlCtx_WorkSpaceBackGround, 0x00,
 	       sizeof(wlCtx_WorkSpaceBackGround));
 	wl_list_init(&launcher_wlCtxList);
-	wlCtxCommon.list_wlContextStruct = MEM_ALLOC(sizeof(struct wl_list));
-	assert(wlCtxCommon.list_wlContextStruct);
-	wl_list_init(wlCtxCommon.list_wlContextStruct);
+	wl_list_init(&wlCtxCommon.list_wlContextStruct);
 
 	wlCtxCommon.hmi_setting = hmi_setting;
 
@@ -1247,14 +1245,14 @@ int main(int argc, char **argv)
 		wlCtxCommon.current_cursor = CURSOR_LEFT_PTR;
 	}
 
-	wlCtx_BackGround.cmm = wlCtxCommon;
-	wlCtx_Panel.cmm      = wlCtxCommon;
-	wlCtx_Button_1.cmm   = wlCtxCommon;
-	wlCtx_Button_2.cmm   = wlCtxCommon;
-	wlCtx_Button_3.cmm   = wlCtxCommon;
-	wlCtx_Button_4.cmm   = wlCtxCommon;
-	wlCtx_HomeButton.cmm = wlCtxCommon;
-	wlCtx_WorkSpaceBackGround.cmm = wlCtxCommon;
+	wlCtx_BackGround.cmm = &wlCtxCommon;
+	wlCtx_Panel.cmm      = &wlCtxCommon;
+	wlCtx_Button_1.cmm   = &wlCtxCommon;
+	wlCtx_Button_2.cmm   = &wlCtxCommon;
+	wlCtx_Button_3.cmm   = &wlCtxCommon;
+	wlCtx_Button_4.cmm   = &wlCtxCommon;
+	wlCtx_HomeButton.cmm = &wlCtxCommon;
+	wlCtx_WorkSpaceBackGround.cmm = &wlCtxCommon;
 
 	/* create desktop widgets */
 	create_background(&wlCtx_BackGround, hmi_setting->background.id,
@@ -1288,12 +1286,11 @@ int main(int argc, char **argv)
 	while(ret != -1)
 		ret = wl_display_dispatch(wlCtxCommon.wlDisplay);
 
-	wl_list_for_each(pWlCtxSt, wlCtxCommon.list_wlContextStruct, link) {
+	wl_list_for_each(pWlCtxSt, &wlCtxCommon.list_wlContextStruct, link) {
 		destroyWLContextStruct(pWlCtxSt);
 	}
 
 	destroyWLContextCommon(&wlCtxCommon);
-	free(wlCtxCommon.list_wlContextStruct);
 
 	return 0;
 }
