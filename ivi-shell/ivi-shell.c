@@ -66,6 +66,7 @@ struct ivi_shell_surface
 	struct wl_list link;
 
 	struct wl_listener configured_listener;
+	struct wl_listener resource_destroy_listener;
 };
 
 struct ivi_shell_setting
@@ -155,6 +156,25 @@ ivi_shell_surface_configure(struct weston_surface *surface,
 	}
 }
 
+static void
+destroy_shell_surface(struct ivi_shell_surface *ivisurf)
+{
+	wl_list_remove(&ivisurf->surface_destroy_listener.link);
+	wl_list_remove(&ivisurf->link);
+
+	if (ivisurf->surface != NULL) {
+		ivisurf->surface->configure = NULL;
+		ivisurf->surface->configure_private = NULL;
+		ivisurf->surface = NULL;
+	}
+
+	if (ivisurf->resource != NULL) {
+		wl_resource_set_user_data(ivisurf->resource, NULL);
+		ivisurf->resource = NULL;
+	}
+	free(ivisurf);
+}
+
 /*
  * The ivi_surface wl_resource destructor.
  *
@@ -192,21 +212,12 @@ shell_handle_surface_destroy(struct wl_listener *listener, void *data)
 	 * not need to be a separate function. It could be done in
 	 * shell_handle_surface_destroy() too.
 	*/
-	if (ivisurf->surface!=NULL) {
-		ivisurf->surface->configure = NULL;
-		ivisurf->surface->configure_private = NULL;
-		ivisurf->surface = NULL;
+
+	if (ivisurf->resource) {
+		wl_resource_destroy(ivisurf->resource);
 	}
 
-	wl_list_remove(&ivisurf->surface_destroy_listener.link);
-	wl_list_remove(&ivisurf->link);
-
-	if (ivisurf->resource != NULL) {
-		wl_resource_set_user_data(ivisurf->resource, NULL);
-		ivisurf->resource = NULL;
-	}
-	free(ivisurf);
-
+	destroy_shell_surface(ivisurf);
 }
 
 /* Gets called, when a client sends ivi_surface.destroy request. */
@@ -223,6 +234,25 @@ surface_destroy(struct wl_client *client, struct wl_resource *resource)
 static const struct ivi_surface_interface surface_implementation = {
 	surface_destroy,
 };
+
+static void
+handle_resource_destroy(struct wl_listener *listener, void *data)
+{
+	struct ivi_shell_surface *ivisurf =
+		container_of(listener, struct ivi_shell_surface,
+			     resource_destroy_listener);
+
+	if (!weston_surface_is_mapped(ivisurf->surface))
+		return;
+
+	ivisurf->surface->ref_count++;
+
+	pixman_region32_fini(&ivisurf->surface->pending.input);
+	pixman_region32_init(&ivisurf->surface->pending.input);
+	pixman_region32_fini(&ivisurf->surface->input);
+	pixman_region32_init(&ivisurf->surface->input);
+	weston_surface_destroy(ivisurf->surface);
+}
 
 /**
  * Request handler for ivi_application.surface_create.
@@ -335,6 +365,9 @@ wl_resource_add_destroy_listener(surface->resource,
 	 * semantics you want, or if might need both. So, figure out what
 	 * semantics you want first.
 	 */
+	ivisurf->resource_destroy_listener.notify = handle_resource_destroy;
+	wl_resource_add_destroy_listener(weston_surface->resource,
+	&ivisurf->resource_destroy_listener);
 
 	ivisurf->surface_destroy_listener.notify = shell_handle_surface_destroy;
 	wl_signal_add(&weston_surface->destroy_signal,
