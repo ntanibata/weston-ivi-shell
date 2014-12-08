@@ -160,6 +160,7 @@ struct gl_renderer {
 	struct gl_shader *current_shader;
 
 	struct wl_signal destroy_signal;
+	void (*repaint_views)(struct weston_output *output, pixman_region32_t *damage);
 };
 
 static inline struct gl_output_state *
@@ -673,11 +674,30 @@ out:
 static void
 repaint_views(struct weston_output *output, pixman_region32_t *damage)
 {
+	struct gl_renderer *gr = get_renderer(output->compositor);
+	gr->repaint_views(output, damage);
+}
+
+static void
+repaint_views_stride(struct weston_output *output, pixman_region32_t *damage)
+{
 	struct weston_compositor *compositor = output->compositor;
 	struct weston_view *view;
 
 	wl_list_for_each_reverse(view, &compositor->view_list, link)
 		if (view->plane == &compositor->primary_plane)
+			draw_view(view, output, damage);
+}
+
+static void
+repaint_views_nonstride(struct weston_output *output, pixman_region32_t *damage)
+{
+	struct weston_compositor *compositor = output->compositor;
+	struct weston_view *view;
+
+	wl_list_for_each_reverse(view, &compositor->view_list, link)
+		if (view->plane == &compositor->primary_plane &&
+		    view->output_mask & (1 << output->id))
 			draw_view(view, output, damage);
 }
 
@@ -2013,6 +2033,12 @@ gl_renderer_create(struct weston_compositor *ec, EGLNativeDisplayType display,
 		goto err_egl;
 
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_RGB565);
+
+	if (ec->stride_screen) {
+		gr->repaint_views = repaint_views_stride;
+	} else {
+		gr->repaint_views = repaint_views_nonstride;
+	}
 
 	wl_signal_init(&gr->destroy_signal);
 
