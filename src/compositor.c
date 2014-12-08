@@ -1020,6 +1020,12 @@ weston_surface_assign_output(struct weston_surface *es)
 static void
 weston_view_assign_output(struct weston_view *ev)
 {
+	ev->surface->compositor->view_assign_output(ev);
+}
+
+static void
+weston_view_assign_output_func(struct weston_view *ev)
+{
 	struct weston_compositor *ec = ev->surface->compositor;
 	struct weston_output *output, *new_output;
 	pixman_region32_t region;
@@ -4824,6 +4830,7 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
+	ec->view_assign_output = weston_view_assign_output_func;
 	weston_compositor_log_capabilities(ec);
 
 	server_socket = getenv("WAYLAND_SERVER_SOCKET");
