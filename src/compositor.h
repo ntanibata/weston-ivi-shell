@@ -665,6 +665,7 @@ struct weston_compositor {
 	clockid_t presentation_clock;
 
 	void (*view_assign_output)(struct weston_view *view);
+	bool stride_screen;
 
 	int exit_code;
 };

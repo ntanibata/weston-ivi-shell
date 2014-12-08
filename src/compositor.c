@@ -455,6 +455,15 @@ weston_view_create(struct weston_surface *surface)
 	pixman_region32_init(&view->transform.boundingbox);
 	view->transform.dirty = 1;
 
+	if (!surface->compositor->stride_screen) {
+		view->output = container_of(view->surface->compositor->output_list.next,
+					    struct weston_output, link);
+		view->output_mask = 1 << view->output->id;
+		return view;
+	}
+
+	view->output = NULL;
+
 	return view;
 }
 
@@ -1024,7 +1033,7 @@ weston_view_assign_output(struct weston_view *ev)
 }
 
 static void
-weston_view_assign_output_func(struct weston_view *ev)
+weston_view_assign_output_stride(struct weston_view *ev)
 {
 	struct weston_compositor *ec = ev->surface->compositor;
 	struct weston_output *output, *new_output;
@@ -1056,6 +1065,12 @@ weston_view_assign_output_func(struct weston_view *ev)
 	ev->output = new_output;
 	ev->output_mask = mask;
 
+	weston_surface_assign_output(ev->surface);
+}
+
+static void
+weston_view_assign_output_nonstride(struct weston_view *ev)
+{
 	weston_surface_assign_output(ev->surface);
 }
 
@@ -4728,6 +4743,7 @@ int main(int argc, char *argv[])
 	struct wl_client *primary_client;
 	struct wl_listener primary_client_destroyed;
 	struct weston_seat *seat;
+	int32_t stride_screen_on;
 
 	const struct weston_option core_options[] = {
 		{ WESTON_OPTION_STRING, "backend", 'B', &backend },
@@ -4830,7 +4846,14 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	ec->view_assign_output = weston_view_assign_output_func;
+	weston_config_section_get_bool(section, "stride-screen", &stride_screen_on, 1);
+	ec->stride_screen = stride_screen_on;
+	if (stride_screen_on) {
+		ec->view_assign_output = weston_view_assign_output_stride;
+	} else {
+		ec->view_assign_output = weston_view_assign_output_nonstride;
+	}
+
 	weston_compositor_log_capabilities(ec);
 
 	server_socket = getenv("WAYLAND_SERVER_SOCKET");
