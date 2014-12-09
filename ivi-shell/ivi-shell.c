@@ -395,14 +395,17 @@ ivi_shell_setting_create(struct ivi_shell_setting *dest,
 /*
  * Initialization of ivi-shell.
  */
+struct ivi_controller_interface ivi_controller_interface;
 static int
 ivi_load_modules(struct weston_compositor *compositor, const char *modules,
 		 int *argc, char *argv[])
 {
 	const char *p, *end;
 	char buffer[256];
-	int (*module_init)(struct weston_compositor *compositor,
-			   int *argc, char *argv[]);
+	int (*controller_module_init)(struct weston_compositor *compositor,
+				      int *argc, char *argv[],
+				      struct ivi_controller_interface *interface,
+				      const size_t interface_version);
 
 	if (modules == NULL)
 		return 0;
@@ -412,9 +415,11 @@ ivi_load_modules(struct weston_compositor *compositor, const char *modules,
 		end = strchrnul(p, ',');
 		snprintf(buffer, sizeof buffer, "%.*s", (int)(end - p), p);
 
-		module_init = weston_load_module(buffer, "module_init");
-		if (module_init)
-			module_init(compositor, argc, argv);
+		controller_module_init = weston_load_module(buffer, "controller_module_init");
+		if (controller_module_init)
+			controller_module_init(compositor, argc, argv,
+					       &ivi_controller_interface,
+					       sizeof(struct ivi_controller_interface));
 
 		p = end;
 		while (*p == ',')

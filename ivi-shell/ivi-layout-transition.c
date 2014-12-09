@@ -76,7 +76,7 @@ get_transition_from_type_and_id(enum ivi_layout_transition_type type,
 	return NULL;
 }
 
-WL_EXPORT int32_t
+int32_t
 is_surface_transition(struct ivi_layout_surface *surface)
 {
 	struct ivi_layout *layout = get_instance();
@@ -156,7 +156,7 @@ layout_transition_frame(void *data)
 	return 1;
 }
 
-WL_EXPORT struct ivi_layout_transition_set *
+struct ivi_layout_transition_set *
 ivi_layout_transition_set_create(struct weston_compositor *ec)
 {
 	struct ivi_layout_transition_set *transitions;
@@ -359,7 +359,7 @@ create_move_resize_view_transition(
 	return transition;
 }
 
-WL_EXPORT void
+void
 ivi_layout_transition_move_resize_view(struct ivi_layout_surface *surface,
 				       int32_t dest_x, int32_t dest_y,
 				       int32_t dest_width, int32_t dest_height,
@@ -512,7 +512,7 @@ visibility_on_transition_destroy(struct ivi_layout_transition *transition)
 	transition->user_data = NULL;
 }
 
-WL_EXPORT void
+void
 ivi_layout_transition_visibility_on(struct ivi_layout_surface *surface,
 				    uint32_t duration)
 {
@@ -577,7 +577,7 @@ visibility_off_transition_destroy(struct ivi_layout_transition *transition)
 	transition->user_data= NULL;
 }
 
-WL_EXPORT void
+void
 ivi_layout_transition_visibility_off(struct ivi_layout_surface *surface,
 				     uint32_t duration)
 {
@@ -703,7 +703,7 @@ create_move_layer_transition(
 	return transition;
 }
 
-WL_EXPORT void
+void
 ivi_layout_transition_move_layer(struct ivi_layout_layer *layer,
 				 int32_t dest_x, int32_t dest_y,
 				 uint32_t duration)
@@ -726,7 +726,7 @@ ivi_layout_transition_move_layer(struct ivi_layout_layer *layer,
 	return;
 }
 
-WL_EXPORT void
+void
 ivi_layout_transition_move_layer_cancel(struct ivi_layout_layer *layer)
 {
 	struct ivi_layout_transition *transition =
@@ -779,7 +779,7 @@ is_transition_fade_layer_func(struct fade_layer_data *data,
 	return data->layer == layer;
 }
 
-WL_EXPORT void
+void
 ivi_layout_transition_fade_layer(
 			struct ivi_layout_layer *layer,
 			uint32_t is_fade_in,
@@ -849,251 +849,7 @@ ivi_layout_transition_fade_layer(
 	return;
 }
 
-/* render order transition */
-struct surface_reorder {
-	uint32_t id_surface;
-	uint32_t new_index;
-};
-
-struct change_order_data {
-	struct ivi_layout_layer *layer;
-	uint32_t surface_num;
-	struct surface_reorder *reorder;
-};
-
-struct surf_with_index {
-	uint32_t id_surface;
-	float surface_index;
-};
-
-static int
-cmp_order_asc(const void *lhs, const void *rhs)
-{
-	const struct surf_with_index *l = lhs;
-	const struct surf_with_index *r = rhs;
-
-	return l->surface_index > r->surface_index;
-}
-
-/*
-render oerder transition
-
-index   0      1      2
-old   surfA, surfB, surfC
-new   surfB, surfC, surfA
-       (-1)  (-1)   (+2)
-
-after 10% of time elapsed
-       0.2    0.9    1.9
-      surfA, surfB, surfC
-
-after 50% of time elapsed
-       0.5    1.0    1.5
-      surfB, surfA, surfC
-*/
-
-static void
-transition_change_order_user_frame(struct ivi_layout_transition *transition)
-{
-	uint32_t i, old_index;
-	double current = time_to_nowpos(transition);
-	struct change_order_data *data = transition->private_data;
-
-	struct surf_with_index *swi = malloc(sizeof(*swi) * data->surface_num);
-	struct ivi_layout_surface **new_surface_order = NULL;
-	uint32_t surface_num = 0;
-
-	if (swi == NULL) {
-		weston_log("%s: memory allocation fails\n", __func__);
-		return;
-	}
-
-	for (old_index = 0; old_index < data->surface_num; old_index++) {
-		swi[old_index].id_surface = data->reorder[old_index].id_surface;
-		swi[old_index].surface_index = (float)old_index +
-			((float)data->reorder[old_index].new_index - (float)old_index) * current;
-	}
-
-	qsort(swi, data->surface_num, sizeof(*swi), cmp_order_asc);
-
-	new_surface_order =
-		malloc(sizeof(*new_surface_order) * data->surface_num);
-
-	if (new_surface_order == NULL) {
-		weston_log("%s: memory allocation fails\n", __func__);
-		return;
-	}
-
-	for (i = 0; i < data->surface_num; i++) {
-		struct ivi_layout_surface *surf =
-			ivi_layout_get_surface_from_id(swi[i].id_surface);
-		if(surf)
-			new_surface_order[surface_num++] = surf;
-	}
-
-	ivi_layout_layer_set_render_order(data->layer, new_surface_order,
-					  surface_num);
-
-	free(new_surface_order);
-	free(swi);
-}
-
-static void
-transition_change_order_destroy(struct ivi_layout_transition *transition)
-{
-	struct change_order_data *data = transition->private_data;
-
-	free(data->reorder);
-	free(data);
-}
-
-static int32_t find_surface(struct ivi_layout_surface **surfaces,
-			    uint32_t surface_num,
-			    struct ivi_layout_surface *target)
-{
-	uint32_t i = 0;
-
-	for(i = 0; i < surface_num; i++) {
-		if (surfaces[i] == target)
-			return i;
-	}
-
-	return -1;
-}
-
-static int32_t
-is_transition_change_order_func(struct change_order_data *data,
-				struct ivi_layout_layer *layer)
-{
-	return data->layer == layer;
-}
-
-WL_EXPORT void
-ivi_layout_transition_layer_render_order(struct ivi_layout_layer *layer,
-					 struct ivi_layout_surface **new_order,
-					 uint32_t surface_num,
-					 uint32_t duration)
-{
-	struct surface_reorder *reorder;
-	struct ivi_layout_surface *surf;
-	uint32_t old_index = 0;
-	struct ivi_layout_transition *transition;
-	struct change_order_data *data = NULL;
-	int32_t new_index = 0;
-	uint32_t id = 0;
-
-	reorder = malloc(sizeof(*reorder) * surface_num);
-	if (reorder == NULL) {
-		weston_log("%s: memory allocation fails\n", __func__);
-		return;
-	}
-
-	wl_list_for_each(surf, &layer->order.surface_list, order.link) {
-		new_index = find_surface(new_order, surface_num, surf);
-		id = ivi_layout_get_id_of_surface(surf);
-		if(new_index < 0){
-			fprintf(stderr, "invalid render order!!!\n");
-			return;
-		}
-
-		reorder[old_index].id_surface = id;
-		reorder[old_index].new_index = new_index;
-		old_index++;
-	}
-
-	transition = get_transition_from_type_and_id(
-					IVI_LAYOUT_TRANSITION_LAYER_VIEW_ORDER,
-					layer);
-	if (transition) {
-		/* update transition */
-		struct change_order_data *data = transition->private_data;
-		transition->time_start = 0; /* timer reset */
-
-		if (duration != 0) {
-			transition->time_duration = duration;
-		}
-
-		free(data->reorder);
-		data->reorder = reorder;
-		return;
-	}
-
-	transition = create_layout_transition();
-	data = malloc(sizeof(*data));
-
-	if (data == NULL) {
-		weston_log("%s: memory allocation fails\n", __func__);
-		return;
-	}
-
-	transition->type = IVI_LAYOUT_TRANSITION_LAYER_VIEW_ORDER;
-	transition->is_transition_func = (ivi_layout_is_transition_func)is_transition_change_order_func;
-
-	transition->private_data = data;
-	transition->frame_func = transition_change_order_user_frame;
-	transition->destroy_func = transition_change_order_destroy;
-
-	if (duration != 0)
-		transition->time_duration = duration;
-
-	data->layer = layer;
-	data->reorder = reorder;
-	data->surface_num = old_index;
-
-	layout_transition_register(transition);
-}
-
-WL_EXPORT int32_t
-ivi_layout_surface_set_transition(struct ivi_layout_surface *ivisurf,
-				  enum ivi_layout_transition_type type,
-				  uint32_t duration)
-{
-	struct ivi_layout_surface_properties *prop;
-
-	if (ivisurf == NULL) {
-		weston_log("%s: invalid argument\n", __func__);
-		return -1;
-	}
-
-	prop = &ivisurf->pending.prop;
-	prop->transition_type = type;
-	prop->transition_duration = duration;
-	return 0;
-}
-
 int32_t
-ivi_layout_surface_set_transition_duration(struct ivi_layout_surface *ivisurf,
-					   uint32_t duration)
-{
-	struct ivi_layout_surface_properties *prop;
-
-	if (ivisurf == NULL) {
-		weston_log("%s: invalid argument\n", __func__);
-		return -1;
-	}
-
-	prop = &ivisurf->pending.prop;
-	prop->transition_duration = duration*10;
-	return 0;
-}
-
-WL_EXPORT int32_t
-ivi_layout_layer_set_transition(struct ivi_layout_layer *ivilayer,
-				enum ivi_layout_transition_type type,
-				uint32_t duration)
-{
-	if (ivilayer == NULL) {
-		weston_log("%s: invalid argument\n", __func__);
-		return -1;
-	}
-
-	ivilayer->pending.prop.transition_type = type;
-	ivilayer->pending.prop.transition_duration = duration;
-
-	return 0;
-}
-
-WL_EXPORT int32_t
 ivi_layout_layer_set_fade_info(struct ivi_layout_layer* ivilayer,
 			       uint32_t is_fade_in,
 			       double start_alpha, double end_alpha)
@@ -1109,3 +865,4 @@ ivi_layout_layer_set_fade_info(struct ivi_layout_layer* ivilayer,
 
 	return 0;
 }
+
