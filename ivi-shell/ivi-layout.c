@@ -2459,6 +2459,28 @@ ivi_layout_surface_get_weston_surface(struct ivi_layout_surface *ivisurf)
 }
 
 static int32_t
+ivi_layout_surface_get_size(struct ivi_layout_surface *ivisurf, int32_t *width, int32_t *height, int32_t *stride)
+{
+	if (ivisurf == NULL) {
+		return IVI_FAILED;
+	}
+
+	if (width != NULL) {
+		*width = ivisurf->prop.source_width;
+	}
+
+	if (height != NULL) {
+		*height = ivisurf->prop.source_height;
+	}
+
+	if (stride != NULL) {
+		*stride = ivisurf->prop.source_width * (32 / 8); // FIXME
+	}
+
+	return IVI_SUCCEEDED;
+}
+
+static int32_t
 ivi_layout_layer_add_notification(struct ivi_layout_layer *ivilayer,
 				  layer_property_notification_func callback,
 				  void *userdata)
@@ -2878,6 +2900,7 @@ static struct ivi_controller_interface ivi_controller_interface = {
 	.surface_add_notification		= ivi_layout_surface_add_notification,
 	.surface_remove_notification		= ivi_layout_surface_remove_notification,
 	.surface_get_weston_surface		= ivi_layout_surface_get_weston_surface,
+	.surface_get_size			= ivi_layout_surface_get_size,
 	.surface_set_transition			= ivi_layout_surface_set_transition,
 	.surface_set_transition_duration	= ivi_layout_surface_set_transition_duration,
 

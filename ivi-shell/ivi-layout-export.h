@@ -414,6 +414,12 @@ struct ivi_controller_interface {
 		(*surface_get_weston_surface)(struct ivi_layout_surface *ivisurf);
 
 	/**
+	 * \brief get size and stride of ivi_surface
+	 */
+	int32_t (*surface_get_size)
+		(struct ivi_layout_surface *ivisurf, int32_t *width, int32_t *height, int32_t *stride);
+
+	/**
 	 * \brief set type of transition animation
 	 */
 	int32_t (*surface_set_transition)(struct ivi_layout_surface *ivisurf,
