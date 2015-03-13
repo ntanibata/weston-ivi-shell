@@ -378,8 +378,11 @@ ivi_shell_setting_create(struct ivi_shell_setting *dest,
 
 	if (weston_config_section_get_string(section, "ivi-module",
 					     &dest->ivi_module, NULL) != 0) {
-		weston_log("ivi-shell: No ivi-module set in config\n");
-		result = -1;
+		dest->ivi_module = strdup(getenv("IVI_SHELL_CONTROLLER"));
+		if (NULL == dest->ivi_module) {
+			weston_log("ivi-shell: No ivi-module set in config\n");
+			result = -1;
+		}
 	}
 
 	return result;
