@@ -1096,7 +1096,8 @@ EXTRA_DIST +=					\
 	protocol/presentation_timing.xml	\
 	protocol/scaler.xml			\
 	protocol/ivi-application.xml		\
-	protocol/ivi-hmi-controller.xml
+	protocol/ivi-hmi-controller.xml		\
+	protocol/ivi-shell-test.xml
 
 man_MANS = weston.1 weston.ini.5
 
