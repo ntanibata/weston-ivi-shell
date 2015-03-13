@@ -950,7 +950,8 @@ noinst_LTLIBRARIES +=			\
 	weston-test.la			\
 	$(module_tests)			\
 	libtest-runner.la		\
-	libtest-client.la
+	libtest-client.la		\
+	ivi-shell-test.la
 
 noinst_PROGRAMS +=			\
 	$(setbacklight)			\
@@ -1074,6 +1075,31 @@ setbacklight_CFLAGS = $(AM_CFLAGS) $(SETBACKLIGHT_CFLAGS)
 setbacklight_LDADD = $(SETBACKLIGHT_LIBS)
 endif
 
+if ENABLE_IVI_SHELL
+ivi_shell_test = ivi-shell-test.la
+ivi_shell_test_la_LDFLAGS = $(test_module_ldflags)
+ivi_shell_test_la_LIBADD = $(COMPOSITOR_LIBS)
+ivi_shell_test_la_CFLAGS = $(GCC_CFLAGS) $(COMPOSITOR_CFLAGS)
+ivi_shell_test_la_SOURCES =			\
+	ivi-shell/ivi-layout-export.h		\
+	tests/ivi-shell-test.c
+
+nodist_ivi_shell_test_la_SOURCES =		\
+	protocol/ivi-shell-test-protocol.c	\
+	protocol/ivi-shell-test-server-protocol.h
+
+weston_tests += ivi-shell-test-client.weston
+ivi_shell_test_client_weston_SOURCES = \
+	tests/ivi-shell-test-client.c           \
+	protocol/ivi-application-protocol.c \
+	protocol/ivi-application-client-protocol.h \
+	protocol/ivi-shell-test-protocol.c \
+	protocol/ivi-shell-test-client-protocol.h
+ivi_shell_test_client_weston_CFLAGS = $(AM_CFLAGS) $(TEST_CLIENT_CFLAGS)
+ivi_shell_test_client_weston_LDADD = libtest-client.la
+
+endif
+
 EXTRA_DIST += tests/weston-tests-env
 
 BUILT_SOURCES +=				\
@@ -1081,7 +1107,10 @@ BUILT_SOURCES +=				\
 	protocol/wayland-test-server-protocol.h	\
 	protocol/wayland-test-client-protocol.h	\
 	protocol/text-protocol.c		\
-	protocol/text-client-protocol.h
+	protocol/text-client-protocol.h		\
+	protocol/ivi-shell-test-protocol.c	\
+	protocol/ivi-shell-test-server-protocol.h\
+	protocol/ivi-shell-test-client-protocol.h
 
 EXTRA_DIST +=					\
 	protocol/desktop-shell.xml		\
