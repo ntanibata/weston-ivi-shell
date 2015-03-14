@@ -957,6 +957,135 @@ test_layer_bad_properties(struct data *d)
 }
 
 /*****************************************************************************
+ *  tests for ivi-screen
+ ****************************************************************************/
+static void
+test_screen_id(struct data *d)
+{
+	struct ivi_layout_screen *iviscrn;
+
+	iviscrn = d->interface->get_screen_from_id(0);
+	ivi_test_assert(d, iviscrn != NULL);
+}
+
+static void
+test_screen_resolution(struct data *d)
+{
+	struct ivi_layout_screen **iviscreen;
+	struct ivi_layout_screen *iviscrn;
+	int32_t screen_length = 0;
+	int32_t width;
+	int32_t height;
+
+	ivi_test_assert(d, d->interface->get_screens(
+		&screen_length, &iviscreen) == IVI_SUCCEEDED);
+	iviscrn = iviscreen[0];
+
+	ivi_test_assert(d, d->interface->get_screen_resolution(
+		iviscrn, &width, &height) == IVI_SUCCEEDED);
+	ivi_test_assert(d, width == 1024);
+	ivi_test_assert(d, height == 640);
+}
+
+static void
+test_screen_render_order(struct data *d)
+{
+#define LAYER_NUM (3)
+	static const uint32_t id_layer[LAYER_NUM] = {146, 246, 346};
+	struct ivi_layout_screen *iviscrn = d->interface->get_screen_from_id(0);
+	struct ivi_layout_layer *ivilayers[LAYER_NUM] = {};
+	struct ivi_layout_layer **array;
+	int32_t length = 0;
+	uint32_t i;
+
+	for (i = 0; i < LAYER_NUM; i++) {
+		ivilayers[i] =
+			d->interface->layer_create_with_dimension(id_layer[i], 200, 300);
+	}
+
+	ivi_test_assert(d, d->interface->screen_set_render_order(
+		iviscrn, ivilayers, LAYER_NUM) == IVI_SUCCEEDED);
+
+	d->interface->commit_changes();
+
+	ivi_test_assert(d, d->interface->get_layers_on_screen(
+		iviscrn, &length, &array) == IVI_SUCCEEDED);
+	ivi_test_assert(d, length == LAYER_NUM);
+	for (i = 0; i < LAYER_NUM; i++) {
+		ivi_test_assert(d, array[i] == ivilayers[i]);
+	}
+
+	ivi_test_assert(d, d->interface->screen_set_render_order(
+		iviscrn, NULL, 0) == IVI_SUCCEEDED);
+
+	d->interface->commit_changes();
+
+	ivi_test_assert(d, d->interface->get_layers_on_screen(
+		iviscrn, &length, &array) == IVI_SUCCEEDED);
+	ivi_test_assert(d, length == 0);
+
+	for (i = 0; i < LAYER_NUM; i++) {
+		d->interface->layer_remove(ivilayers[i]);
+	}
+#undef LAYER_NUM
+}
+
+static void
+test_screen_bad_resolution(struct data *d)
+{
+	struct ivi_layout_screen **iviscreen;
+	struct ivi_layout_screen *iviscrn;
+	int32_t screen_length = 0;
+	int32_t width;
+	int32_t height;
+
+	ivi_test_assert(d, d->interface->get_screens(
+		&screen_length, &iviscreen) == IVI_SUCCEEDED);
+	iviscrn = iviscreen[0];
+
+	ivi_test_assert(d, d->interface->get_screen_resolution(
+		NULL, &width, &height) == IVI_FAILED);
+	ivi_test_assert(d, d->interface->get_screen_resolution(
+		iviscrn, NULL, &height) == IVI_FAILED);
+	ivi_test_assert(d, d->interface->get_screen_resolution(
+		iviscrn, &width, NULL) == IVI_FAILED);
+}
+
+static void
+test_screen_badrender_order(struct data *d)
+{
+#define LAYER_NUM (3)
+	static const uint32_t id_layer[LAYER_NUM] = {146, 246, 346};
+	struct ivi_layout_screen *iviscrn = d->interface->get_screen_from_id(0);
+	struct ivi_layout_layer *ivilayers[LAYER_NUM] = {};
+	struct ivi_layout_layer **array;
+	int32_t length = 0;
+	uint32_t i;
+
+	for (i = 0; i < LAYER_NUM; i++) {
+		ivilayers[i] =
+			d->interface->layer_create_with_dimension(id_layer[i], 200, 300);
+	}
+
+	ivi_test_assert(d, d->interface->screen_set_render_order(
+		NULL, ivilayers, LAYER_NUM) == IVI_FAILED);
+
+	d->interface->commit_changes();
+
+	ivi_test_assert(d, d->interface->get_layers_on_screen(
+		NULL, &length, &array) == IVI_FAILED);
+	ivi_test_assert(d, d->interface->get_layers_on_screen(
+		iviscrn, NULL, &array) == IVI_FAILED);
+	ivi_test_assert(d, d->interface->get_layers_on_screen(
+		iviscrn, &length, NULL) == IVI_FAILED);
+
+	for (i = 0; i < LAYER_NUM; i++) {
+		d->interface->layer_remove(ivilayers[i]);
+	}
+#undef LAYER_NUM
+}
+
+/*****************************************************************************
  *  Invoked as thread by request_start_ivi_shell_test requested by test client
  ****************************************************************************/
 static void *
@@ -1007,6 +1136,15 @@ test(void *param)
 	test_layer_bad_source_rectangle(d);
 	test_layer_bad_properties(d);
 	test_layer_bad_render_order(d);
+
+	/*
+	  ivi_screen related tests.
+	*/
+	test_screen_id(d);
+	test_screen_resolution(d);
+	test_screen_render_order(d);
+	test_screen_bad_resolution(d);
+	test_screen_badrender_order(d);
 
 	ivi_shell_test_send_exit_ivi_shell_test(resource);
 	exit(d->failed ? EXIT_FAILURE : EXIT_SUCCESS);
