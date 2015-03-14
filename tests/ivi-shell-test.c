@@ -504,6 +504,459 @@ test_surface_bad_properties(struct data *d)
 }
 
 /*****************************************************************************
+ *  tests for ivi-layer
+ ****************************************************************************/
+static void
+test_layer_create(struct data *d)
+{
+	static const uint32_t id_layer = 346;
+	uint32_t id1;
+	uint32_t id2;
+	struct ivi_layout_layer *ivilayer;
+	struct ivi_layout_layer *new_ivilayer;
+	struct ivi_layout_layer *destroy_ivilayer;
+
+	ivilayer = d->interface->layer_create_with_dimension(id_layer, 200, 300);
+	ivi_test_assert(d, ivilayer != NULL);
+
+	ivi_test_assert(d, id_layer == d->interface->get_id_of_layer(ivilayer));
+
+	new_ivilayer = d->interface->get_layer_from_id(id_layer);
+	ivi_test_assert(d, ivilayer == new_ivilayer);
+
+	id1 = d->interface->get_id_of_layer(ivilayer);
+	id2 = d->interface->get_id_of_layer(new_ivilayer);
+	ivi_test_assert(d, id1 == id2);
+
+	d->interface->layer_remove(ivilayer);
+	destroy_ivilayer = d->interface->get_layer_from_id(id_layer);
+	ivi_test_assert(d, destroy_ivilayer == NULL);
+}
+
+static void
+test_layer_visibility(struct data *d)
+{
+	static const uint32_t id_layer = 346;
+	struct ivi_layout_layer *ivilayer;
+	const struct ivi_layout_layer_properties *prop;
+	bool visibility;
+
+	ivilayer = d->interface->layer_create_with_dimension(id_layer, 200, 300);
+	ivi_test_assert(d, ivilayer != NULL);
+
+	ivi_test_assert(d, d->interface->layer_set_visibility(
+		ivilayer, true) == IVI_SUCCEEDED);
+
+	d->interface->commit_changes();
+
+	visibility = d->interface->layer_get_visibility(ivilayer);
+	ivi_test_assert(d, visibility == true);
+
+	prop = d->interface->get_properties_of_layer(ivilayer);
+	ivi_test_assert(d, prop->visibility == true);
+
+	d->interface->layer_remove(ivilayer);
+}
+
+static void
+test_layer_opacity(struct data *d)
+{
+	static const uint32_t id_layer = 346;
+	wl_fixed_t opacity;
+	struct ivi_layout_layer *ivilayer;
+	const struct ivi_layout_layer_properties *prop;
+
+	ivilayer = d->interface->layer_create_with_dimension(id_layer, 200, 300);
+	ivi_test_assert(d, ivilayer != NULL);
+
+	ivi_test_assert(d, d->interface->layer_set_opacity(
+		ivilayer, wl_fixed_from_double(0.5)) == IVI_SUCCEEDED);
+
+	d->interface->commit_changes();
+
+	opacity = d->interface->layer_get_opacity(ivilayer);
+	ivi_test_assert(d, opacity == wl_fixed_from_double(0.5));
+
+	prop = d->interface->get_properties_of_layer(ivilayer);
+	ivi_test_assert(d, prop->opacity == wl_fixed_from_double(0.5));
+
+	d->interface->layer_remove(ivilayer);
+}
+
+static void
+test_layer_orientation(struct data *d)
+{
+	static const uint32_t id_layer = 346;
+	struct ivi_layout_layer *ivilayer;
+	const struct ivi_layout_layer_properties *prop;
+	enum wl_output_transform orientation;
+
+	ivilayer = d->interface->layer_create_with_dimension(id_layer, 200, 300);
+	ivi_test_assert(d, ivilayer != NULL);
+
+	ivi_test_assert(d, d->interface->layer_set_orientation(
+		ivilayer, WL_OUTPUT_TRANSFORM_90) == IVI_SUCCEEDED);
+
+	d->interface->commit_changes();
+
+	orientation = d->interface->layer_get_orientation(ivilayer);
+	ivi_test_assert(d, orientation == WL_OUTPUT_TRANSFORM_90);
+
+	prop = d->interface->get_properties_of_layer(ivilayer);
+	ivi_test_assert(d, prop->orientation == WL_OUTPUT_TRANSFORM_90);
+
+	d->interface->layer_remove(ivilayer);
+}
+
+static void
+test_layer_dimension(struct data *d)
+{
+	static const uint32_t id_layer = 346;
+	struct ivi_layout_layer *ivilayer;
+	const struct ivi_layout_layer_properties *prop;
+	int32_t dest_width;
+	int32_t dest_height;
+
+	ivilayer = d->interface->layer_create_with_dimension(id_layer, 200, 300);
+	ivi_test_assert(d, ivilayer != NULL);
+
+	ivi_test_assert(d, d->interface->layer_set_dimension(
+		ivilayer, 200, 300) == IVI_SUCCEEDED);
+
+	d->interface->commit_changes();
+
+	ivi_test_assert(d, d->interface->layer_get_dimension(
+		ivilayer, &dest_width, &dest_height) == IVI_SUCCEEDED);
+	ivi_test_assert(d, dest_width == 200);
+	ivi_test_assert(d, dest_height == 300);
+
+	prop = d->interface->get_properties_of_layer(ivilayer);
+	ivi_test_assert(d, prop->dest_width == 200);
+	ivi_test_assert(d, prop->dest_height == 300);
+
+	d->interface->layer_remove(ivilayer);
+}
+
+static void
+test_layer_position(struct data *d)
+{
+	static const uint32_t id_layer = 346;
+	struct ivi_layout_layer *ivilayer;
+	const struct ivi_layout_layer_properties *prop;
+	int32_t dest_x;
+	int32_t dest_y;
+
+	ivilayer = d->interface->layer_create_with_dimension(id_layer, 200, 300);
+	ivi_test_assert(d, ivilayer != NULL);
+
+	ivi_test_assert(d, d->interface->layer_set_position(
+		ivilayer, 20, 30) == IVI_SUCCEEDED);
+
+	d->interface->commit_changes();
+
+	ivi_test_assert(d, d->interface->layer_get_position(
+		ivilayer, &dest_x, &dest_y) == IVI_SUCCEEDED);
+	ivi_test_assert(d, dest_x == 20);
+	ivi_test_assert(d, dest_y == 30);
+
+	prop = d->interface->get_properties_of_layer(ivilayer);
+	ivi_test_assert(d, prop->dest_x == 20);
+	ivi_test_assert(d, prop->dest_y == 30);
+
+	d->interface->layer_remove(ivilayer);
+}
+
+static void
+test_layer_destination(struct data *d)
+{
+	static const uint32_t id_layer = 346;
+	struct ivi_layout_layer *ivilayer;
+	const struct ivi_layout_layer_properties *prop;
+	int32_t dest_width;
+	int32_t dest_height;
+	int32_t dest_x;
+	int32_t dest_y;
+
+	ivilayer = d->interface->layer_create_with_dimension(id_layer, 200, 300);
+	ivi_test_assert(d, ivilayer != NULL);
+
+	ivi_test_assert(d, d->interface->layer_set_destination_rectangle(ivilayer, 20, 30, 200, 300) == IVI_SUCCEEDED);
+
+	d->interface->commit_changes();
+
+	ivi_test_assert(d, d->interface->layer_get_dimension(
+		ivilayer, &dest_width, &dest_height) == IVI_SUCCEEDED);
+	ivi_test_assert(d, dest_width == 200);
+	ivi_test_assert(d, dest_height == 300);
+
+	ivi_test_assert(d, d->interface->layer_get_position(
+		ivilayer, &dest_x, &dest_y) == IVI_SUCCEEDED);
+	ivi_test_assert(d, dest_x == 20);
+	ivi_test_assert(d, dest_y == 30);
+
+	prop = d->interface->get_properties_of_layer(ivilayer);
+	ivi_test_assert(d, prop->dest_width == 200);
+	ivi_test_assert(d, prop->dest_height == 300);
+	ivi_test_assert(d, prop->dest_x == 20);
+	ivi_test_assert(d, prop->dest_y == 30);
+
+	d->interface->layer_remove(ivilayer);
+}
+
+static void
+test_layer_source_rectangle(struct data *d)
+{
+	static const uint32_t id_layer = 346;
+	struct ivi_layout_layer *ivilayer;
+	const struct ivi_layout_layer_properties *prop;
+
+	ivilayer = d->interface->layer_create_with_dimension(id_layer, 200, 300);
+	ivi_test_assert(d, ivilayer != NULL);
+
+	ivi_test_assert(d, d->interface->layer_set_source_rectangle(
+		ivilayer, 20, 30, 200, 300) == IVI_SUCCEEDED);
+
+	d->interface->commit_changes();
+
+	prop = d->interface->get_properties_of_layer(ivilayer);
+	ivi_test_assert(d, prop->source_width == 200);
+	ivi_test_assert(d, prop->source_height == 300);
+	ivi_test_assert(d, prop->source_x == 20);
+	ivi_test_assert(d, prop->source_y == 30);
+
+	d->interface->layer_remove(ivilayer);
+}
+
+static void
+test_layer_render_order(struct data *d)
+{
+#define SURFACE_NUM (3)
+	static const uint32_t surfaces[SURFACE_NUM] = {1013, 1014, 1015};
+	static const uint32_t id_layer = 346;
+	struct ivi_layout_layer *ivilayer;
+	struct ivi_layout_surface *ivisurfs[SURFACE_NUM] = {};
+	struct ivi_layout_surface **array;
+	int32_t length = 0;
+	uint32_t i;
+
+	ivilayer = d->interface->layer_create_with_dimension(id_layer, 200, 300);
+
+	for (i = 0; i < SURFACE_NUM; i++) {
+		create_surface_sync(d, surfaces[i]);
+		ivisurfs[i] = d->interface->get_surface_from_id(surfaces[i]);
+	}
+
+	ivi_test_assert(d, d->interface->layer_set_render_order(
+		ivilayer, ivisurfs, SURFACE_NUM) == IVI_SUCCEEDED);
+
+	d->interface->commit_changes();
+
+	ivi_test_assert(d, d->interface->get_surfaces_on_layer(
+		ivilayer, &length, &array) == IVI_SUCCEEDED);
+	ivi_test_assert(d, length == SURFACE_NUM);
+	for (i = 0; i < SURFACE_NUM; i++) {
+		ivi_test_assert(d, array[i] == ivisurfs[i]);
+	}
+
+	ivi_test_assert(d, d->interface->layer_set_render_order(
+		ivilayer, NULL, 0) == IVI_SUCCEEDED);
+
+	d->interface->commit_changes();
+
+	ivi_test_assert(d, d->interface->get_surfaces_on_layer(
+		ivilayer, &length, &array) == IVI_SUCCEEDED);
+	ivi_test_assert(d, length == 0);
+
+	cleanup_surfaces(d, surfaces, SURFACE_NUM);
+
+	d->interface->layer_remove(ivilayer);
+#undef SURFACE_NUM
+}
+
+static void
+test_layer_bad_create(struct data *d)
+{
+	d->interface->layer_remove(NULL);
+}
+
+static void
+test_layer_bad_visibility(struct data *d)
+{
+	bool visibility;
+
+	ivi_test_assert(d, d->interface->layer_set_visibility(
+		NULL, true) == IVI_FAILED);
+
+	d->interface->commit_changes();
+
+	visibility = d->interface->layer_get_visibility(NULL);
+	ivi_test_assert(d, visibility == false);
+}
+
+static void
+test_layer_bad_opacity(struct data *d)
+{
+	static const uint32_t id_layer = 346;
+	wl_fixed_t opacity;
+	struct ivi_layout_layer *ivilayer;
+
+	ivilayer = d->interface->layer_create_with_dimension(id_layer, 200, 300);
+	ivi_test_assert(d, ivilayer != NULL);
+
+	ivi_test_assert(d, d->interface->layer_set_opacity(
+		ivilayer, wl_fixed_from_double(0.3)) == IVI_SUCCEEDED);
+
+	ivi_test_assert(d, d->interface->layer_set_opacity(
+		ivilayer, wl_fixed_from_double(-1)) == IVI_FAILED);
+
+	d->interface->commit_changes();
+
+	opacity = d->interface->layer_get_opacity(ivilayer);
+	ivi_test_assert(d, opacity == wl_fixed_from_double(0.3));
+
+	ivi_test_assert(d, d->interface->layer_set_opacity(
+		ivilayer, wl_fixed_from_double(1.1)) == IVI_FAILED);
+
+	d->interface->commit_changes();
+
+	opacity = d->interface->layer_get_opacity(ivilayer);
+	ivi_test_assert(d, opacity == wl_fixed_from_double(0.3));
+
+	ivi_test_assert(d, d->interface->layer_set_opacity(
+		NULL, wl_fixed_from_double(0.5)) == IVI_FAILED);
+
+	d->interface->commit_changes();
+
+	opacity = d->interface->layer_get_opacity(NULL);
+	ivi_test_assert(d, opacity == wl_fixed_from_double(0.0));
+
+	d->interface->layer_remove(ivilayer);
+}
+
+static void
+test_layer_bad_destination(struct data *d)
+{
+	ivi_test_assert(d, d->interface->layer_set_destination_rectangle(
+		NULL, 20, 30, 200, 300) == IVI_FAILED);
+}
+
+static void
+test_layer_bad_orientation(struct data *d)
+{
+	enum wl_output_transform orientation;
+
+	ivi_test_assert(d, d->interface->layer_set_orientation(
+		NULL, WL_OUTPUT_TRANSFORM_90) == IVI_FAILED);
+
+	d->interface->commit_changes();
+
+	orientation = d->interface->layer_get_orientation(NULL);
+	ivi_test_assert(d, orientation == WL_OUTPUT_TRANSFORM_NORMAL);
+}
+
+static void
+test_layer_bad_dimension(struct data *d)
+{
+	static const uint32_t id_layer = 346;
+	struct ivi_layout_layer *ivilayer;
+	int32_t dest_width;
+	int32_t dest_height;
+
+	ivilayer = d->interface->layer_create_with_dimension(id_layer, 200, 300);
+	ivi_test_assert(d, ivilayer != NULL);
+
+	ivi_test_assert(d, d->interface->layer_set_dimension(
+		NULL, 200, 300) == IVI_FAILED);
+
+	d->interface->commit_changes();
+
+	ivi_test_assert(d, d->interface->layer_get_dimension(
+		NULL, &dest_width, &dest_height) == IVI_FAILED);
+	ivi_test_assert(d, d->interface->layer_get_dimension(
+		ivilayer, NULL, &dest_height) == IVI_FAILED);
+	ivi_test_assert(d, d->interface->layer_get_dimension(
+		ivilayer, &dest_width, NULL) == IVI_FAILED);
+
+	d->interface->layer_remove(ivilayer);
+}
+
+static void
+test_layer_bad_position(struct data *d)
+{
+	static const uint32_t id_layer = 346;
+	struct ivi_layout_layer *ivilayer;
+	int32_t dest_x;
+	int32_t dest_y;
+
+	ivilayer = d->interface->layer_create_with_dimension(id_layer, 200, 300);
+	ivi_test_assert(d, ivilayer != NULL);
+
+	ivi_test_assert(d, d->interface->layer_set_position(
+		NULL, 20, 30) == IVI_FAILED);
+
+	d->interface->commit_changes();
+
+	ivi_test_assert(d, d->interface->layer_get_position(
+		NULL, &dest_x, &dest_y) == IVI_FAILED);
+	ivi_test_assert(d, d->interface->layer_get_position(
+		ivilayer, NULL, &dest_y) == IVI_FAILED);
+	ivi_test_assert(d, d->interface->layer_get_position(
+		ivilayer, &dest_x, NULL) == IVI_FAILED);
+
+	d->interface->layer_remove(ivilayer);
+}
+
+static void
+test_layer_bad_source_rectangle(struct data *d)
+{
+	ivi_test_assert(d, d->interface->layer_set_source_rectangle(
+		NULL, 20, 30, 200, 300) == IVI_FAILED);
+}
+
+static void
+test_layer_bad_render_order(struct data *d)
+{
+#define SURFACE_NUM (3)
+	static const uint32_t surfaces[SURFACE_NUM] = {1016, 1017, 1018};
+	static const uint32_t id_layer = 346;
+	struct ivi_layout_layer *ivilayer;
+	struct ivi_layout_surface *ivisurfs[SURFACE_NUM] = {};
+	struct ivi_layout_surface **array;
+	int32_t length = 0;
+	uint32_t i;
+
+	ivilayer = d->interface->layer_create_with_dimension(id_layer, 200, 300);
+
+	for (i = 0; i < SURFACE_NUM; i++) {
+		create_surface_sync(d, surfaces[i]);
+		ivisurfs[i] = d->interface->get_surface_from_id(surfaces[i]);
+	}
+
+	ivi_test_assert(d, d->interface->layer_set_render_order(
+		NULL, ivisurfs, SURFACE_NUM) == IVI_FAILED);
+
+	d->interface->commit_changes();
+
+	ivi_test_assert(d, d->interface->get_surfaces_on_layer(
+		NULL, &length, &array) == IVI_FAILED);
+	ivi_test_assert(d, d->interface->get_surfaces_on_layer(
+		ivilayer, NULL, &array) == IVI_FAILED);
+	ivi_test_assert(d, d->interface->get_surfaces_on_layer(
+		ivilayer, &length, NULL) == IVI_FAILED);
+
+	cleanup_surfaces(d, surfaces, SURFACE_NUM);
+
+	d->interface->layer_remove(ivilayer);
+#undef SURFACE_NUM
+}
+
+static void
+test_layer_bad_properties(struct data *d)
+{
+	ivi_test_assert(d, d->interface->get_properties_of_layer(NULL) == NULL);
+}
+
+/*****************************************************************************
  *  Invoked as thread by request_start_ivi_shell_test requested by test client
  ****************************************************************************/
 static void *
@@ -531,6 +984,29 @@ test(void *param)
 	test_surface_bad_position(d);
 	test_surface_bad_source_rectangle(d);
 	test_surface_bad_properties(d);
+
+	/*
+	  ivi_layer related tests.
+	*/
+	test_layer_create(d);
+	test_layer_visibility(d);
+	test_layer_opacity(d);
+	test_layer_orientation(d);
+	test_layer_dimension(d);
+	test_layer_position(d);
+	test_layer_destination(d);
+	test_layer_source_rectangle(d);
+	test_layer_render_order(d);
+	test_layer_bad_create(d);
+	test_layer_bad_visibility(d);
+	test_layer_bad_opacity(d);
+	test_layer_bad_destination(d);
+	test_layer_bad_orientation(d);
+	test_layer_bad_dimension(d);
+	test_layer_bad_position(d);
+	test_layer_bad_source_rectangle(d);
+	test_layer_bad_properties(d);
+	test_layer_bad_render_order(d);
 
 	ivi_shell_test_send_exit_ivi_shell_test(resource);
 	exit(d->failed ? EXIT_FAILURE : EXIT_SUCCESS);
