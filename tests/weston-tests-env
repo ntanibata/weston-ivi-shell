@@ -26,6 +26,23 @@ SHELL_PLUGIN=$abs_builddir/.libs/desktop-shell.so
 TEST_PLUGIN=$abs_builddir/.libs/weston-test.so
 XWAYLAND_PLUGIN=$abs_builddir/.libs/xwayland.so
 
+TEST=`echo $TESTNAME | cut -c 3-11`
+if test ${TEST} = "ivi-shell"; then
+	SHELL_PLUGIN=$abs_builddir/.libs/ivi-shell.so
+	WESTON_BUILD_DIR=$abs_builddir \
+	WESTON_TEST_CLIENT_PATH=$abs_builddir/$TESTNAME \
+	IVI_SHELL_CONTROLLER=$abs_builddir/.libs/ivi-shell-test.so \
+	$WESTON --backend=$BACKEND \
+		--no-config \
+		--shell=$SHELL_PLUGIN \
+		--socket=test-$(basename $TESTNAME) \
+		--modules=$XWAYLAND_PLUGIN \
+		--log="$SERVERLOG" \
+		&> "$OUTLOG"
+
+	exit
+fi
+
 case $TESTNAME in
 	*.la|*.so)
 		WESTON_BUILD_DIR=$abs_builddir \
