@@ -58,6 +58,14 @@ controller_module_init(struct weston_compositor *ec,
 /*****************************************************************************
  *  Common internal APIs to be used by all tests.
  ****************************************************************************/
+static struct weston_surface *
+get_weston_surface(struct data *d, uint32_t surface_id)
+{
+	struct ivi_layout_surface *ivi_surface = NULL;
+	ivi_surface = d->interface->get_surface_from_id(surface_id);
+	return d->interface->surface_get_weston_surface(ivi_surface);
+}
+
 static void
 create_surface_sync(struct data *d, uint32_t surface_id)
 {
@@ -1086,6 +1094,312 @@ test_screen_badrender_order(struct data *d)
 }
 
 /*****************************************************************************
+ *  tests for notifications
+ ****************************************************************************/
+static void
+test_layer_add_notification_callback(struct ivi_layout_layer *ivilayer,
+	 const struct ivi_layout_layer_properties *prop,
+	 enum ivi_layout_notification_mask mask,
+	 void *userdata)
+{
+	struct data *d = userdata;
+	ivi_test_assert(d, d->interface->get_id_of_layer(ivilayer) == 347);
+	ivi_test_assert(d, prop->source_width == 200);
+	ivi_test_assert(d, prop->source_height == 300);
+}
+
+static void
+test_layer_add_notification(struct data *d)
+{
+	static const uint32_t id_layer = 347;
+	struct ivi_layout_layer *ivilayer;
+
+	ivilayer = d->interface->layer_create_with_dimension(id_layer, 200, 300);
+
+	ivi_test_assert(d, d->interface->layer_add_notification(
+		ivilayer, test_layer_add_notification_callback, d) == IVI_SUCCEEDED);
+
+	d->interface->commit_changes();
+	d->interface->layer_remove_notification(ivilayer);
+	d->interface->commit_changes();
+
+	d->interface->layer_remove(ivilayer);
+}
+static void
+test_surface_add_notification_callback(struct ivi_layout_surface *ivisurf,
+	 const struct ivi_layout_surface_properties *prop,
+	 enum ivi_layout_notification_mask mask,
+	 void *userdata)
+{
+	struct data *d = userdata;
+	ivi_test_assert(d, d->interface->get_id_of_surface(ivisurf) == 1020);
+}
+
+static void
+test_surface_add_notification(struct data *d)
+{
+	static const uint32_t id_surface = 1020;
+	struct ivi_layout_surface *ivisurf;
+
+	create_surface_sync(d, id_surface);
+
+	ivisurf = d->interface->get_surface_from_id(id_surface);
+	ivi_test_assert(d, ivisurf != NULL);
+
+	ivi_test_assert(d, d->interface->surface_add_notification(
+		ivisurf, test_surface_add_notification_callback, d) == IVI_SUCCEEDED);
+
+	d->interface->commit_changes();
+	d->interface->surface_remove_notification(ivisurf);
+	d->interface->commit_changes();
+}
+
+static void
+test_surface_configure_notification_callback(struct ivi_layout_surface *ivisurf,
+	 void *userdata)
+{
+	struct data *d = userdata;
+	ivi_test_assert(d, d->interface->get_id_of_surface(ivisurf) == 1021);
+}
+
+static void
+test_surface_configure_notification(struct data *d)
+{
+#define SURFACE_NUM (2)
+	static const uint32_t surfaces[SURFACE_NUM] = {1021, 1022};
+	struct weston_surface *surface;
+
+	ivi_test_assert(d, d->interface->add_notification_configure_surface(
+		test_surface_configure_notification_callback, d) == IVI_SUCCEEDED);
+	d->interface->commit_changes();
+	create_surface_sync(d, surfaces[0]);
+
+	surface = get_weston_surface(d, surfaces[0]);
+
+	ivi_test_assert(d, surface->configure);
+	surface->width = 1;
+	surface->height = 1;
+	surface->configure(surface, 1, 1);
+
+	d->interface->remove_notification_configure_surface(
+		test_surface_configure_notification_callback, d);
+	d->interface->commit_changes();
+	create_surface_sync(d, surfaces[1]);
+
+	cleanup_surfaces(d, surfaces, SURFACE_NUM);
+#undef SURFACE_NUM
+}
+
+static void
+test_layer_create_notification_callback(struct ivi_layout_layer *ivilayer,
+	 void *userdata)
+{
+	struct data *d = userdata;
+	const struct ivi_layout_layer_properties *prop =
+		d->interface->get_properties_of_layer(ivilayer);
+
+	ivi_test_assert(d, d->interface->get_id_of_layer(ivilayer) == 348);
+	ivi_test_assert(d, prop->source_width == 200);
+	ivi_test_assert(d, prop->source_height == 300);
+}
+
+static void
+test_layer_create_notification(struct data *d)
+{
+#define LAYER_NUM (2)
+	static const uint32_t layers[LAYER_NUM] = {348, 349};
+	struct ivi_layout_layer *ivilayers[LAYER_NUM] = {};
+
+	ivi_test_assert(d, d->interface->add_notification_create_layer(
+		test_layer_create_notification_callback, d) == IVI_SUCCEEDED);
+	ivilayers[0] = d->interface->layer_create_with_dimension(layers[0], 200, 300);
+
+	d->interface->remove_notification_create_layer(
+		test_layer_create_notification_callback, d);
+
+	ivilayers[1] = d->interface->layer_create_with_dimension(layers[1], 400, 500);
+
+	d->interface->layer_remove(ivilayers[0]);
+	d->interface->layer_remove(ivilayers[1]);
+#undef LAYER_NUM
+}
+
+static void
+test_surface_create_notification_callback(struct ivi_layout_surface *ivisurf,
+	void *userdata)
+{
+	struct data *d = userdata;
+
+	ivi_test_assert(d, d->interface->get_id_of_surface(ivisurf) == 1023);
+}
+
+static void
+test_surface_create_notification(struct data *d)
+{
+#define SURFACE_NUM (2)
+	static const uint32_t surfaces[SURFACE_NUM] = {1023, 1024};
+
+	ivi_test_assert(d, d->interface->add_notification_create_surface(
+			test_surface_create_notification_callback, d) == IVI_SUCCEEDED);
+
+	create_surface_sync(d, surfaces[0]);
+
+	d->interface->remove_notification_create_surface(
+		test_surface_create_notification_callback, d);
+
+	create_surface_sync(d, surfaces[1]);
+#undef SURFACE_NUM
+}
+
+static void
+test_layer_remove_notification_callback(struct ivi_layout_layer *ivilayer,
+	void *userdata)
+{
+	struct data *d = userdata;
+	const struct ivi_layout_layer_properties *prop =
+		d->interface->get_properties_of_layer(ivilayer);
+
+	ivi_test_assert(d, d->interface->get_id_of_layer(ivilayer) == 350);
+	ivi_test_assert(d, prop->source_width == 200);
+	ivi_test_assert(d, prop->source_height == 300);
+}
+
+static void
+test_layer_remove_notification(struct data *d)
+{
+#define LAYER_NUM (2)
+	static const uint32_t layers[LAYER_NUM] = {350, 351};
+	struct ivi_layout_layer *ivilayers[LAYER_NUM] = {};
+
+	ivilayers[0] = d->interface->layer_create_with_dimension(layers[0], 200, 300);
+	ivi_test_assert(d, d->interface->add_notification_remove_layer(
+			test_layer_remove_notification_callback, d) == IVI_SUCCEEDED);
+	d->interface->layer_remove(ivilayers[0]);
+
+
+	ivilayers[1] = d->interface->layer_create_with_dimension(layers[1], 200, 300);
+	d->interface->remove_notification_remove_layer(
+		test_layer_remove_notification_callback, d);
+	d->interface->layer_remove(ivilayers[1]);
+#undef LAYER_NUM
+}
+
+static void
+test_surface_remove_notification_callback(struct ivi_layout_surface *ivisurf,
+	void *userdata)
+{
+	struct data *d = userdata;
+
+	ivi_test_assert(d, d->interface->get_id_of_surface(ivisurf) == 1025);
+}
+
+static void
+test_surface_remove_notification(struct data *d)
+{
+#define SURFACE_NUM (2)
+	static const uint32_t surfaces[SURFACE_NUM] = {1025, 1026};
+
+	create_surface_sync(d, surfaces[0]);
+	d->interface->get_surface_from_id(surfaces[0]);
+	ivi_test_assert(d, d->interface->add_notification_remove_surface(
+			test_surface_remove_notification_callback, d) == IVI_SUCCEEDED);
+	destroy_surface_sync(d, surfaces[0]);
+
+	create_surface_sync(d, surfaces[1]);
+	d->interface->get_surface_from_id(surfaces[1]);
+	d->interface->remove_notification_remove_surface(
+		test_surface_remove_notification_callback, d);
+	destroy_surface_sync(d, surfaces[1]);
+#undef SURFACE_NUM
+}
+
+static void
+test_layer_bad_add_notification_callback(struct ivi_layout_layer *ivilayer,
+	 const struct ivi_layout_layer_properties *prop,
+	 enum ivi_layout_notification_mask mask,
+	 void *userdata)
+{
+}
+
+static void
+test_layer_bad_add_notification(struct data *d)
+{
+	static const uint32_t id_layer = 352;
+	struct ivi_layout_layer *ivilayer;
+
+	ivilayer = d->interface->layer_create_with_dimension(id_layer, 200, 300);
+
+	ivi_test_assert(d, d->interface->layer_add_notification(
+		NULL, test_layer_bad_add_notification_callback, NULL) == IVI_FAILED);
+	ivi_test_assert(d, d->interface->layer_add_notification(
+		ivilayer, NULL, NULL) == IVI_FAILED);
+
+	d->interface->layer_remove(ivilayer);
+}
+
+static void
+test_surface_bad_add_notification_callback(struct ivi_layout_surface *ivisurf,
+	 const struct ivi_layout_surface_properties *prop,
+	 enum ivi_layout_notification_mask mask,
+	 void *userdata)
+{
+}
+
+static void
+test_surface_bad_add_notification(struct data *d)
+{
+	static const uint32_t id_surface = 1019;
+	struct ivi_layout_surface *ivisurf;
+
+	create_surface_sync(d, id_surface);
+
+	ivisurf = d->interface->get_surface_from_id(id_surface);
+	ivi_test_assert(d, ivisurf != NULL);
+
+	ivi_test_assert(d, d->interface->surface_add_notification(
+		NULL, test_surface_bad_add_notification_callback, NULL) == IVI_FAILED);
+	ivi_test_assert(d, d->interface->surface_add_notification(
+		ivisurf, NULL, NULL) == IVI_FAILED);
+
+	cleanup_surfaces(d, &id_surface, 1);
+}
+
+static void
+test_surface_bad_configure_notification(struct data *d)
+{
+	ivi_test_assert(d, d->interface->add_notification_configure_surface(
+		NULL, NULL) == IVI_FAILED);
+}
+
+static void
+test_layer_bad_create_notification(struct data *d)
+{
+	ivi_test_assert(d, d->interface->add_notification_create_layer(
+		NULL, NULL) == IVI_FAILED);
+}
+
+static void
+test_surface_bad_create_notification(struct data *d)
+{
+	ivi_test_assert(d, d->interface->add_notification_create_surface(
+		NULL, NULL) == IVI_FAILED);
+}
+
+static void
+test_layer_bad_remove_notification(struct data *d)
+{
+	ivi_test_assert(d, d->interface->add_notification_remove_layer(
+		NULL, NULL) == IVI_FAILED);
+}
+
+static void
+test_surface_bad_remove_notification(struct data *d)
+{
+	ivi_test_assert(d, d->interface->add_notification_remove_surface(
+		NULL, NULL) == IVI_FAILED);
+}
+
+/*****************************************************************************
  *  Invoked as thread by request_start_ivi_shell_test requested by test client
  ****************************************************************************/
 static void *
@@ -1145,6 +1459,24 @@ test(void *param)
 	test_screen_render_order(d);
 	test_screen_bad_resolution(d);
 	test_screen_badrender_order(d);
+
+	/*
+	  notification related tests.
+	*/
+	test_layer_add_notification(d);
+	test_surface_add_notification(d);
+	test_surface_configure_notification(d);
+	test_layer_create_notification(d);
+	test_surface_create_notification(d);
+	test_layer_remove_notification(d);
+	test_surface_remove_notification(d);
+	test_layer_bad_add_notification(d);
+	test_surface_bad_add_notification(d);
+	test_surface_bad_configure_notification(d);
+	test_layer_bad_create_notification(d);
+	test_surface_bad_create_notification(d);
+	test_layer_bad_remove_notification(d);
+	test_surface_bad_remove_notification(d);
 
 	ivi_shell_test_send_exit_ivi_shell_test(resource);
 	exit(d->failed ? EXIT_FAILURE : EXIT_SUCCESS);
