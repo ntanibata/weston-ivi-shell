@@ -75,16 +75,19 @@ struct test_launcher {
 	const struct ivi_controller_interface *controller_interface;
 };
 
-static void
-runner_destroy_handler(struct wl_client *client, struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
-
 struct test_context {
 	const struct ivi_controller_interface *controller_interface;
 	struct wl_resource *runner_resource;
 };
+static struct test_context ctx;
+
+static void
+runner_destroy_handler(struct wl_client *client, struct wl_resource *resource)
+{
+	ctx.controller_interface = NULL;
+	ctx.runner_resource = NULL;
+	wl_resource_destroy(resource);
+}
 
 static void
 runner_run_handler(struct wl_client *client, struct wl_resource *resource,
@@ -92,7 +95,6 @@ runner_run_handler(struct wl_client *client, struct wl_resource *resource,
 {
 	struct test_launcher *launcher;
 	const struct runner_test *t;
-	struct test_context ctx;
 
 	launcher = wl_resource_get_user_data(resource);
 	ctx.controller_interface = launcher->controller_interface;
