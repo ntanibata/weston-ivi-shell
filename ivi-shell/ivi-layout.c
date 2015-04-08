@@ -724,6 +724,11 @@ update_scale(struct ivi_layout_layer *ivilayer,
 		ivisurf->prop.dest_height = ivisurf->surface->height_from_buffer;
 	}
 
+	if (ivisurf->prop.source_width == 0 || ivisurf->prop.source_height == 0) {
+		ivisurf->prop.source_width  = ivisurf->surface->width_from_buffer;
+		ivisurf->prop.source_height = ivisurf->surface->height_from_buffer;
+	}
+
 	lw = ((float)ivilayer->prop.dest_width  / (float)ivilayer->prop.source_width );
 	sw = ((float)ivisurf->prop.dest_width	/ (float)ivisurf->prop.source_width  );
 	lh = ((float)ivilayer->prop.dest_height / (float)ivilayer->prop.source_height);
