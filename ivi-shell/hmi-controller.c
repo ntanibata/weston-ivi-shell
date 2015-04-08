@@ -515,17 +515,6 @@ static void
 set_notification_create_surface(struct ivi_layout_surface *ivisurf,
 				void *userdata)
 {
-	struct hmi_controller *hmi_ctrl = userdata;
-	struct ivi_layout_layer *application_layer =
-		hmi_ctrl->application_layer.ivilayer;
-	int32_t ret = 0;
-
-	/* skip ui widgets */
-	if (is_surf_in_ui_widget(hmi_ctrl, ivisurf))
-		return;
-
-	ret = ivi_controller_interface->layer_add_surface(application_layer, ivisurf);
-	assert(!ret);
 }
 
 static void
@@ -542,7 +531,33 @@ set_notification_configure_surface(struct ivi_layout_surface *ivisurf,
 				   void *userdata)
 {
 	struct hmi_controller *hmi_ctrl = userdata;
+	struct ivi_layout_layer *application_layer =
+		hmi_ctrl->application_layer.ivilayer;
+	struct ivi_layout_surface **ivisurfs;
+	int32_t length = 0;
+	int32_t ret = 0;
+	int32_t i;
 
+	if (is_surf_in_ui_widget(hmi_ctrl, ivisurf)) {
+		return;
+	}
+
+	/*
+	   search if the surface is already added to layer.
+	   If not yet, it is newly invoded application.
+	*/
+	ivi_controller_interface->get_surfaces_on_layer(application_layer,
+							&length, &ivisurfs);
+	for (i = 0; i < length; i++) {
+		if (ivisurf == ivisurfs[i])
+			return;
+	}
+
+	/* add the surface of application to layer to show on UI */
+	ret = ivi_controller_interface->layer_add_surface(application_layer,
+							  ivisurf);
+	assert(!ret);
+	/* call switch mode to show the application surface */
 	switch_mode(hmi_ctrl, hmi_ctrl->layout_mode);
 }
 
