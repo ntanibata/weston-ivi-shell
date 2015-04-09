@@ -533,13 +533,26 @@ set_notification_configure_surface(struct ivi_layout_surface *ivisurf,
 	struct hmi_controller *hmi_ctrl = userdata;
 	struct ivi_layout_layer *application_layer =
 		hmi_ctrl->application_layer.ivilayer;
+	struct weston_surface *surface;
 	struct ivi_layout_surface **ivisurfs;
 	int32_t length = 0;
 	int32_t ret = 0;
 	int32_t i;
 
+	/* return if the surface is not application content */
 	if (is_surf_in_ui_widget(hmi_ctrl, ivisurf)) {
 		return;
+	}
+
+	/*
+	   if application changes size of wl_buffer. The source rectangle shall be
+	   fit to the size.
+	*/
+	surface = ivi_controller_interface->surface_get_weston_surface(ivisurf);
+	if (surface) {
+		ivi_controller_interface->surface_set_source_rectangle(
+			ivisurf, 0, 0, surface->width_from_buffer,
+			surface->height_from_buffer);
 	}
 
 	/*
@@ -548,9 +561,12 @@ set_notification_configure_surface(struct ivi_layout_surface *ivisurf,
 	*/
 	ivi_controller_interface->get_surfaces_on_layer(application_layer,
 							&length, &ivisurfs);
+
 	for (i = 0; i < length; i++) {
-		if (ivisurf == ivisurfs[i])
+		if (ivisurf == ivisurfs[i]) {
+			ivi_controller_interface->commit_changes();
 			return;
+		}
 	}
 
 	/* add the surface of application to layer to show on UI */
