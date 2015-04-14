@@ -206,6 +206,7 @@ const char * const surface_property_commit_changes_test_names[] = {
 
 const char * const render_order_test_names[] = {
 	"layer_render_order",
+	"layer_bad_render_order",
 };
 
 TEST_P(ivi_layout_runner, basic_test_names)
@@ -330,6 +331,31 @@ TEST_P(ivi_layout_layer_render_order_runner, render_order_test_names)
 
 	ivi_window_destroy(winds[0]);
 	ivi_window_destroy(winds[1]);
+	ivi_window_destroy(winds[2]);
+	runner_destroy(runner);
+}
+
+TEST(commit_changes_after_render_order_set_surface_destroy)
+{
+	struct client *client;
+	struct runner *runner;
+	struct ivi_window *winds[3];
+
+	client = create_client();
+	runner = client_create_runner(client);
+
+	winds[0] = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(0));
+	winds[1] = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(1));
+	winds[2] = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(2));
+
+	runner_run(runner, "commit_changes_after_render_order_set_surface_destroy");
+
+	ivi_window_destroy(winds[1]);
+
+	runner_run(runner, "ivi_layout_commit_changes");
+	runner_run(runner, "cleanup_layer");
+
+	ivi_window_destroy(winds[0]);
 	ivi_window_destroy(winds[2]);
 	runner_destroy(runner);
 }
