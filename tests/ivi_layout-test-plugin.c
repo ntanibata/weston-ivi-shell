@@ -366,3 +366,131 @@ RUNNER_TEST(surface_opacity)
 	prop = ctl->get_properties_of_surface(ivisurf);
 	runner_assert_or_return(prop->opacity == wl_fixed_from_double(0.5));
 }
+
+RUNNER_TEST(surface_orientation)
+{
+	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+	struct ivi_layout_surface *ivisurf;
+	const struct ivi_layout_surface_properties *prop;
+
+	ivisurf = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(0));
+	runner_assert_or_return(ivisurf != NULL);
+
+	runner_assert_or_return(ctl->surface_set_orientation(
+		    ivisurf, WL_OUTPUT_TRANSFORM_90) == IVI_SUCCEEDED);
+
+	ctl->commit_changes();
+
+	runner_assert_or_return(ctl->surface_get_orientation(
+		    ivisurf) == WL_OUTPUT_TRANSFORM_90);
+
+	prop = ctl->get_properties_of_surface(ivisurf);
+	runner_assert_or_return(prop->orientation == WL_OUTPUT_TRANSFORM_90);
+}
+
+RUNNER_TEST(surface_dimension)
+{
+	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+	struct ivi_layout_surface *ivisurf;
+	const struct ivi_layout_surface_properties *prop;
+	int32_t dest_width;
+	int32_t dest_height;
+
+	ivisurf = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(0));
+	runner_assert_or_return(ivisurf != NULL);
+
+	runner_assert_or_return(IVI_SUCCEEDED ==
+		ctl->surface_set_dimension(ivisurf, 200, 300));
+
+	ctl->commit_changes();
+
+	runner_assert_or_return(ctl->surface_get_dimension(
+		    ivisurf, &dest_width, &dest_height) == IVI_SUCCEEDED);
+	runner_assert_or_return(dest_width == 200);
+	runner_assert_or_return(dest_height == 300);
+
+	prop = ctl->get_properties_of_surface(ivisurf);
+	runner_assert_or_return(prop->dest_width == 200);
+	runner_assert_or_return(prop->dest_height == 300);
+}
+
+RUNNER_TEST(surface_position)
+{
+	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+	struct ivi_layout_surface *ivisurf;
+	const struct ivi_layout_surface_properties *prop;
+	int32_t dest_x;
+	int32_t dest_y;
+
+	ivisurf = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(0));
+	runner_assert_or_return(ivisurf != NULL);
+
+	runner_assert_or_return(ctl->surface_set_position(
+		    ivisurf, 20, 30) == IVI_SUCCEEDED);
+
+	ctl->commit_changes();
+
+	runner_assert_or_return(ctl->surface_get_position(
+		    ivisurf, &dest_x, &dest_y) == IVI_SUCCEEDED);
+	runner_assert_or_return(dest_x == 20);
+	runner_assert_or_return(dest_y == 30);
+
+	prop = ctl->get_properties_of_surface(ivisurf);
+	runner_assert_or_return(prop->dest_x == 20);
+	runner_assert_or_return(prop->dest_y == 30);
+}
+
+RUNNER_TEST(surface_destination_rectangle)
+{
+	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+	struct ivi_layout_surface *ivisurf;
+	const struct ivi_layout_surface_properties *prop;
+	int32_t dest_width;
+	int32_t dest_height;
+	int32_t dest_x;
+	int32_t dest_y;
+
+	ivisurf = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(0));
+	runner_assert_or_return(ivisurf != NULL);
+
+	runner_assert_or_return(ctl->surface_set_destination_rectangle(
+		    ivisurf, 20, 30, 200, 300) == IVI_SUCCEEDED);
+
+	ctl->commit_changes();
+
+	runner_assert_or_return(ctl->surface_get_dimension(
+		    ivisurf, &dest_width, &dest_height) == IVI_SUCCEEDED);
+	runner_assert_or_return(dest_width == 200);
+	runner_assert_or_return(dest_height == 300);
+
+	runner_assert_or_return(ctl->surface_get_position(ivisurf, &dest_x, &dest_y) == IVI_SUCCEEDED);
+	runner_assert_or_return(dest_x == 20);
+	runner_assert_or_return(dest_y == 30);
+
+	prop = ctl->get_properties_of_surface(ivisurf);
+	runner_assert_or_return(prop->dest_width == 200);
+	runner_assert_or_return(prop->dest_height == 300);
+	runner_assert_or_return(prop->dest_x == 20);
+	runner_assert_or_return(prop->dest_y == 30);
+}
+
+RUNNER_TEST(surface_source_rectangle)
+{
+	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+	struct ivi_layout_surface *ivisurf;
+	const struct ivi_layout_surface_properties *prop;
+
+	ivisurf = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(0));
+	runner_assert_or_return(ivisurf != NULL);
+
+	runner_assert_or_return(ctl->surface_set_source_rectangle(
+		    ivisurf, 20, 30, 200, 300) == IVI_SUCCEEDED);
+
+	ctl->commit_changes();
+
+	prop = ctl->get_properties_of_surface(ivisurf);
+	runner_assert_or_return(prop->source_width == 200);
+	runner_assert_or_return(prop->source_height == 300);
+	runner_assert_or_return(prop->source_x == 20);
+	runner_assert_or_return(prop->source_y == 30);
+}
