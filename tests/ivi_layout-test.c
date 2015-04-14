@@ -191,6 +191,28 @@ const char * const basic_test_names[] = {
 	"surface_position",
 	"surface_destination_rectangle",
 	"surface_source_rectangle",
+	"surface_bad_opacity",
+	"get_surface_after_destroy_weston_surface",
+};
+
+const char * const surface_property_test_names[] = {
+	"surface_set_visibility_after_destroy_surface",
+	"surface_set_opacity_after_destroy_surface",
+	"surface_set_orientation_after_destroy_surface",
+	"surface_set_dimension_after_destroy_surface",
+	"surface_set_position_after_destroy_surface",
+	"surface_set_source_rectangle_after_destroy_surface",
+	"surface_set_destination_rectangle_after_destroy_surface",
+};
+
+const char * const surface_property_commit_changes_test_names[] = {
+	"commit_changes_after_visibility_set_surface_destroy",
+	"commit_changes_after_opacity_set_surface_destroy",
+	"commit_changes_after_orientation_set_surface_destroy",
+	"commit_changes_after_dimension_set_surface_destroy",
+	"commit_changes_after_position_set_surface_destroy",
+	"commit_changes_after_source_rectangle_set_surface_destroy",
+	"commit_changes_after_destination_rectangle_set_surface_destroy",
 };
 
 TEST_P(ivi_layout_runner, basic_test_names)
@@ -231,5 +253,85 @@ TEST(ivi_layout_surface_create)
 	runner_run(runner, "surface_create_p2");
 
 	ivi_window_destroy(winds[1]);
+	runner_destroy(runner);
+}
+
+TEST_P(surface_set_properties_after_destroy_surface, surface_property_test_names)
+{
+	/* an element from surface_property_test_names */
+	const char * const *test_name = data;
+	struct client *client;
+	struct runner *runner;
+	struct ivi_window *winds;
+
+	client = create_client();
+	runner = client_create_runner(client);
+
+	winds = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(0));
+
+	runner_run(runner, "save_ivi_layout_surface");
+
+	ivi_window_destroy(winds);
+
+	runner_run(runner, *test_name);
+
+	ivi_window_destroy(winds);
+	runner_destroy(runner);
+}
+
+TEST_P(commit_changes_after_propertyes_set_surface_destroy, surface_property_commit_changes_test_names)
+{
+	/* an element from surface_property_commit_changes_test_names */
+	const char * const *test_name = data;
+	struct client *client;
+	struct runner *runner;
+	struct ivi_window *winds;
+
+	client = create_client();
+	runner = client_create_runner(client);
+
+	winds = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(0));
+
+	runner_run(runner, *test_name);
+
+	ivi_window_destroy(winds);
+
+	runner_run(runner, "ivi_layout_commit_changes");
+
+	ivi_window_destroy(winds);
+	runner_destroy(runner);
+}
+
+TEST(get_surface_after_destroy_surface)
+{
+	struct client *client;
+	struct runner *runner;
+	struct ivi_window *winds;
+
+	client = create_client();
+	runner = client_create_runner(client);
+
+	winds = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(0));
+
+	ivi_window_destroy(winds);
+
+	runner_run(runner, "get_surface_after_destroy_surface");
+
+	runner_destroy(runner);
+}
+
+TEST(destoroy_surface_twice)
+{
+	struct client *client;
+	struct runner *runner;
+	struct ivi_window *winds;
+
+	client = create_client();
+	runner = client_create_runner(client);
+
+	winds = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(0));
+
+	ivi_window_destroy(winds);
+	ivi_window_destroy(winds);
 	runner_destroy(runner);
 }
