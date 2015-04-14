@@ -194,6 +194,7 @@ const char * const basic_test_names[] = {
 	"surface_bad_opacity",
 	"get_surface_after_destroy_weston_surface",
 	"surface_add_notification",
+	"surface_bad_add_notification",
 };
 
 const char * const surface_property_test_names[] = {
