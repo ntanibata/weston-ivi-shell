@@ -761,7 +761,7 @@ RUNNER_TEST(layer_render_order)
 		      ivilayer, &length, &array) == IVI_SUCCEEDED);
 	runner_assert(length == 0 && array == NULL);
 
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 }
 
 RUNNER_TEST(test_layer_render_order_destroy_one_surface_p1)
@@ -820,7 +820,7 @@ RUNNER_TEST(test_layer_render_order_destroy_one_surface_p2)
 		free(array);
 	}
 
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 }
 
 RUNNER_TEST(layer_bad_render_order)
@@ -855,7 +855,7 @@ RUNNER_TEST(layer_bad_render_order)
 		      ivilayer, &length, NULL) == IVI_FAILED);
 	runner_assert(length == 0);
 
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 }
 
 RUNNER_TEST(commit_changes_after_render_order_set_surface_destroy)
@@ -881,7 +881,7 @@ RUNNER_TEST(cleanup_layer)
 	struct ivi_layout_layer *ivilayer;
 
 	ivilayer = ctl->get_layer_from_id(IVI_TEST_LAYER_ID(0));
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 }
 
 static void

@@ -163,7 +163,7 @@ test_layer_create(struct test_context *ctx)
 	id2 = ctl->get_id_of_layer(new_ivilayer);
 	iassert(id1 == id2);
 
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 	iassert(ctl->get_layer_from_id(IVI_TEST_LAYER_ID(0)) == NULL);
 }
 
@@ -190,7 +190,7 @@ test_layer_visibility(struct test_context *ctx)
 	prop = ctl->get_properties_of_layer(ivilayer);
 	iassert(prop->visibility == true);
 
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 }
 
 static void
@@ -217,7 +217,7 @@ test_layer_opacity(struct test_context *ctx)
 	prop = ctl->get_properties_of_layer(ivilayer);
 	iassert(prop->opacity == wl_fixed_from_double(0.5));
 
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 }
 
 static void
@@ -244,7 +244,7 @@ test_layer_orientation(struct test_context *ctx)
 	prop = ctl->get_properties_of_layer(ivilayer);
 	iassert(prop->orientation == WL_OUTPUT_TRANSFORM_90);
 
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 }
 
 static void
@@ -282,7 +282,7 @@ test_layer_dimension(struct test_context *ctx)
 	iassert(prop->dest_width == 400);
 	iassert(prop->dest_height == 600);
 
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 }
 
 static void
@@ -320,7 +320,7 @@ test_layer_position(struct test_context *ctx)
 	iassert(prop->dest_x == 20);
 	iassert(prop->dest_y == 30);
 
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 }
 
 static void
@@ -370,7 +370,7 @@ test_layer_destination_rectangle(struct test_context *ctx)
 	iassert(prop->dest_x == 20);
 	iassert(prop->dest_y == 30);
 
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 }
 
 static void
@@ -406,14 +406,14 @@ test_layer_source_rectangle(struct test_context *ctx)
 	iassert(prop->source_x == 20);
 	iassert(prop->source_y == 30);
 
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 }
 
 static void
 test_layer_bad_remove(struct test_context *ctx)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
-	ctl->layer_remove(NULL);
+	ctl->layer_destroy(NULL);
 }
 
 static void
@@ -464,7 +464,7 @@ test_layer_bad_opacity(struct test_context *ctx)
 
 	iassert(ctl->layer_get_opacity(NULL) == wl_fixed_from_double(0.0));
 
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 }
 
 static void
@@ -511,7 +511,7 @@ test_layer_bad_dimension(struct test_context *ctx)
 	iassert(ctl->layer_get_dimension(
 		ivilayer, &dest_width, NULL) == IVI_FAILED);
 
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 }
 
 static void
@@ -533,7 +533,7 @@ test_layer_bad_position(struct test_context *ctx)
 	iassert(ctl->layer_get_position(ivilayer, NULL, &dest_y) == IVI_FAILED);
 	iassert(ctl->layer_get_position(ivilayer, &dest_x, NULL) == IVI_FAILED);
 
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 }
 
 static void
@@ -563,7 +563,7 @@ test_commit_changes_after_visibility_set_layer_destroy(struct test_context *ctx)
 	iassert(ivilayer != NULL);
 
 	iassert(ctl->layer_set_visibility(ivilayer, true) == IVI_SUCCEEDED);
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 	ctl->commit_changes();
 }
 
@@ -578,7 +578,7 @@ test_commit_changes_after_opacity_set_layer_destroy(struct test_context *ctx)
 
 	iassert(ctl->layer_set_opacity(
 		    ivilayer, wl_fixed_from_double(0.5)) == IVI_SUCCEEDED);
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 	ctl->commit_changes();
 }
 
@@ -593,7 +593,7 @@ test_commit_changes_after_orientation_set_layer_destroy(struct test_context *ctx
 
 	iassert(ctl->layer_set_orientation(
 		    ivilayer, WL_OUTPUT_TRANSFORM_90) == IVI_SUCCEEDED);
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 	ctl->commit_changes();
 }
 
@@ -607,7 +607,7 @@ test_commit_changes_after_dimension_set_layer_destroy(struct test_context *ctx)
 	iassert(ivilayer != NULL);
 
 	iassert(ctl->layer_set_dimension(ivilayer, 200, 300) == IVI_SUCCEEDED);
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 	ctl->commit_changes();
 }
 
@@ -621,7 +621,7 @@ test_commit_changes_after_position_set_layer_destroy(struct test_context *ctx)
 	iassert(ivilayer != NULL);
 
 	iassert(ctl->layer_set_position(ivilayer, 20, 30) == IVI_SUCCEEDED);
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 	ctl->commit_changes();
 }
 
@@ -636,7 +636,7 @@ test_commit_changes_after_source_rectangle_set_layer_destroy(struct test_context
 
 	iassert(ctl->layer_set_source_rectangle(
 		    ivilayer, 20, 30, 200, 300) == IVI_SUCCEEDED);
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 	ctl->commit_changes();
 }
 
@@ -651,7 +651,7 @@ test_commit_changes_after_destination_rectangle_set_layer_destroy(struct test_co
 
 	iassert(ctl->layer_set_destination_rectangle(
 		    ivilayer, 20, 30, 200, 300) == IVI_SUCCEEDED);
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 	ctl->commit_changes();
 }
 
@@ -676,13 +676,13 @@ test_layer_create_duplicate(struct test_context *ctx)
 		iassert(ivilayer->ref_count == 2);
 	}
 
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 
 	if (ivilayer != NULL) {
 		iassert(ivilayer->ref_count == 1);
 	}
 
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 }
 
 static void
@@ -694,7 +694,7 @@ test_get_layer_after_destory_layer(struct test_context *ctx)
 	ivilayer = ctl->layer_create_with_dimension(IVI_TEST_LAYER_ID(0), 200, 300);
 	iassert(ivilayer != NULL);
 
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 
 	ivilayer = ctl->get_layer_from_id(IVI_TEST_LAYER_ID(0));
 	iassert(ivilayer == NULL);
@@ -797,7 +797,7 @@ test_screen_render_order(struct test_context *ctx)
 		iassert(length == 0 && array == NULL);
 
 		for (i = 0; i < LAYER_NUM; i++) {
-			ctl->layer_remove(ivilayers[i]);
+			ctl->layer_destroy(ivilayers[i]);
 		}
 
 		free(iviscrns);
@@ -859,7 +859,7 @@ test_screen_bad_render_order(struct test_context *ctx)
 		iassert(ctl->get_layers_on_screen(iviscrn, &length, NULL) == IVI_FAILED);
 
 		for (i = 0; i < LAYER_NUM; i++) {
-			ctl->layer_remove(ivilayers[i]);
+			ctl->layer_destroy(ivilayers[i]);
 		}
 
 		free(iviscrns);
@@ -891,12 +891,12 @@ test_commit_changes_after_render_order_set_layer_destroy(
 
 		iassert(ctl->screen_set_render_order(iviscrn, ivilayers, LAYER_NUM) == IVI_SUCCEEDED);
 
-		ctl->layer_remove(ivilayers[1]);
+		ctl->layer_destroy(ivilayers[1]);
 
 		ctl->commit_changes();
 
-		ctl->layer_remove(ivilayers[0]);
-		ctl->layer_remove(ivilayers[2]);
+		ctl->layer_destroy(ivilayers[0]);
+		ctl->layer_destroy(ivilayers[2]);
 
 		free(iviscrns);
 	}
@@ -961,7 +961,7 @@ test_layer_properties_changed_notification(struct test_context *ctx)
 
 	iassert(ctx->user_flags == 0);
 
-	ctl->layer_remove(ivilayer);
+	ctl->layer_destroy(ivilayer);
 }
 
 static void
@@ -1006,8 +1006,8 @@ test_layer_create_notification(struct test_context *ctx)
 
 	iassert(ctx->user_flags == 0);
 
-	ctl->layer_remove(ivilayers[0]);
-	ctl->layer_remove(ivilayers[1]);
+	ctl->layer_destroy(ivilayers[0]);
+	ctl->layer_destroy(ivilayers[1]);
 #undef LAYER_NUM
 }
 
@@ -1044,17 +1044,80 @@ test_layer_remove_notification(struct test_context *ctx)
 	ivilayers[0] = ctl->layer_create_with_dimension(layers[0], 200, 300);
 	iassert(ctl->add_notification_remove_layer(
 		    test_layer_remove_notification_callback, ctx) == IVI_SUCCEEDED);
-	ctl->layer_remove(ivilayers[0]);
+	ctl->layer_destroy(ivilayers[0]);
 
 	iassert(ctx->user_flags == 1);
 
 	ctx->user_flags = 0;
 	ivilayers[1] = ctl->layer_create_with_dimension(layers[1], 250, 350);
 	ctl->remove_notification_remove_layer(test_layer_remove_notification_callback, ctx);
-	ctl->layer_remove(ivilayers[1]);
+	ctl->layer_destroy(ivilayers[1]);
 
 	iassert(ctx->user_flags == 0);
 #undef LAYER_NUM
+}
+
+static void
+test_layer_bad_properties_changed_notification_callback(struct ivi_layout_layer *ivilayer,
+							const struct ivi_layout_layer_properties *prop,
+							enum ivi_layout_notification_mask mask,
+							void *userdata)
+{
+}
+
+static void
+test_layer_bad_properties_changed_notification(struct test_context *ctx)
+{
+	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+	struct ivi_layout_layer *ivilayer;
+
+	ivilayer = ctl->layer_create_with_dimension(IVI_TEST_LAYER_ID(0), 200, 300);
+
+	iassert(ctl->layer_add_notification(
+		    NULL, test_layer_bad_properties_changed_notification_callback, NULL) == IVI_FAILED);
+	iassert(ctl->layer_add_notification(ivilayer, NULL, NULL) == IVI_FAILED);
+
+	ctl->layer_destroy(ivilayer);
+}
+
+static void
+test_surface_bad_configure_notification(struct test_context *ctx)
+{
+	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+
+	iassert(ctl->add_notification_configure_surface(NULL, NULL) == IVI_FAILED);
+}
+
+static void
+test_layer_bad_create_notification(struct test_context *ctx)
+{
+	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+
+	iassert(ctl->add_notification_create_layer(NULL, NULL) == IVI_FAILED);
+}
+
+static void
+test_surface_bad_create_notification(struct test_context *ctx)
+{
+	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+
+	iassert(ctl->add_notification_create_surface(NULL, NULL) == IVI_FAILED);
+}
+
+static void
+test_layer_bad_remove_notification(struct test_context *ctx)
+{
+	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+
+	iassert(ctl->add_notification_remove_layer(NULL, NULL) == IVI_FAILED);
+}
+
+static void
+test_surface_bad_remove_notification(struct test_context *ctx)
+{
+	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+
+	iassert(ctl->add_notification_remove_surface(NULL, NULL) == IVI_FAILED);
 }
 
 /************************ tests end ********************************/
@@ -1109,6 +1172,12 @@ run_internal_tests(void *data)
 	test_layer_properties_changed_notification(ctx);
 	test_layer_create_notification(ctx);
 	test_layer_remove_notification(ctx);
+	test_layer_bad_properties_changed_notification(ctx);
+	test_surface_bad_configure_notification(ctx);
+	test_layer_bad_create_notification(ctx);
+	test_surface_bad_create_notification(ctx);
+	test_layer_bad_remove_notification(ctx);
+	test_surface_bad_remove_notification(ctx);
 
 	weston_compositor_exit_with_code(ctx->compositor, EXIT_SUCCESS);
 	free(ctx);
