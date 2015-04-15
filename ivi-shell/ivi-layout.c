@@ -2714,6 +2714,29 @@ ivi_layout_surface_dump(struct weston_surface *surface,
 	return result == 0 ? IVI_SUCCEEDED : IVI_FAILED;
 }
 
+static int32_t
+ivi_layout_screen_dump(struct weston_output *output, void *target)
+{
+	int result = -1;
+
+	if (output == NULL) {
+		weston_log("%s: invalid argument\n", __func__);
+		return IVI_FAILED;
+	}
+
+	result = output->compositor->renderer->read_pixels(output,
+		PIXMAN_a8r8g8b8, target,
+		0, 0, output->current_mode->width,
+		output->current_mode->height);
+
+	if (result != 0) {
+		weston_log("fails to dump screen\n");
+		return IVI_FAILED;
+	}
+
+	return IVI_SUCCEEDED;
+}
+
 /**
  * methods of interaction between ivi-shell with ivi-layout
  */
@@ -2985,6 +3008,7 @@ static struct ivi_controller_interface ivi_controller_interface = {
 	 */
 	.surface_get_size		= ivi_layout_surface_get_size,
 	.surface_dump			= ivi_layout_surface_dump,
+	.screen_dump			= ivi_layout_screen_dump
 };
 
 int

@@ -777,6 +777,8 @@ struct ivi_controller_interface {
 	int32_t (*surface_dump)(struct weston_surface *surface,
 		void *target, size_t size,
 		int32_t x, int32_t y, int32_t width, int32_t height);
+
+	int32_t (*screen_dump)(struct weston_output *output, void *target);
 };
 
 #ifdef __cplusplus
