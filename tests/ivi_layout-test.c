@@ -192,6 +192,7 @@ const char * const basic_test_names[] = {
 	"surface_destination_rectangle",
 	"surface_source_rectangle",
 	"surface_bad_opacity",
+	"surface_add_notification",
 };
 
 const char * const surface_property_commit_changes_test_names[] = {
@@ -380,5 +381,63 @@ TEST(commit_changes_after_render_order_set_surface_destroy)
 
 	ivi_window_destroy(winds[0]);
 	ivi_window_destroy(winds[2]);
+	runner_destroy(runner);
+}
+
+TEST(ivi_layout_surface_configure_notification)
+{
+	struct client *client;
+	struct runner *runner;
+	struct ivi_window *wind;
+
+	client = create_client();
+	runner = client_create_runner(client);
+
+	runner_run(runner, "surface_configure_notification_p1");
+
+	wind = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(0));
+
+	runner_run(runner, "surface_configure_notification_p2");
+
+	ivi_window_destroy(wind);
+	runner_destroy(runner);
+}
+
+TEST(ivi_layout_surface_create_notification)
+{
+	struct client *client;
+	struct runner *runner;
+	struct ivi_window *wind;
+
+	client = create_client();
+	runner = client_create_runner(client);
+
+	runner_run(runner, "surface_create_notification_p1");
+
+	wind = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(0));
+
+	runner_run(runner, "surface_create_notification_p2");
+
+	ivi_window_destroy(wind);
+	runner_destroy(runner);
+}
+
+TEST(ivi_layout_surface_remove_notification)
+{
+	struct client *client;
+	struct runner *runner;
+	struct ivi_window *wind;
+
+	client = create_client();
+	runner = client_create_runner(client);
+
+	wind = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(0));
+	runner_run(runner, "surface_remove_notification_p1");
+	ivi_window_destroy(wind);
+
+	wind = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(1));
+	runner_run(runner, "surface_remove_notification_p2");
+	ivi_window_destroy(wind);
+
 	runner_destroy(runner);
 }
