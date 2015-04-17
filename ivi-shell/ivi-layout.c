@@ -2810,8 +2810,6 @@ ivi_layout_surface_create(struct weston_surface *wl_surface,
 	ivisurf->surface = wl_surface;
 	ivisurf->surface_destroy_listener.notify =
 		westonsurface_destroy_from_ivisurface;
-	wl_resource_add_destroy_listener(wl_surface->resource,
-					 &ivisurf->surface_destroy_listener);
 
 	tmpview = weston_view_create(wl_surface);
 	if (tmpview == NULL) {
