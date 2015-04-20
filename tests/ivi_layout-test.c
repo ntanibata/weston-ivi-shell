@@ -265,7 +265,6 @@ TEST_P(commit_changes_after_properties_set_surface_destroy, surface_property_com
 
 	runner_run(runner, "ivi_layout_commit_changes");
 
-	ivi_window_destroy(winds);
 	runner_destroy(runner);
 }
 
