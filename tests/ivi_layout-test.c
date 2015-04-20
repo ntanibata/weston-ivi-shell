@@ -192,7 +192,6 @@ const char * const basic_test_names[] = {
 	"surface_destination_rectangle",
 	"surface_source_rectangle",
 	"surface_bad_opacity",
-	"get_surface_after_destroy_weston_surface",
 };
 
 const char * const surface_property_commit_changes_test_names[] = {
@@ -268,7 +267,7 @@ TEST_P(commit_changes_after_properties_set_surface_destroy, surface_property_com
 	runner_destroy(runner);
 }
 
-TEST(get_surface_after_destroy_surface)
+TEST(get_surface_after_destroy_ivi_surface)
 {
 	struct client *client;
 	struct runner *runner;
@@ -284,6 +283,25 @@ TEST(get_surface_after_destroy_surface)
 	runner_run(runner, "get_surface_after_destroy_surface");
 
 	wl_surface_destroy(winds->wl_surface);
+	free(winds);
+	runner_destroy(runner);
+}
+
+TEST(get_surface_after_destroy_wl_surface)
+{
+	struct client *client;
+	struct runner *runner;
+	struct ivi_window *winds;
+
+	client = create_client();
+	runner = client_create_runner(client);
+
+	winds = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(0));
+
+	wl_surface_destroy(winds->wl_surface);
+
+	runner_run(runner, "get_surface_after_destroy_surface");
+
 	free(winds);
 	runner_destroy(runner);
 }
