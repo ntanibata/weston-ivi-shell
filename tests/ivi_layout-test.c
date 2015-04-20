@@ -279,10 +279,12 @@ TEST(get_surface_after_destroy_surface)
 
 	winds = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(0));
 
-	ivi_window_destroy(winds);
+	ivi_surface_destroy(winds->ivi_surface);
 
 	runner_run(runner, "get_surface_after_destroy_surface");
 
+	wl_surface_destroy(winds->wl_surface);
+	free(winds);
 	runner_destroy(runner);
 }
 
