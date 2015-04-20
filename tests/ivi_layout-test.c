@@ -305,19 +305,3 @@ TEST(get_surface_after_destroy_wl_surface)
 	free(winds);
 	runner_destroy(runner);
 }
-
-TEST(destoroy_surface_twice)
-{
-	struct client *client;
-	struct runner *runner;
-	struct ivi_window *winds;
-
-	client = create_client();
-	runner = client_create_runner(client);
-
-	winds = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(0));
-
-	ivi_window_destroy(winds);
-	ivi_window_destroy(winds);
-	runner_destroy(runner);
-}
