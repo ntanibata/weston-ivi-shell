@@ -693,18 +693,3 @@ RUNNER_TEST(get_surface_after_destroy_surface)
 	runner_assert(ivisurf == NULL);
 }
 
-RUNNER_TEST(get_surface_after_destroy_weston_surface)
-{
-	const struct ivi_controller_interface *ctl = ctx->controller_interface;
-	struct weston_surface *surface;
-	struct ivi_layout_surface *ivisurf;
-
-	ivisurf = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(0));
-	runner_assert(ivisurf != NULL);
-
-	surface = ctl->surface_get_weston_surface(ivisurf);
-	weston_surface_destroy(surface);
-
-	ivisurf = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(0));
-	runner_assert(ivisurf == NULL);
-}
