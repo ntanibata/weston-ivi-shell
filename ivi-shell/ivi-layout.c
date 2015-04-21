@@ -464,6 +464,8 @@ init_surface_properties(struct ivi_layout_surface_properties *prop)
 {
 	memset(prop, 0, sizeof *prop);
 	prop->opacity = wl_fixed_from_double(1.0);
+	prop->dest_width = 1;
+	prop->dest_height = 1;
 }
 
 /**
