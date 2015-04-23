@@ -901,9 +901,9 @@ test_commit_changes_after_render_order_set_layer_destroy(
 
 static void
 test_layer_add_notification_callback(struct ivi_layout_layer *ivilayer,
-	const struct ivi_layout_layer_properties *prop,
-	enum ivi_layout_notification_mask mask,
-	void *userdata)
+				     const struct ivi_layout_layer_properties *prop,
+				     enum ivi_layout_notification_mask mask,
+				     void *userdata)
 {
 	struct test_context *ctx = userdata;
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
@@ -946,7 +946,7 @@ test_layer_add_notification(struct test_context *ctx)
 
 static void
 test_layer_create_notification_callback(struct ivi_layout_layer *ivilayer,
-void *userdata)
+					void *userdata)
 {
 	struct test_context *ctx = userdata;
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
@@ -993,7 +993,7 @@ test_layer_create_notification(struct test_context *ctx)
 
 static void
 test_layer_remove_notification_callback(struct ivi_layout_layer *ivilayer,
-	void *userdata)
+					void *userdata)
 {
 	struct test_context *ctx = userdata;
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
