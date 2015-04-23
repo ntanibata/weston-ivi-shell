@@ -467,6 +467,7 @@ static void
 test_layer_bad_destination_rectangle(struct test_context *ctx)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+
 	iassert(ctl->layer_set_destination_rectangle(
 		NULL, 20, 30, 200, 300) == IVI_FAILED);
 }
@@ -535,6 +536,7 @@ static void
 test_layer_bad_source_rectangle(struct test_context *ctx)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+
 	iassert(ctl->layer_set_source_rectangle(
 		NULL, 20, 30, 200, 300) == IVI_FAILED);
 }
@@ -543,6 +545,7 @@ static void
 test_layer_bad_properties(struct test_context *ctx)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+
 	iassert(ctl->get_properties_of_layer(NULL) == NULL);
 }
 
