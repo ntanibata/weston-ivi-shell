@@ -729,6 +729,10 @@ RUNNER_TEST(layer_render_order)
 		runner_assert(array[i] == ivisurfs[i]);
 	}
 
+	if (length > 0) {
+		free(array);
+	}
+
 	runner_assert(ctl->layer_set_render_order(
 		      ivilayer, NULL, 0) == IVI_SUCCEEDED);
 
