@@ -33,4 +33,6 @@
 #define IVI_TEST_LAYER_ID_BASE 0xeef01200
 #define IVI_TEST_LAYER_ID(i) (IVI_TEST_LAYER_ID_BASE + i)
 
+#define IVI_TEST_SURFACE_COUNT (3)
+
 #endif /* IVI_TEST_H */
