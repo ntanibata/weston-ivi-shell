@@ -911,6 +911,7 @@ test_layer_add_notification_callback(struct ivi_layout_layer *ivilayer,
 {
 	struct test_context *ctx = userdata;
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+
 	iassert(ctl->get_id_of_layer(ivilayer) == IVI_TEST_LAYER_ID(0));
 	iassert(prop->source_width == 200);
 	iassert(prop->source_height == 300);
