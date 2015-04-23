@@ -673,12 +673,15 @@ calc_scale(struct ivi_layout_layer *ivilayer,
 }
 
 static void
-update_surface_position(struct ivi_layout_surface *ivisurf)
+update_surface_position(struct ivi_layout_layer *ivilayer,
+			struct ivi_layout_surface *ivisurf)
 {
 	struct weston_view *view;
 	float tx  = (float)ivisurf->prop.dest_x;
 	float ty  = (float)ivisurf->prop.dest_y;
 	struct weston_matrix *matrix = &ivisurf->surface_pos.matrix;
+	float sx = 0.0f;
+	float sy = 0.0f;
 
 	wl_list_for_each(view, &ivisurf->surface->views, surface_link) {
 		if (view != NULL) {
@@ -690,10 +693,17 @@ update_surface_position(struct ivi_layout_surface *ivisurf)
 		return;
 	}
 
+	if (!calc_scale(ivilayer, ivisurf, &sx, &sy)) {
+		return;
+	}
+
 	wl_list_remove(&ivisurf->surface_pos.link);
 
 	weston_matrix_init(matrix);
-	weston_matrix_translate(matrix, tx, ty, 0.0f);
+	weston_matrix_translate(matrix,
+				tx - (ivisurf->prop.source_x * sx),
+				ty - (ivisurf->prop.source_y * sy),
+				0.0f);
 	wl_list_insert(&view->geometry.transformation_list,
 		       &ivisurf->surface_pos.link);
 
@@ -796,7 +806,7 @@ update_prop(struct ivi_layout_layer *ivilayer,
 		update_opacity(ivilayer, ivisurf);
 		update_layer_orientation(ivilayer, ivisurf);
 		update_layer_position(ivilayer, ivisurf);
-		update_surface_position(ivisurf);
+		update_surface_position(ivilayer, ivisurf);
 		update_surface_orientation(ivilayer, ivisurf);
 		update_scale(ivilayer, ivisurf);
 		update_source_rectangle(ivisurf);
