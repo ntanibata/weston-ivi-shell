@@ -603,6 +603,7 @@ RUNNER_TEST(surface_bad_opacity)
 RUNNER_TEST(ivi_layout_commit_changes)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+
 	ctl->commit_changes();
 }
 
