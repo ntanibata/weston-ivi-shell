@@ -1069,6 +1069,7 @@ static void
 test_surface_bad_configure_notification(struct test_context *ctx)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+
 	iassert(ctl->add_notification_configure_surface(NULL, NULL) == IVI_FAILED);
 }
 
@@ -1076,6 +1077,7 @@ static void
 test_layer_bad_create_notification(struct test_context *ctx)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+
 	iassert(ctl->add_notification_create_layer(NULL, NULL) == IVI_FAILED);
 }
 
@@ -1083,6 +1085,7 @@ static void
 test_surface_bad_create_notification(struct test_context *ctx)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+
 	iassert(ctl->add_notification_create_surface(NULL, NULL) == IVI_FAILED);
 }
 
@@ -1090,6 +1093,7 @@ static void
 test_layer_bad_remove_notification(struct test_context *ctx)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+
 	iassert(ctl->add_notification_remove_layer(NULL, NULL) == IVI_FAILED);
 }
 
@@ -1097,6 +1101,7 @@ static void
 test_surface_bad_remove_notification(struct test_context *ctx)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+
 	iassert(ctl->add_notification_remove_surface(NULL, NULL) == IVI_FAILED);
 }
 
