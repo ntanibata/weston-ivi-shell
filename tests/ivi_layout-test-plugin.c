@@ -853,6 +853,7 @@ RUNNER_TEST(cleanup_layer)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
 	struct ivi_layout_layer *ivilayer;
+
 	ivilayer = ctl->get_layer_from_id(IVI_TEST_LAYER_ID(0));
 	ctl->layer_remove(ivilayer);
 }
