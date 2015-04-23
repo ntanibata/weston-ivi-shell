@@ -754,12 +754,14 @@ test_screen_render_order(struct test_context *ctx)
 		free(array);
 	}
 
+	array = NULL;
+
 	iassert(ctl->screen_set_render_order(iviscrn, NULL, 0) == IVI_SUCCEEDED);
 
 	ctl->commit_changes();
 
 	iassert(ctl->get_layers_on_screen(iviscrn, &length, &array) == IVI_SUCCEEDED);
-	iassert(length == 0);
+	iassert(length == 0 && array == NULL);
 
 	for (i = 0; i < LAYER_NUM; i++) {
 		ctl->layer_remove(ivilayers[i]);
