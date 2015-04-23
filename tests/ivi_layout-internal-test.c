@@ -199,8 +199,12 @@ test_layer_opacity(struct test_context *ctx)
 	ivilayer = ctl->layer_create_with_dimension(IVI_TEST_LAYER_ID(0), 200, 300);
 	iassert(ivilayer != NULL);
 
+	iassert(ctl->layer_get_opacity(ivilayer) == wl_fixed_from_double(1.0));
+
 	iassert(ctl->layer_set_opacity(
 		ivilayer, wl_fixed_from_double(0.5)) == IVI_SUCCEEDED);
+
+	iassert(ctl->layer_get_opacity(ivilayer) == wl_fixed_from_double(1.0));
 
 	ctl->commit_changes();
 
@@ -222,8 +226,12 @@ test_layer_orientation(struct test_context *ctx)
 	ivilayer = ctl->layer_create_with_dimension(IVI_TEST_LAYER_ID(0), 200, 300);
 	iassert(ivilayer != NULL);
 
+	iassert(ctl->layer_get_orientation(ivilayer) == WL_OUTPUT_TRANSFORM_NORMAL);
+
 	iassert(ctl->layer_set_orientation(
 		ivilayer, WL_OUTPUT_TRANSFORM_90) == IVI_SUCCEEDED);
+
+	iassert(ctl->layer_get_orientation(ivilayer) == WL_OUTPUT_TRANSFORM_NORMAL);
 
 	ctl->commit_changes();
 
@@ -247,7 +255,17 @@ test_layer_dimension(struct test_context *ctx)
 	ivilayer = ctl->layer_create_with_dimension(IVI_TEST_LAYER_ID(0), 200, 300);
 	iassert(ivilayer != NULL);
 
+	iassert(ctl->layer_get_dimension(
+		ivilayer, &dest_width, &dest_height) == IVI_SUCCEEDED);
+	iassert(dest_width == 200);
+	iassert(dest_height == 300);
+
 	iassert(ctl->layer_set_dimension(ivilayer, 200, 300) == IVI_SUCCEEDED);
+
+	iassert(ctl->layer_get_dimension(
+		ivilayer, &dest_width, &dest_height) == IVI_SUCCEEDED);
+	iassert(dest_width == 200);
+	iassert(dest_height == 300);
 
 	ctl->commit_changes();
 
@@ -275,7 +293,17 @@ test_layer_position(struct test_context *ctx)
 	ivilayer = ctl->layer_create_with_dimension(IVI_TEST_LAYER_ID(0), 200, 300);
 	iassert(ivilayer != NULL);
 
+	iassert(ctl->layer_get_position(
+		ivilayer, &dest_x, &dest_y) == IVI_SUCCEEDED);
+	iassert(dest_x == 0);
+	iassert(dest_y == 0);
+
 	iassert(ctl->layer_set_position(ivilayer, 20, 30) == IVI_SUCCEEDED);
+
+	iassert(ctl->layer_get_position(
+		ivilayer, &dest_x, &dest_y) == IVI_SUCCEEDED);
+	iassert(dest_x == 0);
+	iassert(dest_y == 0);
 
 	ctl->commit_changes();
 
@@ -305,8 +333,20 @@ test_layer_destination_rectangle(struct test_context *ctx)
 	ivilayer = ctl->layer_create_with_dimension(IVI_TEST_LAYER_ID(0), 200, 300);
 	iassert(ivilayer != NULL);
 
+	prop = ctl->get_properties_of_layer(ivilayer);
+	iassert(prop->dest_width == 200);
+	iassert(prop->dest_height == 300);
+	iassert(prop->dest_x == 0);
+	iassert(prop->dest_y == 0);
+
 	iassert(ctl->layer_set_destination_rectangle(
 		ivilayer, 20, 30, 200, 300) == IVI_SUCCEEDED);
+
+	prop = ctl->get_properties_of_layer(ivilayer);
+	iassert(prop->dest_width == 200);
+	iassert(prop->dest_height == 300);
+	iassert(prop->dest_x == 0);
+	iassert(prop->dest_y == 0);
 
 	ctl->commit_changes();
 
@@ -339,8 +379,20 @@ test_layer_source_rectangle(struct test_context *ctx)
 	ivilayer = ctl->layer_create_with_dimension(IVI_TEST_LAYER_ID(0), 200, 300);
 	iassert(ivilayer != NULL);
 
+	prop = ctl->get_properties_of_layer(ivilayer);
+	iassert(prop->source_width == 200);
+	iassert(prop->source_height == 300);
+	iassert(prop->source_x == 0);
+	iassert(prop->source_y == 0);
+
 	iassert(ctl->layer_set_source_rectangle(
 		ivilayer, 20, 30, 200, 300) == IVI_SUCCEEDED);
+
+	prop = ctl->get_properties_of_layer(ivilayer);
+	iassert(prop->source_width == 200);
+	iassert(prop->source_height == 300);
+	iassert(prop->source_x == 0);
+	iassert(prop->source_y == 0);
 
 	ctl->commit_changes();
 
