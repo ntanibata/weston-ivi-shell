@@ -1027,6 +1027,7 @@ RUNNER_TEST(surface_bad_add_notification)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
 	struct ivi_layout_surface *ivisurf;
+
 	ivisurf = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(0));
 	runner_assert(ivisurf != NULL);
 
