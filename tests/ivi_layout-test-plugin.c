@@ -743,7 +743,7 @@ RUNNER_TEST(layer_bad_render_order)
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
 	struct ivi_layout_layer *ivilayer;
 	struct ivi_layout_surface *ivisurfs[IVI_TEST_SURFACE_COUNT] = {};
-	struct ivi_layout_surface **array;
+	struct ivi_layout_surface **array = NULL;
 	int32_t length = 0;
 	uint32_t i;
 
@@ -760,10 +760,15 @@ RUNNER_TEST(layer_bad_render_order)
 
 	runner_assert(ctl->get_surfaces_on_layer(
 		      NULL, &length, &array) == IVI_FAILED);
+	runner_assert(length == 0 && array == NULL);
+
 	runner_assert(ctl->get_surfaces_on_layer(
 		      ivilayer, NULL, &array) == IVI_FAILED);
+	runner_assert(array == NULL);
+
 	runner_assert(ctl->get_surfaces_on_layer(
 		      ivilayer, &length, NULL) == IVI_FAILED);
+	runner_assert(length == 0);
 
 	ctl->layer_remove(ivilayer);
 }
