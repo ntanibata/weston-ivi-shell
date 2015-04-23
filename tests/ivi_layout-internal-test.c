@@ -1040,9 +1040,9 @@ test_layer_remove_notification(struct test_context *ctx)
 
 static void
 test_layer_bad_add_notification_callback(struct ivi_layout_layer *ivilayer,
-	const struct ivi_layout_layer_properties *prop,
-	enum ivi_layout_notification_mask mask,
-	void *userdata)
+					 const struct ivi_layout_layer_properties *prop,
+					 enum ivi_layout_notification_mask mask,
+					 void *userdata)
 {
 }
 
