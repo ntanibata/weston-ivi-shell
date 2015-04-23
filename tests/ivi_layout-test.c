@@ -316,7 +316,7 @@ TEST_P(ivi_layout_layer_render_order_runner, render_order_test_names)
 	const char * const *test_name = data;
 	struct client *client;
 	struct runner *runner;
-	struct ivi_window *winds[2];
+	struct ivi_window *winds[3];
 
 	client = create_client();
 	runner = client_create_runner(client);
