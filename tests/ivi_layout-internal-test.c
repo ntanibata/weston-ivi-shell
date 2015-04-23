@@ -754,6 +754,10 @@ test_screen_render_order(struct test_context *ctx)
 		iassert(array[i] == ivilayers[i]);
 	}
 
+	if (length > 0) {
+		free(array);
+	}
+
 	iassert(ctl->screen_set_render_order(iviscrn, NULL, 0) == IVI_SUCCEEDED);
 
 	ctl->commit_changes();
