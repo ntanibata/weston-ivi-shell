@@ -723,6 +723,7 @@ test_screen_resolution(struct test_context *ctx)
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
 	struct ivi_layout_screen **iviscrns;
 	int32_t screen_length = 0;
+	struct weston_output *output;
 	int32_t width;
 	int32_t height;
 	int32_t i;
@@ -731,10 +732,12 @@ test_screen_resolution(struct test_context *ctx)
 	iassert(screen_length > 0);
 
 	for (i = 0; i < screen_length; ++i) {
+		output = ctl->screen_get_output(iviscrns[i]);
+		iassert(output != NULL);
 		iassert(ctl->get_screen_resolution(
 			    iviscrns[i], &width, &height) == IVI_SUCCEEDED);
-		iassert(width == 1024);
-		iassert(height == 640);
+		iassert(width == output->current_mode->width);
+		iassert(height == output->current_mode->height);
 	}
 
 	if (screen_length > 0) {
