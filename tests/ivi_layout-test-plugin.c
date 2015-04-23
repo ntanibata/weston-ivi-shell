@@ -749,22 +749,21 @@ RUNNER_TEST(layer_render_order)
 
 RUNNER_TEST(layer_bad_render_order)
 {
-#define SURFACE_NUM (3)
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
 	struct ivi_layout_layer *ivilayer;
-	struct ivi_layout_surface *ivisurfs[SURFACE_NUM] = {};
+	struct ivi_layout_surface *ivisurfs[IVI_TEST_SURFACE_COUNT] = {};
 	struct ivi_layout_surface **array;
 	int32_t length = 0;
 	uint32_t i;
 
 	ivilayer = ctl->layer_create_with_dimension(IVI_TEST_LAYER_ID(0), 200, 300);
 
-	for (i = 0; i < SURFACE_NUM; i++) {
+	for (i = 0; i < IVI_TEST_SURFACE_COUNT; i++) {
 		ivisurfs[i] = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(i));
 	}
 
 	runner_assert(ctl->layer_set_render_order(
-		      NULL, ivisurfs, SURFACE_NUM) == IVI_FAILED);
+		      NULL, ivisurfs, IVI_TEST_SURFACE_COUNT) == IVI_FAILED);
 
 	ctl->commit_changes();
 
@@ -776,26 +775,23 @@ RUNNER_TEST(layer_bad_render_order)
 		      ivilayer, &length, NULL) == IVI_FAILED);
 
 	ctl->layer_remove(ivilayer);
-#undef SURFACE_NUM
 }
 
 RUNNER_TEST(commit_changes_after_render_order_set_surface_destroy)
 {
-#define SURFACE_NUM (3)
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
 	struct ivi_layout_layer *ivilayer;
-	struct ivi_layout_surface *ivisurfs[SURFACE_NUM] = {};
+	struct ivi_layout_surface *ivisurfs[IVI_TEST_SURFACE_COUNT] = {};
 	int i;
 
 	ivilayer = ctl->layer_create_with_dimension(IVI_TEST_LAYER_ID(0), 200, 300);
 
-	for (i = 0; i < SURFACE_NUM; i++) {
+	for (i = 0; i < IVI_TEST_SURFACE_COUNT; i++) {
 		ivisurfs[i] = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(i));
 	}
 
 	runner_assert(ctl->layer_set_render_order(
-		      ivilayer, ivisurfs, SURFACE_NUM) == IVI_SUCCEEDED);
-#undef SURFACE_NUM
+		      ivilayer, ivisurfs, IVI_TEST_SURFACE_COUNT) == IVI_SUCCEEDED);
 }
 
 RUNNER_TEST(cleanup_layer)
