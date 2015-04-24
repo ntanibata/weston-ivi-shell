@@ -1026,9 +1026,9 @@ RUNNER_TEST(surface_remove_notification_p2)
 
 static void
 test_surface_bad_add_notification_callback(struct ivi_layout_surface *ivisurf,
-	const struct ivi_layout_surface_properties *prop,
-	enum ivi_layout_notification_mask mask,
-	void *userdata)
+					   const struct ivi_layout_surface_properties *prop,
+					   enum ivi_layout_notification_mask mask,
+					   void *userdata)
 {
 }
 
