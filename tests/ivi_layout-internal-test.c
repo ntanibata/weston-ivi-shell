@@ -1029,7 +1029,7 @@ test_layer_remove_notification(struct test_context *ctx)
 	iassert(ctx->user_flags == 1);
 
 	ctx->user_flags = 0;
-	ivilayers[1] = ctl->layer_create_with_dimension(layers[1], 200, 300);
+	ivilayers[1] = ctl->layer_create_with_dimension(layers[1], 250, 350);
 	ctl->remove_notification_remove_layer(test_layer_remove_notification_callback, ctx);
 	ctl->layer_remove(ivilayers[1]);
 
