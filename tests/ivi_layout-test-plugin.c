@@ -895,9 +895,9 @@ RUNNER_TEST(cleanup_layer)
 
 static void
 test_surface_add_notification_callback(struct ivi_layout_surface *ivisurf,
-	const struct ivi_layout_surface_properties *prop,
-	enum ivi_layout_notification_mask mask,
-	void *userdata)
+				       const struct ivi_layout_surface_properties *prop,
+				       enum ivi_layout_notification_mask mask,
+				       void *userdata)
 {
 	struct test_context *ctx = userdata;
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
@@ -930,7 +930,7 @@ RUNNER_TEST(surface_add_notification)
 
 static void
 test_surface_configure_notification_callback(struct ivi_layout_surface *ivisurf,
-	void *userdata)
+					     void *userdata)
 {
 	struct test_context *ctx = userdata;
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
@@ -960,7 +960,7 @@ RUNNER_TEST(surface_configure_notification_p2)
 
 static void
 test_surface_create_notification_callback(struct ivi_layout_surface *ivisurf,
-	void *userdata)
+					  void *userdata)
 {
 	struct test_context *ctx = userdata;
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
@@ -992,7 +992,7 @@ RUNNER_TEST(surface_create_notification_p2)
 
 static void
 test_surface_remove_notification_callback(struct ivi_layout_surface *ivisurf,
-	void *userdata)
+					  void *userdata)
 {
 	struct test_context *ctx = userdata;
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
