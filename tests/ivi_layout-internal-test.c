@@ -406,7 +406,7 @@ test_layer_source_rectangle(struct test_context *ctx)
 }
 
 static void
-test_layer_bad_create(struct test_context *ctx)
+test_layer_bad_remove(struct test_context *ctx)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
 	ctl->layer_remove(NULL);
@@ -718,7 +718,7 @@ run_internal_tests(void *data)
 	test_layer_position(ctx);
 	test_layer_destination_rectangle(ctx);
 	test_layer_source_rectangle(ctx);
-	test_layer_bad_create(ctx);
+	test_layer_bad_remove(ctx);
 	test_layer_bad_visibility(ctx);
 	test_layer_bad_opacity(ctx);
 	test_layer_bad_destination_rectangle(ctx);
