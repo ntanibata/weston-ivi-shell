@@ -251,16 +251,16 @@ TEST_P(commit_changes_after_properties_set_surface_destroy, surface_property_com
 	const char * const *test_name = data;
 	struct client *client;
 	struct runner *runner;
-	struct ivi_window *winds;
+	struct ivi_window *wnd;
 
 	client = create_client();
 	runner = client_create_runner(client);
 
-	winds = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(0));
+	wnd = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(0));
 
 	runner_run(runner, *test_name);
 
-	ivi_window_destroy(winds);
+	ivi_window_destroy(wnd);
 
 	runner_run(runner, "ivi_layout_commit_changes");
 
@@ -271,19 +271,19 @@ TEST(get_surface_after_destroy_ivi_surface)
 {
 	struct client *client;
 	struct runner *runner;
-	struct ivi_window *winds;
+	struct ivi_window *wnd;
 
 	client = create_client();
 	runner = client_create_runner(client);
 
-	winds = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(0));
+	wnd = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(0));
 
-	ivi_surface_destroy(winds->ivi_surface);
+	ivi_surface_destroy(wnd->ivi_surface);
 
 	runner_run(runner, "get_surface_after_destroy_surface");
 
-	wl_surface_destroy(winds->wl_surface);
-	free(winds);
+	wl_surface_destroy(wnd->wl_surface);
+	free(wnd);
 	runner_destroy(runner);
 }
 
@@ -291,18 +291,18 @@ TEST(get_surface_after_destroy_wl_surface)
 {
 	struct client *client;
 	struct runner *runner;
-	struct ivi_window *winds;
+	struct ivi_window *wnd;
 
 	client = create_client();
 	runner = client_create_runner(client);
 
-	winds = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(0));
+	wnd = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(0));
 
-	wl_surface_destroy(winds->wl_surface);
+	wl_surface_destroy(wnd->wl_surface);
 
 	runner_run(runner, "get_surface_after_destroy_surface");
 
-	ivi_surface_destroy(winds->ivi_surface);
-	free(winds);
+	ivi_surface_destroy(wnd->ivi_surface);
+	free(wnd);
 	runner_destroy(runner);
 }
