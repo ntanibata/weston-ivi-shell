@@ -935,7 +935,11 @@ test_layer_add_notification(struct test_context *ctx)
 	iassert(ctx->user_flags == 1);
 
 	ctl->layer_remove_notification(ivilayer);
+
+	ctx->user_flags = 0;
 	ctl->commit_changes();
+
+	iassert(ctx->user_flags == 0);
 
 	ctl->layer_remove(ivilayer);
 }
@@ -975,9 +979,12 @@ test_layer_create_notification(struct test_context *ctx)
 
 	iassert(ctx->user_flags == 1);
 
+	ctx->user_flags = 0;
 	ctl->remove_notification_create_layer(test_layer_create_notification_callback, ctx);
 
 	ivilayers[1] = ctl->layer_create_with_dimension(layers[1], 400, 500);
+
+	iassert(ctx->user_flags == 0);
 
 	ctl->layer_remove(ivilayers[0]);
 	ctl->layer_remove(ivilayers[1]);
@@ -1021,9 +1028,12 @@ test_layer_remove_notification(struct test_context *ctx)
 
 	iassert(ctx->user_flags == 1);
 
+	ctx->user_flags = 0;
 	ivilayers[1] = ctl->layer_create_with_dimension(layers[1], 200, 300);
 	ctl->remove_notification_remove_layer(test_layer_remove_notification_callback, ctx);
 	ctl->layer_remove(ivilayers[1]);
+
+	iassert(ctx->user_flags == 0);
 #undef LAYER_NUM
 }
 
