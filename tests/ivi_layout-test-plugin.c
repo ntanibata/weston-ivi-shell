@@ -317,14 +317,6 @@ runner_assert_fail(const char *cond, const char *file, int line,
  * achieve multiple test points over a client action sequence.
  */
 
-static struct weston_surface *
-get_weston_surface(const struct ivi_controller_interface *ctl, int32_t surface_id)
-{
-	struct ivi_layout_surface *ivi_surface = NULL;
-	ivi_surface = ctl->get_surface_from_id(surface_id);
-	return ctl->surface_get_weston_surface(ivi_surface);
-}
-
 RUNNER_TEST(surface_create_p1)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
@@ -938,14 +930,6 @@ RUNNER_TEST(surface_configure_notification_p1)
 RUNNER_TEST(surface_configure_notification_p2)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
-	struct weston_surface *surface;
-
-	surface = get_weston_surface(ctl, IVI_TEST_SURFACE_ID(0));
-
-	runner_assert_or_return(surface->configure != NULL);
-	surface->width = 1;
-	surface->height = 1;
-	surface->configure(surface, 1, 1);
 
 	ctl->remove_notification_configure_surface(test_surface_configure_notification_callback, ctx);
 	ctl->commit_changes();
