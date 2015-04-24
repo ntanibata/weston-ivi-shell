@@ -914,7 +914,7 @@ test_surface_add_notification_callback(struct ivi_layout_surface *ivisurf,
 RUNNER_TEST(surface_add_notification)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
-	static const uint32_t id_surface = IVI_TEST_SURFACE_ID(0);
+	const uint32_t id_surface = IVI_TEST_SURFACE_ID(0);
 	struct ivi_layout_surface *ivisurf;
 
 	ivisurf = ctl->get_surface_from_id(id_surface);
