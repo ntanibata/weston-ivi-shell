@@ -892,6 +892,7 @@ test_surface_add_notification_callback(struct ivi_layout_surface *ivisurf,
 {
 	struct test_context *ctx = userdata;
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+
 	runner_assert_or_return(ctl->get_id_of_surface(ivisurf) == IVI_TEST_SURFACE_ID(0));
 
 	ctx->user_flags = 1;
@@ -925,6 +926,7 @@ test_surface_configure_notification_callback(struct ivi_layout_surface *ivisurf,
 {
 	struct test_context *ctx = userdata;
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+
 	runner_assert_or_return(ctl->get_id_of_surface(ivisurf) == IVI_TEST_SURFACE_ID(0));
 
 	ctx->user_flags = 1;
@@ -933,6 +935,7 @@ test_surface_configure_notification_callback(struct ivi_layout_surface *ivisurf,
 RUNNER_TEST(surface_configure_notification_p1)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+
 	runner_assert(IVI_SUCCEEDED == ctl->add_notification_configure_surface(test_surface_configure_notification_callback, ctx));
 	ctl->commit_changes();
 
@@ -996,6 +999,7 @@ test_surface_remove_notification_callback(struct ivi_layout_surface *ivisurf,
 RUNNER_TEST(surface_remove_notification_p1)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+
 	runner_assert(ctl->add_notification_remove_surface(
 		      test_surface_remove_notification_callback, ctx) == IVI_SUCCEEDED);
 
