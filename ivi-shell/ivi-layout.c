@@ -1822,6 +1822,7 @@ ivi_layout_layer_create_with_dimension(uint32_t id_layer,
 	ivilayer = get_layer(&layout->layer_list, id_layer);
 	if (ivilayer != NULL) {
 		weston_log("id_layer is already created\n");
+		++ivilayer->ref_count;
 		return ivilayer;
 	}
 
@@ -1831,6 +1832,7 @@ ivi_layout_layer_create_with_dimension(uint32_t id_layer,
 		return NULL;
 	}
 
+	ivilayer->ref_count = 1;
 	wl_list_init(&ivilayer->link);
 	wl_signal_init(&ivilayer->property_changed);
 	wl_list_init(&ivilayer->screen_list);
@@ -1873,6 +1875,10 @@ ivi_layout_layer_remove(struct ivi_layout_layer *ivilayer)
 
 	if (ivilayer == NULL) {
 		weston_log("ivi_layout_layer_remove: invalid argument\n");
+		return;
+	}
+
+	if (--ivilayer->ref_count > 0) {
 		return;
 	}
 
