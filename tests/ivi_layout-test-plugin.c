@@ -679,7 +679,6 @@ RUNNER_TEST(commit_changes_after_destination_rectangle_set_surface_destroy)
 
 	ivisurf = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(0));
 	runner_assert(ivisurf != NULL);
-	runner_assert(NULL != ivisurf);
 	runner_assert(ctl->surface_set_destination_rectangle(
 		      ivisurf, 20, 30, 200, 300) == IVI_SUCCEEDED);
 }
