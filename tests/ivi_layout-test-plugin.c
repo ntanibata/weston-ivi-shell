@@ -718,26 +718,26 @@ RUNNER_TEST(layer_render_order)
 		ivisurfs[i] = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(i));
 	}
 
-	runner_assert_or_return(ctl->layer_set_render_order(
-		    ivilayer, ivisurfs, SURFACE_NUM) == IVI_SUCCEEDED);
+	runner_assert(ctl->layer_set_render_order(
+		      ivilayer, ivisurfs, IVI_TEST_SURFACE_COUNT) == IVI_SUCCEEDED);
 
 	ctl->commit_changes();
 
-	runner_assert_or_return(ctl->get_surfaces_on_layer(
-		    ivilayer, &length, &array) == IVI_SUCCEEDED);
-	runner_assert_or_return(SURFACE_NUM == length);
+	runner_assert(ctl->get_surfaces_on_layer(
+		      ivilayer, &length, &array) == IVI_SUCCEEDED);
+	runner_assert(SURFACE_NUM == length);
 	for (i = 0; i < SURFACE_NUM; i++) {
-		runner_assert_or_return(array[i] == ivisurfs[i]);
+		runner_assert(array[i] == ivisurfs[i]);
 	}
 
-	runner_assert_or_return(ctl->layer_set_render_order(
-		    ivilayer, NULL, 0) == IVI_SUCCEEDED);
+	runner_assert(ctl->layer_set_render_order(
+		      ivilayer, NULL, 0) == IVI_SUCCEEDED);
 
 	ctl->commit_changes();
 
-	runner_assert_or_return(ctl->get_surfaces_on_layer(
-		    ivilayer, &length, &array) == IVI_SUCCEEDED);
-	runner_assert_or_return(length == 0);
+	runner_assert(ctl->get_surfaces_on_layer(
+		      ivilayer, &length, &array) == IVI_SUCCEEDED);
+	runner_assert(length == 0);
 
 	ctl->layer_remove(ivilayer);
 #undef SURFACE_NUM
