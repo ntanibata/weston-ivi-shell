@@ -576,37 +576,37 @@ RUNNER_TEST(surface_bad_opacity)
 	wl_fixed_t opacity;
 
 	ivisurf = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(0));
-	runner_assert_or_return(ivisurf != NULL);
+	runner_assert(ivisurf != NULL);
 
-	runner_assert_or_return(ctl->surface_set_opacity(
-		    NULL, wl_fixed_from_double(0.3)) == IVI_FAILED);
+	runner_assert(ctl->surface_set_opacity(
+		      NULL, wl_fixed_from_double(0.3)) == IVI_FAILED);
 
-	runner_assert_or_return(ctl->surface_set_opacity(
-		ivisurf, wl_fixed_from_double(0.3)) == IVI_SUCCEEDED);
+	runner_assert(ctl->surface_set_opacity(
+		      ivisurf, wl_fixed_from_double(0.3)) == IVI_SUCCEEDED);
 
-	runner_assert_or_return(ctl->surface_set_opacity(
-		ivisurf, wl_fixed_from_double(-1)) == IVI_FAILED);
-
-	ctl->commit_changes();
-
-	opacity = ctl->surface_get_opacity(ivisurf);
-	runner_assert_or_return(opacity == wl_fixed_from_double(0.3));
-
-	runner_assert_or_return(ctl->surface_set_opacity(
-		ivisurf, wl_fixed_from_double(1.1)) == IVI_FAILED);
+	runner_assert(ctl->surface_set_opacity(
+		      ivisurf, wl_fixed_from_double(-1)) == IVI_FAILED);
 
 	ctl->commit_changes();
 
 	opacity = ctl->surface_get_opacity(ivisurf);
-	runner_assert_or_return(opacity == wl_fixed_from_double(0.3));
+	runner_assert(opacity == wl_fixed_from_double(0.3));
 
-	runner_assert_or_return(ctl->surface_set_opacity(
-		NULL, wl_fixed_from_double(0.5)) == IVI_FAILED);
+	runner_assert(ctl->surface_set_opacity(
+		      ivisurf, wl_fixed_from_double(1.1)) == IVI_FAILED);
+
+	ctl->commit_changes();
+
+	opacity = ctl->surface_get_opacity(ivisurf);
+	runner_assert(opacity == wl_fixed_from_double(0.3));
+
+	runner_assert(ctl->surface_set_opacity(
+		      NULL, wl_fixed_from_double(0.5)) == IVI_FAILED);
 
 	ctl->commit_changes();
 
 	opacity = ctl->surface_get_opacity(NULL);
-	runner_assert_or_return(opacity == wl_fixed_from_double(0.0));
+	runner_assert(opacity == wl_fixed_from_double(0.0));
 }
 
 RUNNER_TEST(ivi_layout_commit_changes)
@@ -621,9 +621,9 @@ RUNNER_TEST(commit_changes_after_visibility_set_surface_destroy)
 	struct ivi_layout_surface *ivisurf;
 
 	ivisurf = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(0));
-	runner_assert_or_return(ivisurf != NULL);
-	runner_assert_or_return(ctl->surface_set_visibility(
-		    ivisurf, true) == IVI_SUCCEEDED);
+	runner_assert(ivisurf != NULL);
+	runner_assert(ctl->surface_set_visibility(
+		      ivisurf, true) == IVI_SUCCEEDED);
 }
 
 RUNNER_TEST(commit_changes_after_opacity_set_surface_destroy)
@@ -632,9 +632,9 @@ RUNNER_TEST(commit_changes_after_opacity_set_surface_destroy)
 	struct ivi_layout_surface *ivisurf;
 
 	ivisurf = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(0));
-	runner_assert_or_return(ivisurf != NULL);
-	runner_assert_or_return(ctl->surface_set_opacity(
-		    ivisurf, wl_fixed_from_double(0.5)) == IVI_SUCCEEDED);
+	runner_assert(ivisurf != NULL);
+	runner_assert(ctl->surface_set_opacity(
+		      ivisurf, wl_fixed_from_double(0.5)) == IVI_SUCCEEDED);
 }
 
 RUNNER_TEST(commit_changes_after_orientation_set_surface_destroy)
@@ -643,9 +643,9 @@ RUNNER_TEST(commit_changes_after_orientation_set_surface_destroy)
 	struct ivi_layout_surface *ivisurf;
 
 	ivisurf = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(0));
-	runner_assert_or_return(ivisurf != NULL);
-	runner_assert_or_return(ctl->surface_set_orientation(
-		    ivisurf, WL_OUTPUT_TRANSFORM_90) == IVI_SUCCEEDED);
+	runner_assert(ivisurf != NULL);
+	runner_assert(ctl->surface_set_orientation(
+		      ivisurf, WL_OUTPUT_TRANSFORM_90) == IVI_SUCCEEDED);
 }
 
 RUNNER_TEST(commit_changes_after_dimension_set_surface_destroy)
@@ -654,9 +654,9 @@ RUNNER_TEST(commit_changes_after_dimension_set_surface_destroy)
 	struct ivi_layout_surface *ivisurf;
 
 	ivisurf = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(0));
-	runner_assert_or_return(ivisurf != NULL);
-	runner_assert_or_return(ctl->surface_set_dimension(
-		    ivisurf, 200, 300) == IVI_SUCCEEDED);
+	runner_assert(ivisurf != NULL);
+	runner_assert(ctl->surface_set_dimension(
+		      ivisurf, 200, 300) == IVI_SUCCEEDED);
 }
 
 RUNNER_TEST(commit_changes_after_position_set_surface_destroy)
@@ -665,9 +665,9 @@ RUNNER_TEST(commit_changes_after_position_set_surface_destroy)
 	struct ivi_layout_surface *ivisurf;
 
 	ivisurf = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(0));
-	runner_assert_or_return(ivisurf != NULL);
-	runner_assert_or_return(ctl->surface_set_position(
-		    ivisurf, 20, 30) == IVI_SUCCEEDED);
+	runner_assert(ivisurf != NULL);
+	runner_assert(ctl->surface_set_position(
+		      ivisurf, 20, 30) == IVI_SUCCEEDED);
 }
 
 RUNNER_TEST(commit_changes_after_source_rectangle_set_surface_destroy)
@@ -676,9 +676,9 @@ RUNNER_TEST(commit_changes_after_source_rectangle_set_surface_destroy)
 	struct ivi_layout_surface *ivisurf;
 
 	ivisurf = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(0));
-	runner_assert_or_return(ivisurf != NULL);
-	runner_assert_or_return(ctl->surface_set_source_rectangle(
-		    ivisurf, 20, 30, 200, 300) == IVI_SUCCEEDED);
+	runner_assert(ivisurf != NULL);
+	runner_assert(ctl->surface_set_source_rectangle(
+		      ivisurf, 20, 30, 200, 300) == IVI_SUCCEEDED);
 }
 
 RUNNER_TEST(commit_changes_after_destination_rectangle_set_surface_destroy)
@@ -687,10 +687,10 @@ RUNNER_TEST(commit_changes_after_destination_rectangle_set_surface_destroy)
 	struct ivi_layout_surface *ivisurf;
 
 	ivisurf = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(0));
-	runner_assert_or_return(ivisurf != NULL);
-	runner_assert_or_return(NULL != ivisurf);
-	runner_assert_or_return(ctl->surface_set_destination_rectangle(
-		    ivisurf, 20, 30, 200, 300) == IVI_SUCCEEDED);
+	runner_assert(ivisurf != NULL);
+	runner_assert(NULL != ivisurf);
+	runner_assert(ctl->surface_set_destination_rectangle(
+		      ivisurf, 20, 30, 200, 300) == IVI_SUCCEEDED);
 }
 
 RUNNER_TEST(get_surface_after_destroy_surface)
@@ -699,7 +699,7 @@ RUNNER_TEST(get_surface_after_destroy_surface)
 	struct ivi_layout_surface *ivisurf;
 
 	ivisurf = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(0));
-	runner_assert_or_return(ivisurf == NULL);
+	runner_assert(ivisurf == NULL);
 }
 
 RUNNER_TEST(get_surface_after_destroy_weston_surface)
@@ -709,10 +709,11 @@ RUNNER_TEST(get_surface_after_destroy_weston_surface)
 	struct ivi_layout_surface *ivisurf;
 
 	ivisurf = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(0));
-	runner_assert_or_return(ivisurf != NULL);
+	runner_assert(ivisurf != NULL);
+
 	surface = ctl->surface_get_weston_surface(ivisurf);
 	weston_surface_destroy(surface);
 
 	ivisurf = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(0));
-	runner_assert_or_return(ivisurf == NULL);
+	runner_assert(ivisurf == NULL);
 }
