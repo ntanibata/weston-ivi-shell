@@ -59,7 +59,6 @@ iassert_fail(const char *cond, const char *file, int line,
  * These are all internal ivi_layout API tests that do not require
  * any client objects.
  */
-
 static void
 test_surface_bad_visibility(struct test_context *ctx)
 {
@@ -704,29 +703,47 @@ static void
 test_screen_id(struct test_context *ctx)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
-	struct ivi_layout_screen *iviscrn;
+	struct ivi_layout_screen **iviscrns;
+	int32_t screen_length = 0;
+	uint32_t id_screen;
+	int32_t i;
 
-	iviscrn = ctl->get_screen_from_id(0);
-	iassert(iviscrn != NULL);
+	iassert(ctl->get_screens(&screen_length, &iviscrns) == IVI_SUCCEEDED);
+	iassert(screen_length > 0);
+
+	for (i = 0; i < screen_length; ++i) {
+		id_screen = ctl->get_id_of_screen(iviscrns[i]);
+		iassert(ctl->get_screen_from_id(id_screen) == iviscrns[i]);
+	}
+
+	if (screen_length > 0) {
+		free(iviscrns);
+	}
 }
 
 static void
 test_screen_resolution(struct test_context *ctx)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
-	struct ivi_layout_screen **iviscreen;
-	struct ivi_layout_screen *iviscrn;
+	struct ivi_layout_screen **iviscrns;
 	int32_t screen_length = 0;
 	int32_t width;
 	int32_t height;
+	int32_t i;
 
-	iassert(ctl->get_screens(&screen_length, &iviscreen) == IVI_SUCCEEDED);
-	iviscrn = iviscreen[0];
+	iassert(ctl->get_screens(&screen_length, &iviscrns) == IVI_SUCCEEDED);
+	iassert(screen_length > 0);
 
-	iassert(ctl->get_screen_resolution(
-		    iviscrn, &width, &height) == IVI_SUCCEEDED);
-	iassert(width == 1024);
-	iassert(height == 640);
+	for (i = 0; i < screen_length; ++i) {
+		iassert(ctl->get_screen_resolution(
+			    iviscrns[i], &width, &height) == IVI_SUCCEEDED);
+		iassert(width == 1024);
+		iassert(height == 640);
+	}
+
+	if (screen_length > 0) {
+		free(iviscrns);
+	}
 }
 
 static void
@@ -734,41 +751,52 @@ test_screen_render_order(struct test_context *ctx)
 {
 #define LAYER_NUM (3)
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
-	struct ivi_layout_screen *iviscrn = ctl->get_screen_from_id(0);
+	struct ivi_layout_screen **iviscrns;
+	int32_t screen_length = 0;
+	struct ivi_layout_screen *iviscrn;
 	struct ivi_layout_layer *ivilayers[LAYER_NUM] = {};
 	struct ivi_layout_layer **array;
 	int32_t length = 0;
 	uint32_t i;
 
-	for (i = 0; i < LAYER_NUM; i++) {
-		ivilayers[i] = ctl->layer_create_with_dimension(IVI_TEST_LAYER_ID(i), 200, 300);
-	}
+	iassert(ctl->get_screens(&screen_length, &iviscrns) == IVI_SUCCEEDED);
+	iassert(screen_length > 0);
 
-	iassert(ctl->screen_set_render_order(iviscrn, ivilayers, LAYER_NUM) == IVI_SUCCEEDED);
+	if (screen_length > 0) {
+		iviscrn = iviscrns[0];
 
-	ctl->commit_changes();
+		for (i = 0; i < LAYER_NUM; i++) {
+			ivilayers[i] = ctl->layer_create_with_dimension(IVI_TEST_LAYER_ID(i), 200, 300);
+		}
 
-	iassert(ctl->get_layers_on_screen(iviscrn, &length, &array) == IVI_SUCCEEDED);
-	iassert(length == LAYER_NUM);
-	for (i = 0; i < LAYER_NUM; i++) {
-		iassert(array[i] == ivilayers[i]);
-	}
+		iassert(ctl->screen_set_render_order(iviscrn, ivilayers, LAYER_NUM) == IVI_SUCCEEDED);
 
-	if (length > 0) {
-		free(array);
-	}
+		ctl->commit_changes();
 
-	array = NULL;
+		iassert(ctl->get_layers_on_screen(iviscrn, &length, &array) == IVI_SUCCEEDED);
+		iassert(length == LAYER_NUM);
+		for (i = 0; i < LAYER_NUM; i++) {
+			iassert(array[i] == ivilayers[i]);
+		}
 
-	iassert(ctl->screen_set_render_order(iviscrn, NULL, 0) == IVI_SUCCEEDED);
+		if (length > 0) {
+			free(array);
+		}
 
-	ctl->commit_changes();
+		array = NULL;
 
-	iassert(ctl->get_layers_on_screen(iviscrn, &length, &array) == IVI_SUCCEEDED);
-	iassert(length == 0 && array == NULL);
+		iassert(ctl->screen_set_render_order(iviscrn, NULL, 0) == IVI_SUCCEEDED);
 
-	for (i = 0; i < LAYER_NUM; i++) {
-		ctl->layer_remove(ivilayers[i]);
+		ctl->commit_changes();
+
+		iassert(ctl->get_layers_on_screen(iviscrn, &length, &array) == IVI_SUCCEEDED);
+		iassert(length == 0 && array == NULL);
+
+		for (i = 0; i < LAYER_NUM; i++) {
+			ctl->layer_remove(ivilayers[i]);
+		}
+
+		free(iviscrns);
 	}
 #undef LAYER_NUM
 }
