@@ -1028,11 +1028,11 @@ RUNNER_TEST(surface_bad_add_notification)
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
 	struct ivi_layout_surface *ivisurf;
 	ivisurf = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(0));
-	runner_assert_or_return(ivisurf != NULL);
+	runner_assert(ivisurf != NULL);
 
-	runner_assert_or_return(ctl->surface_add_notification(
-		    NULL, test_surface_bad_add_notification_callback, NULL) == IVI_FAILED);
-	runner_assert_or_return(ctl->surface_add_notification(
-		    ivisurf, NULL, NULL) == IVI_FAILED);
+	runner_assert(ctl->surface_add_notification(
+		      NULL, test_surface_bad_add_notification_callback, NULL) == IVI_FAILED);
+	runner_assert(ctl->surface_add_notification(
+		      ivisurf, NULL, NULL) == IVI_FAILED);
 }
 
