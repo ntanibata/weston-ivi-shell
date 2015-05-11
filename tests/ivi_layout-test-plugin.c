@@ -727,11 +727,13 @@ RUNNER_TEST(layer_render_order)
 	runner_assert(ctl->layer_set_render_order(
 		      ivilayer, NULL, 0) == IVI_SUCCEEDED);
 
+	array = NULL;
+
 	ctl->commit_changes();
 
 	runner_assert(ctl->get_surfaces_on_layer(
 		      ivilayer, &length, &array) == IVI_SUCCEEDED);
-	runner_assert(length == 0);
+	runner_assert(length == 0 && array == NULL);
 
 	ctl->layer_remove(ivilayer);
 }
