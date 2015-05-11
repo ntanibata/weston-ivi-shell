@@ -918,10 +918,10 @@ RUNNER_TEST(surface_add_notification)
 	struct ivi_layout_surface *ivisurf;
 
 	ivisurf = ctl->get_surface_from_id(id_surface);
-	runner_assert_or_return(ivisurf != NULL);
+	runner_assert(ivisurf != NULL);
 
-	runner_assert_or_return(ctl->surface_add_notification(
-		    ivisurf, test_surface_add_notification_callback, ctx) == IVI_SUCCEEDED);
+	runner_assert(ctl->surface_add_notification(
+		      ivisurf, test_surface_add_notification_callback, ctx) == IVI_SUCCEEDED);
 
 	ctl->commit_changes();
 	ctl->surface_remove_notification(ivisurf);
@@ -940,7 +940,7 @@ test_surface_configure_notification_callback(struct ivi_layout_surface *ivisurf,
 RUNNER_TEST(surface_configure_notification_p1)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
-	runner_assert_or_return(IVI_SUCCEEDED == ctl->add_notification_configure_surface(test_surface_configure_notification_callback, ctx));
+	runner_assert(IVI_SUCCEEDED == ctl->add_notification_configure_surface(test_surface_configure_notification_callback, ctx));
 	ctl->commit_changes();
 }
 
@@ -974,8 +974,8 @@ RUNNER_TEST(surface_create_notification_p1)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
 
-	runner_assert_or_return(ctl->add_notification_create_surface(
-		    test_surface_create_notification_callback, ctx) == IVI_SUCCEEDED);
+	runner_assert(ctl->add_notification_create_surface(
+		      test_surface_create_notification_callback, ctx) == IVI_SUCCEEDED);
 }
 
 RUNNER_TEST(surface_create_notification_p2)
@@ -999,8 +999,8 @@ test_surface_remove_notification_callback(struct ivi_layout_surface *ivisurf,
 RUNNER_TEST(surface_remove_notification_p1)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
-	runner_assert_or_return(ctl->add_notification_remove_surface(
-		    test_surface_remove_notification_callback, ctx) == IVI_SUCCEEDED);
+	runner_assert(ctl->add_notification_remove_surface(
+		      test_surface_remove_notification_callback, ctx) == IVI_SUCCEEDED);
 }
 
 RUNNER_TEST(surface_remove_notification_p2)
