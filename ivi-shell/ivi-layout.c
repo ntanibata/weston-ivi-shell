@@ -642,6 +642,60 @@ update_layer_orientation(struct ivi_layout_layer *ivilayer,
 	weston_view_update_transform(view);
 }
 
+static bool
+calc_clipping_rectangle(struct ivi_layout_layer *ivilayer,
+			struct ivi_layout_surface *ivisurf)
+{
+	struct weston_view *view = NULL;
+	int32_t clip_width = 0;
+	int32_t clip_height = 0;
+	pixman_region32_t surface_output_region;
+	pixman_region32_t layer_output_region;
+	pixman_region32_t mask_output_region;
+
+	/* FIXME: this should be fixed at multiple view support */
+	wl_list_for_each(view, &ivisurf->surface->views, surface_link) {
+		if (view != NULL) {
+			break;
+		}
+	}
+
+	if (view == NULL) {
+		return false;
+	}
+
+	pixman_region32_init(&mask_output_region);
+	pixman_region32_init_rect(&surface_output_region,
+		ivilayer->prop.source_x + ivisurf->prop.source_x,
+		ivilayer->prop.source_y + ivisurf->prop.source_y,
+		ivisurf->prop.source_width,
+		ivisurf->prop.source_height);
+
+	pixman_region32_init_rect(&layer_output_region,
+		ivilayer->prop.source_x,
+		ivilayer->prop.source_y,
+		ivilayer->prop.source_width,
+		ivilayer->prop.source_height);
+
+	pixman_region32_intersect(&mask_output_region,
+		&surface_output_region,
+		&layer_output_region);
+
+	clip_width = mask_output_region.extents.x2 - mask_output_region.extents.x1;
+	clip_height = mask_output_region.extents.y2 - mask_output_region.extents.y1;
+
+	ivisurf->clip_x = mask_output_region.extents.x1;
+	ivisurf->clip_y = mask_output_region.extents.y1;
+	ivisurf->clip_width = clip_width;
+	ivisurf->clip_height = clip_height;
+
+	pixman_region32_fini(&surface_output_region);
+	pixman_region32_fini(&layer_output_region);
+	pixman_region32_fini(&mask_output_region);
+
+	return true;
+}
+
 static void
 update_surface_position(struct ivi_layout_surface *ivisurf)
 {
@@ -758,6 +812,11 @@ update_prop(struct ivi_layout_layer *ivilayer,
 {
 	if (ivilayer->event_mask | ivisurf->event_mask) {
 		struct weston_view *tmpview;
+
+		if (!calc_clipping_rectangle(ivilayer, ivisurf)) {
+			return;
+		}
+
 		update_opacity(ivilayer, ivisurf);
 		update_layer_orientation(ivilayer, ivisurf);
 		update_layer_position(ivilayer, ivisurf);
