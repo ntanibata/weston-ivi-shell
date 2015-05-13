@@ -696,6 +696,36 @@ calc_clipping_rectangle(struct ivi_layout_layer *ivilayer,
 	return true;
 }
 
+static bool
+calc_scale(struct ivi_layout_layer *ivilayer,
+	   struct ivi_layout_surface *ivisurf,
+	   float *sx, float *sy)
+{
+	float lw = 0.0f;
+	float sw = 0.0f;
+	float lh = 0.0f;
+	float sh = 0.0f;
+
+	if (ivisurf->prop.source_width == 0 || ivisurf->prop.source_height == 0) {
+		weston_log("ivi-shell: source rectangle is not yet set by ivi_layout_surface_set_source_rectangle\n");
+		return false;
+	}
+
+	if (ivisurf->prop.dest_width == 0 || ivisurf->prop.dest_height == 0) {
+		weston_log("ivi-shell: destination rectangle is not yet set by ivi_layout_surface_set_destination_rectangle\n");
+		return false;
+	}
+
+	lw = ((float)ivilayer->prop.dest_width  / (float)ivilayer->prop.source_width );
+	sw = ((float)ivisurf->prop.dest_width   / (float)ivisurf->clip_width);
+	lh = ((float)ivilayer->prop.dest_height / (float)ivilayer->prop.source_height);
+	sh = ((float)ivisurf->prop.dest_height  / (float)ivisurf->clip_height);
+	*sx = sw * lw;
+	*sy = sh * lh;
+
+	return true;
+}
+
 static void
 update_surface_position(struct ivi_layout_surface *ivisurf)
 {
@@ -763,10 +793,6 @@ update_scale(struct ivi_layout_layer *ivilayer,
 	struct weston_matrix *matrix = &ivisurf->scaling.matrix;
 	float sx = 0.0f;
 	float sy = 0.0f;
-	float lw = 0.0f;
-	float sw = 0.0f;
-	float lh = 0.0f;
-	float sh = 0.0f;
 
 	wl_list_for_each(view, &ivisurf->surface->views, surface_link) {
 		if (view != NULL) {
@@ -778,22 +804,9 @@ update_scale(struct ivi_layout_layer *ivilayer,
 		return;
 	}
 
-	if (ivisurf->prop.source_width == 0 || ivisurf->prop.source_height == 0) {
-		weston_log("ivi-shell: source rectangle is not yet set by ivi_layout_surface_set_source_rectangle\n");
+	if (!calc_scale(ivilayer, ivisurf, &sx, &sy)) {
 		return;
 	}
-
-	if (ivisurf->prop.dest_width == 0 || ivisurf->prop.dest_height == 0) {
-		weston_log("ivi-shell: destination rectangle is not yet set by ivi_layout_surface_set_destination_rectangle\n");
-		return;
-	}
-
-	lw = ((float)ivilayer->prop.dest_width  / (float)ivilayer->prop.source_width );
-	sw = ((float)ivisurf->prop.dest_width	/ (float)ivisurf->prop.source_width  );
-	lh = ((float)ivilayer->prop.dest_height / (float)ivilayer->prop.source_height);
-	sh = ((float)ivisurf->prop.dest_height  / (float)ivisurf->prop.source_height );
-	sx = sw * lw;
-	sy = sh * lh;
 
 	wl_list_remove(&ivisurf->scaling.link);
 	weston_matrix_init(matrix);
