@@ -683,7 +683,7 @@ hmi_controller_create(struct weston_compositor *ec)
 
 	ivi_controller_interface->get_screens(&screen_length, &pp_screen);
 
-	iviscrn = pp_screen[0];
+	iviscrn = pp_screen[screen_length - 1];
 
 	ivi_controller_interface->get_screen_resolution(iviscrn, &screen_width,
 					 &screen_height);
