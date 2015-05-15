@@ -462,6 +462,25 @@ switch_mode(struct hmi_controller *hmi_ctrl,
 }
 
 /**
+ * Internal method to get head ivi_layout_screen
+ */
+static struct ivi_layout_screen *
+get_head_screen(void)
+{
+	struct ivi_layout_screen **pp_screen = NULL;
+	struct ivi_layout_screen *iviscrn  = NULL;
+	int32_t screen_length = 0;
+
+	ivi_controller_interface->get_screens(&screen_length, &pp_screen);
+
+	iviscrn = pp_screen[0];
+
+	free(pp_screen);
+
+	return iviscrn;
+}
+
+/**
  * Internal method for transition
  */
 static void
@@ -482,6 +501,8 @@ hmi_controller_fade_run(struct hmi_controller *hmi_ctrl, uint32_t is_fade_in,
 					is_fade_in, 1.0 - tint, tint);
 	}
 }
+
+
 
 /**
  * Internal method to create ivi_layer with hmi_controller_layer and
@@ -667,9 +688,7 @@ hmi_controller_destroy(struct wl_listener *listener, void *data)
 static struct hmi_controller *
 hmi_controller_create(struct weston_compositor *ec)
 {
-	struct ivi_layout_screen **pp_screen = NULL;
 	struct ivi_layout_screen *iviscrn  = NULL;
-	int32_t screen_length  = 0;
 	int32_t screen_width   = 0;
 	int32_t screen_height  = 0;
 	struct link_layer *tmp_link_layer = NULL;
@@ -681,9 +700,7 @@ hmi_controller_create(struct weston_compositor *ec)
 	hmi_ctrl->hmi_setting = hmi_server_setting_create(ec);
 	hmi_ctrl->compositor = ec;
 
-	ivi_controller_interface->get_screens(&screen_length, &pp_screen);
-
-	iviscrn = pp_screen[0];
+	iviscrn = get_head_screen();
 
 	ivi_controller_interface->get_screen_resolution(iviscrn, &screen_width,
 					 &screen_height);
@@ -743,9 +760,6 @@ hmi_controller_create(struct weston_compositor *ec)
 	hmi_ctrl->destroy_listener.notify = hmi_controller_destroy;
 	wl_signal_add(&hmi_ctrl->compositor->destroy_signal,
 		      &hmi_ctrl->destroy_listener);
-
-	free(pp_screen);
-	pp_screen = NULL;
 
 	return hmi_ctrl;
 }
