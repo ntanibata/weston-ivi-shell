@@ -61,8 +61,6 @@ struct ivi_shell_surface
 	struct wl_list link;
 
 	struct wl_listener configured_listener;
-
-	struct wl_signal shell_surface_destroy_signal;
 };
 
 struct ivi_shell_setting
@@ -137,11 +135,21 @@ static void
 shell_destroy_shell_surface(struct wl_resource *resource)
 {
 	struct ivi_shell_surface *ivisurf = wl_resource_get_user_data(resource);
-	if (ivisurf == NULL) {
-		return;
+	if (ivisurf != NULL) {
+		ivisurf->resource = NULL;
 	}
+}
 
-	wl_signal_emit(&ivisurf->shell_surface_destroy_signal, ivisurf->layout_surface);
+/* Gets called through the weston_surface destroy signal. */
+static void
+shell_handle_surface_destroy(struct wl_listener *listener, void *data)
+{
+	struct ivi_shell_surface *ivisurf =
+			container_of(listener, struct ivi_shell_surface,
+				     surface_destroy_listener);
+
+	assert(ivisurf != NULL);
+
 	if (ivisurf->surface!=NULL) {
 		ivisurf->surface->configure = NULL;
 		ivisurf->surface->configure_private = NULL;
@@ -156,23 +164,7 @@ shell_destroy_shell_surface(struct wl_resource *resource)
 		ivisurf->resource = NULL;
 	}
 	free(ivisurf);
-}
 
-/* Gets called through the weston_surface destroy signal. */
-static void
-shell_handle_surface_destroy(struct wl_listener *listener, void *data)
-{
-	struct ivi_shell_surface *ivisurf =
-			container_of(listener, struct ivi_shell_surface,
-				     surface_destroy_listener);
-
-	assert(ivisurf != NULL);
-
-	if (ivisurf->resource != NULL) {
-		wl_resource_destroy(ivisurf->resource);
-	}
-
-	return;
 }
 
 /* Gets called, when a client sends ivi_surface.destroy request. */
@@ -276,8 +268,6 @@ application_surface_create(struct wl_client *client,
 
 	wl_resource_set_implementation(res, &surface_implementation,
 				       ivisurf, shell_destroy_shell_surface);
-	wl_signal_init(&ivisurf->shell_surface_destroy_signal);
-	wl_signal_add(&ivisurf->shell_surface_destroy_signal, &layout_surface->surface_destroy_listener);
 }
 
 static const struct ivi_application_interface application_implementation = {
