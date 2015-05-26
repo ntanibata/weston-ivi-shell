@@ -36,7 +36,6 @@ struct ivi_layout_surface {
 	struct ivi_layout *layout;
 	struct weston_surface *surface;
 
-	struct wl_listener surface_destroy_listener;
 	struct weston_transform surface_rotation;
 	struct weston_transform layer_rotation;
 	struct weston_transform surface_pos;
