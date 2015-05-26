@@ -145,6 +145,19 @@ shell_destroy_shell_surface(struct wl_resource *resource)
 		wl_list_remove(&ivisurf->surface_destroy_listener.link);
 		wl_list_remove(&ivisurf->link);
 	}
+
+	if (ivisurf->surface != NULL) {
+		ivisurf->surface->configure = NULL;
+		ivisurf->surface->configure_private = NULL;
+		ivisurf->surface = NULL;
+	}
+
+	if (ivisurf->resource != NULL) {
+		wl_resource_set_user_data(ivisurf->resource, NULL);
+		ivisurf->resource = NULL;
+	}
+
+	free(ivisurf);
 }
 
 /* Gets called through the weston_surface destroy signal. */
