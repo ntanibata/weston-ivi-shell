@@ -316,6 +316,47 @@ ivi_layout_surface_remove_notification(struct ivi_layout_surface *ivisurf)
 }
 
 /**
+ * Called at destruction of wl_surface/ivi_surface
+ */
+void
+ivi_layout_surface_destroy(struct ivi_layout_surface *ivisurf)
+{
+	struct ivi_layout *layout = get_instance();
+
+	if (ivisurf == NULL) {
+		weston_log("%s: invalid argument\n", __func__);
+		return;
+	}
+
+	wl_list_remove(&ivisurf->surface_rotation.link);
+	wl_list_remove(&ivisurf->layer_rotation.link);
+	wl_list_remove(&ivisurf->surface_pos.link);
+	wl_list_remove(&ivisurf->layer_pos.link);
+	wl_list_remove(&ivisurf->scaling.link);
+
+	if (!wl_list_empty(&ivisurf->pending.link)) {
+		wl_list_remove(&ivisurf->pending.link);
+	}
+	if (!wl_list_empty(&ivisurf->order.link)) {
+		wl_list_remove(&ivisurf->order.link);
+	}
+	if (!wl_list_empty(&ivisurf->link)) {
+		wl_list_remove(&ivisurf->link);
+	}
+	remove_ordersurface_from_layer(ivisurf);
+
+	wl_signal_emit(&layout->surface_notification.removed, ivisurf);
+
+	remove_configured_listener(ivisurf);
+
+	ivi_layout_surface_remove_notification(ivisurf);
+
+	ivisurf->surface = NULL;
+
+	free(ivisurf);
+}
+
+/**
  * Internal API to check ivi_layer/ivi_surface already added in ivi_layer/ivi_screen.
  * Called by ivi_layout_layer_add_surface/ivi_layout_screenAddLayer
  */

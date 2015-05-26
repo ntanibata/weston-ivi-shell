@@ -222,4 +222,6 @@ ivi_layout_transition_move_layer_cancel(struct ivi_layout_layer *layer);
 int
 load_controller_modules(struct weston_compositor *compositor, const char *modules,
 			int *argc, char *argv[]);
+void
+ivi_layout_surface_destroy(struct ivi_layout_surface *ivisurf);
 #endif
