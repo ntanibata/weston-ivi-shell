@@ -397,9 +397,8 @@ RUNNER_TEST(surface_orientation)
 		      ivisurf) == WL_OUTPUT_TRANSFORM_90);
 
 	prop = ctl->get_properties_of_surface(ivisurf);
-	if (prop != NULL) {
-		runner_assert(prop->orientation == WL_OUTPUT_TRANSFORM_90);
-	}
+	runner_assert_or_return(prop);
+	runner_assert(prop->orientation == WL_OUTPUT_TRANSFORM_90);
 }
 
 RUNNER_TEST(surface_dimension)
@@ -434,10 +433,9 @@ RUNNER_TEST(surface_dimension)
 	runner_assert(dest_height == 300);
 
 	prop = ctl->get_properties_of_surface(ivisurf);
-	if (prop != NULL) {
-		runner_assert(prop->dest_width == 200);
-		runner_assert(prop->dest_height == 300);
-	}
+	runner_assert_or_return(prop);
+	runner_assert(prop->dest_width == 200);
+	runner_assert(prop->dest_height == 300);
 }
 
 RUNNER_TEST(surface_position)
@@ -472,10 +470,9 @@ RUNNER_TEST(surface_position)
 	runner_assert(dest_y == 30);
 
 	prop = ctl->get_properties_of_surface(ivisurf);
-	if (prop != NULL) {
-		runner_assert(prop->dest_x == 20);
-		runner_assert(prop->dest_y == 30);
-	}
+	runner_assert_or_return(prop);
+	runner_assert(prop->dest_x == 20);
+	runner_assert(prop->dest_y == 30);
 }
 
 RUNNER_TEST(surface_destination_rectangle)
@@ -492,23 +489,21 @@ RUNNER_TEST(surface_destination_rectangle)
 	runner_assert(ivisurf != NULL);
 
 	prop = ctl->get_properties_of_surface(ivisurf);
-	if (prop != NULL) {
-		runner_assert(prop->dest_width == 1);
-		runner_assert(prop->dest_height == 1);
-		runner_assert(prop->dest_x == 0);
-		runner_assert(prop->dest_y == 0);
-	}
+	runner_assert_or_return(prop);
+	runner_assert(prop->dest_width == 1);
+	runner_assert(prop->dest_height == 1);
+	runner_assert(prop->dest_x == 0);
+	runner_assert(prop->dest_y == 0);
 
 	runner_assert(ctl->surface_set_destination_rectangle(
 		      ivisurf, 20, 30, 200, 300) == IVI_SUCCEEDED);
 
 	prop = ctl->get_properties_of_surface(ivisurf);
-	if (prop != NULL) {
-		runner_assert(prop->dest_width == 1);
-		runner_assert(prop->dest_height == 1);
-		runner_assert(prop->dest_x == 0);
-		runner_assert(prop->dest_y == 0);
-	}
+	runner_assert_or_return(prop);
+	runner_assert(prop->dest_width == 1);
+	runner_assert(prop->dest_height == 1);
+	runner_assert(prop->dest_x == 0);
+	runner_assert(prop->dest_y == 0);
 
 	ctl->commit_changes();
 
@@ -522,12 +517,11 @@ RUNNER_TEST(surface_destination_rectangle)
 	runner_assert(dest_y == 30);
 
 	prop = ctl->get_properties_of_surface(ivisurf);
-	if (prop != NULL) {
-		runner_assert(prop->dest_width == 200);
-		runner_assert(prop->dest_height == 300);
-		runner_assert(prop->dest_x == 20);
-		runner_assert(prop->dest_y == 30);
-	}
+	runner_assert_or_return(prop);
+	runner_assert(prop->dest_width == 200);
+	runner_assert(prop->dest_height == 300);
+	runner_assert(prop->dest_x == 20);
+	runner_assert(prop->dest_y == 30);
 }
 
 RUNNER_TEST(surface_source_rectangle)
@@ -540,31 +534,28 @@ RUNNER_TEST(surface_source_rectangle)
 	runner_assert(ivisurf != NULL);
 
 	prop = ctl->get_properties_of_surface(ivisurf);
-	if (prop != NULL) {
-		runner_assert(prop->source_width == 0);
-		runner_assert(prop->source_height == 0);
-		runner_assert(prop->source_x == 0);
-		runner_assert(prop->source_y == 0);
-	}
+	runner_assert_or_return(prop);
+	runner_assert(prop->source_width == 0);
+	runner_assert(prop->source_height == 0);
+	runner_assert(prop->source_x == 0);
+	runner_assert(prop->source_y == 0);
 
 	runner_assert(ctl->surface_set_source_rectangle(
 		      ivisurf, 20, 30, 200, 300) == IVI_SUCCEEDED);
 
 	prop = ctl->get_properties_of_surface(ivisurf);
-	if (prop != NULL) {
-		runner_assert(prop->source_width == 0);
-		runner_assert(prop->source_height == 0);
-		runner_assert(prop->source_x == 0);
-		runner_assert(prop->source_y == 0);
-	}
+	runner_assert_or_return(prop);
+	runner_assert(prop->source_width == 0);
+	runner_assert(prop->source_height == 0);
+	runner_assert(prop->source_x == 0);
+	runner_assert(prop->source_y == 0);
 
 	ctl->commit_changes();
 
 	prop = ctl->get_properties_of_surface(ivisurf);
-	if (prop != NULL) {
-		runner_assert(prop->source_width == 200);
-		runner_assert(prop->source_height == 300);
-		runner_assert(prop->source_x == 20);
-		runner_assert(prop->source_y == 30);
-	}
+	runner_assert_or_return(prop);
+	runner_assert(prop->source_width == 200);
+	runner_assert(prop->source_height == 300);
+	runner_assert(prop->source_x == 20);
+	runner_assert(prop->source_y == 30);
 }
