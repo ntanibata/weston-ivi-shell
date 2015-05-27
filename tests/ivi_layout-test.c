@@ -302,6 +302,7 @@ TEST(get_surface_after_destroy_wl_surface)
 
 	runner_run(runner, "get_surface_after_destroy_surface");
 
+	ivi_surface_destroy(winds->ivi_surface);
 	free(winds);
 	runner_destroy(runner);
 }
