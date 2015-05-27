@@ -177,7 +177,11 @@ test_layer_visibility(struct test_context *ctx)
 	ivilayer = ctl->layer_create_with_dimension(IVI_TEST_LAYER_ID(0), 200, 300);
 	iassert(ivilayer != NULL);
 
+	iassert(ctl->layer_get_visibility(ivilayer) == false);
+
 	iassert(ctl->layer_set_visibility(ivilayer, true) == IVI_SUCCEEDED);
+
+	iassert(ctl->layer_get_visibility(ivilayer) == false);
 
 	ctl->commit_changes();
 
