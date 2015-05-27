@@ -147,8 +147,6 @@ run_internal_tests(void *data)
 	struct test_context *ctx = data;
 
 	test_surface_bad_visibility(ctx);
-	surface_set_source_rectangle_bad_address(ctx);
-	surface_set_destination_rectangle_bad_address(ctx);
 	test_surface_bad_destination_rectangle(ctx);
 	test_surface_bad_orientation(ctx);
 	test_surface_bad_dimension(ctx);
