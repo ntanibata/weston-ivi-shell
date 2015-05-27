@@ -264,7 +264,7 @@ test_layer_dimension(struct test_context *ctx)
 	iassert(dest_width == 200);
 	iassert(dest_height == 300);
 
-	iassert(ctl->layer_set_dimension(ivilayer, 200, 300) == IVI_SUCCEEDED);
+	iassert(ctl->layer_set_dimension(ivilayer, 400, 600) == IVI_SUCCEEDED);
 
 	iassert(ctl->layer_get_dimension(
 		ivilayer, &dest_width, &dest_height) == IVI_SUCCEEDED);
@@ -275,12 +275,12 @@ test_layer_dimension(struct test_context *ctx)
 
 	iassert(IVI_SUCCEEDED == ctl->layer_get_dimension(
 		ivilayer, &dest_width, &dest_height));
-	iassert(dest_width == 200);
-	iassert(dest_height == 300);
+	iassert(dest_width == 400);
+	iassert(dest_height == 600);
 
 	prop = ctl->get_properties_of_layer(ivilayer);
-	iassert(prop->dest_width == 200);
-	iassert(prop->dest_height == 300);
+	iassert(prop->dest_width == 400);
+	iassert(prop->dest_height == 600);
 
 	ctl->layer_remove(ivilayer);
 }
@@ -344,7 +344,7 @@ test_layer_destination_rectangle(struct test_context *ctx)
 	iassert(prop->dest_y == 0);
 
 	iassert(ctl->layer_set_destination_rectangle(
-		ivilayer, 20, 30, 200, 300) == IVI_SUCCEEDED);
+		ivilayer, 20, 30, 400, 600) == IVI_SUCCEEDED);
 
 	prop = ctl->get_properties_of_layer(ivilayer);
 	iassert(prop->dest_width == 200);
@@ -356,8 +356,8 @@ test_layer_destination_rectangle(struct test_context *ctx)
 
 	iassert(ctl->layer_get_dimension(
 		ivilayer, &dest_width, &dest_height) == IVI_SUCCEEDED);
-	iassert(dest_width == 200);
-	iassert(dest_height == 300);
+	iassert(dest_width == 400);
+	iassert(dest_height == 600);
 
 	iassert(ctl->layer_get_position(
 		ivilayer, &dest_x, &dest_y) == IVI_SUCCEEDED);
@@ -365,8 +365,8 @@ test_layer_destination_rectangle(struct test_context *ctx)
 	iassert(dest_y == 30);
 
 	prop = ctl->get_properties_of_layer(ivilayer);
-	iassert(prop->dest_width == 200);
-	iassert(prop->dest_height == 300);
+	iassert(prop->dest_width == 400);
+	iassert(prop->dest_height == 600);
 	iassert(prop->dest_x == 20);
 	iassert(prop->dest_y == 30);
 
@@ -390,7 +390,7 @@ test_layer_source_rectangle(struct test_context *ctx)
 	iassert(prop->source_y == 0);
 
 	iassert(ctl->layer_set_source_rectangle(
-		ivilayer, 20, 30, 200, 300) == IVI_SUCCEEDED);
+		ivilayer, 20, 30, 400, 600) == IVI_SUCCEEDED);
 
 	prop = ctl->get_properties_of_layer(ivilayer);
 	iassert(prop->source_width == 200);
@@ -401,8 +401,8 @@ test_layer_source_rectangle(struct test_context *ctx)
 	ctl->commit_changes();
 
 	prop = ctl->get_properties_of_layer(ivilayer);
-	iassert(prop->source_width == 200);
-	iassert(prop->source_height == 300);
+	iassert(prop->source_width == 400);
+	iassert(prop->source_height == 600);
 	iassert(prop->source_x == 20);
 	iassert(prop->source_y == 30);
 
