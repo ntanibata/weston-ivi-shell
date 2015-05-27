@@ -53,8 +53,6 @@ struct ivi_shell_surface
 	struct weston_surface *surface;
 	struct wl_listener surface_destroy_listener;
 
-	uint32_t id_surface;
-
 	int32_t width;
 	int32_t height;
 
@@ -253,7 +251,6 @@ application_surface_create(struct wl_client *client,
 	wl_list_insert(&shell->ivi_surface_list, &ivisurf->link);
 
 	ivisurf->shell = shell;
-	ivisurf->id_surface = id_surface;
 
 	ivisurf->width = 0;
 	ivisurf->height = 0;
