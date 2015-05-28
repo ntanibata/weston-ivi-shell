@@ -760,7 +760,7 @@ RUNNER_TEST(test_layer_render_order_destroy_one_surface_p1)
 
 	runner_assert(ctl->get_surfaces_on_layer(
 		      ivilayer, &length, &array) == IVI_SUCCEEDED);
-	runner_assert(IVI_TEST_SURFACE_COUNT == length);
+	runner_assert_or_return(IVI_TEST_SURFACE_COUNT == length);
 	for (i = 0; i < IVI_TEST_SURFACE_COUNT; i++) {
 		runner_assert(array[i] == ivisurfs[i]);
 	}
@@ -785,7 +785,7 @@ RUNNER_TEST(test_layer_render_order_destroy_one_surface_p2)
 
 	runner_assert(ctl->get_surfaces_on_layer(
 		      ivilayer, &length, &array) == IVI_SUCCEEDED);
-	runner_assert(2 == length);
+	runner_assert_or_return(2 == length);
 	for (i = 0; i < 2; i++) {
 		runner_assert(array[i] == ivisurfs[i]);
 	}
