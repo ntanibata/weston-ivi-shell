@@ -796,29 +796,6 @@ update_layer_position(struct ivi_layout_layer *ivilayer,
 }
 
 static void
-update_source_rectangle(struct ivi_layout_layer *ivilayer, struct ivi_layout_surface *ivisurf)
-{
-	struct weston_view *view = NULL;
-
-	/* FIXME: this should be fixed at multiple view support */
-	wl_list_for_each(view, &ivisurf->surface->views, surface_link) {
-		if (view != NULL) {
-			break;
-		}
-	}
-
-	if (view == NULL) {
-		return;
-	}
-
-	weston_view_set_mask(view,
-			     ivisurf->clip_x,
-			     ivisurf->clip_y,
-			     ivisurf->clip_width,
-			     ivisurf->clip_height);
-}
-
-static void
 update_scale(struct ivi_layout_layer *ivilayer,
 	     struct ivi_layout_surface *ivisurf)
 {
@@ -869,7 +846,6 @@ update_prop(struct ivi_layout_layer *ivilayer,
 		update_surface_position(ivilayer, ivisurf);
 		update_surface_orientation(ivilayer, ivisurf);
 		update_scale(ivilayer, ivisurf);
-		update_source_rectangle(ivilayer, ivisurf);
 
 		ivisurf->update_count++;
 
