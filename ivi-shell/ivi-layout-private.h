@@ -64,10 +64,6 @@ struct ivi_layout_surface {
 	} content_observer;
 
 	struct wl_signal configured;
-	int32_t clip_x;
-	int32_t clip_y;
-	int32_t clip_width;
-	int32_t clip_height;
 };
 
 struct ivi_layout_layer {
