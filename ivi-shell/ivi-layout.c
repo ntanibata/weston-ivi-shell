@@ -323,7 +323,7 @@ ivi_layout_surface_remove_notification_by_callback(struct ivi_layout_surface *iv
 						   surface_property_notification_func callback,
 						   void *userdata)
 {
-	if (ivisurf == NULL || !exists_ivi_layout_surface(ivisurf)) {
+	if (ivisurf == NULL) {
 		weston_log("ivi_layout_surface_remove_notification_by_callback: invalid argument\n");
 		return;
 	}
