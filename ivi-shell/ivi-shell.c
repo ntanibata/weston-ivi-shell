@@ -147,8 +147,10 @@ shell_handle_surface_destroy(struct wl_listener *listener, void *data)
 
 	assert(ivisurf != NULL);
 
-	ivi_layout_surface_destroy(ivisurf->layout_surface);
-	ivisurf->layout_surface = NULL;
+	if (ivisurf->layout_surface != NULL) {
+		ivi_layout_surface_destroy(ivisurf->layout_surface);
+		ivisurf->layout_surface = NULL;
+        }
 
 	if (ivisurf->surface!=NULL) {
 		ivisurf->surface->configure = NULL;
