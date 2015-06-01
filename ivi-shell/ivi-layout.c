@@ -334,15 +334,9 @@ ivi_layout_surface_destroy(struct ivi_layout_surface *ivisurf)
 	wl_list_remove(&ivisurf->layer_pos.link);
 	wl_list_remove(&ivisurf->scaling.link);
 
-	if (!wl_list_empty(&ivisurf->pending.link)) {
-		wl_list_remove(&ivisurf->pending.link);
-	}
-	if (!wl_list_empty(&ivisurf->order.link)) {
-		wl_list_remove(&ivisurf->order.link);
-	}
-	if (!wl_list_empty(&ivisurf->link)) {
-		wl_list_remove(&ivisurf->link);
-	}
+	wl_list_remove(&ivisurf->pending.link);
+	wl_list_remove(&ivisurf->order.link);
+	wl_list_remove(&ivisurf->link);
 	remove_ordersurface_from_layer(ivisurf);
 
 	wl_signal_emit(&layout->surface_notification.removed, ivisurf);
