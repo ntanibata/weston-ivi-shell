@@ -142,17 +142,6 @@ shell_destroy_shell_surface(struct wl_resource *resource)
 
 	assert(ivisurf->resource == resource);
 
-	if (ivisurf->layout_surface != NULL) {
-		ivi_layout_surface_destroy(ivisurf->layout_surface);
-		wl_list_remove(&ivisurf->surface_destroy_listener.link);
-	}
-
-	if (ivisurf->surface != NULL) {
-		ivisurf->surface->configure = NULL;
-		ivisurf->surface->configure_private = NULL;
-		ivisurf->surface = NULL;
-	}
-
 	wl_list_remove(&ivisurf->link);
 
 	free(ivisurf);
@@ -167,19 +156,6 @@ shell_handle_surface_destroy(struct wl_listener *listener, void *data)
 				     surface_destroy_listener);
 
 	assert(ivisurf != NULL);
-
-	if (ivisurf->layout_surface != NULL) {
-		ivi_layout_surface_destroy(ivisurf->layout_surface);
-		ivisurf->layout_surface = NULL;
-        }
-
-	if (ivisurf->surface!=NULL) {
-		ivisurf->surface->configure = NULL;
-		ivisurf->surface->configure_private = NULL;
-		ivisurf->surface = NULL;
-	}
-
-	wl_list_remove(&ivisurf->surface_destroy_listener.link);
 }
 
 /* Gets called, when a client sends ivi_surface.destroy request. */
