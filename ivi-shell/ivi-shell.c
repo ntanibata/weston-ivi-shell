@@ -140,6 +140,8 @@ shell_destroy_shell_surface(struct wl_resource *resource)
 		return;
 	}
 
+	assert(ivisurf->resource == resource);
+
 	if (ivisurf->layout_surface != NULL) {
 		ivi_layout_surface_destroy(ivisurf->layout_surface);
 		wl_list_remove(&ivisurf->surface_destroy_listener.link);
@@ -149,11 +151,6 @@ shell_destroy_shell_surface(struct wl_resource *resource)
 		ivisurf->surface->configure = NULL;
 		ivisurf->surface->configure_private = NULL;
 		ivisurf->surface = NULL;
-	}
-
-	if (ivisurf->resource != NULL) {
-		wl_resource_set_user_data(ivisurf->resource, NULL);
-		ivisurf->resource = NULL;
 	}
 
 	wl_list_remove(&ivisurf->link);
