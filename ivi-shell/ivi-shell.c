@@ -143,7 +143,6 @@ shell_destroy_shell_surface(struct wl_resource *resource)
 	if (ivisurf->layout_surface != NULL) {
 		ivi_layout_surface_destroy(ivisurf->layout_surface);
 		wl_list_remove(&ivisurf->surface_destroy_listener.link);
-		wl_list_remove(&ivisurf->link);
 	}
 }
 
