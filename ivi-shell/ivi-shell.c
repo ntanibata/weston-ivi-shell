@@ -156,6 +156,8 @@ shell_destroy_shell_surface(struct wl_resource *resource)
 		ivisurf->resource = NULL;
 	}
 
+	wl_list_remove(&ivisurf->link);
+
 	free(ivisurf);
 }
 
