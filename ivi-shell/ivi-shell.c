@@ -154,7 +154,6 @@ shell_handle_surface_destroy(struct wl_listener *listener, void *data)
 	}
 
 	wl_list_remove(&ivisurf->surface_destroy_listener.link);
-	wl_list_remove(&ivisurf->link);
 }
 
 /* Gets called, when a client sends ivi_surface.destroy request. */
