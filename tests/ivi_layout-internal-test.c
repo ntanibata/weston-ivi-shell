@@ -1043,15 +1043,15 @@ test_layer_remove_notification(struct test_context *ctx)
 }
 
 static void
-test_layer_bad_add_notification_callback(struct ivi_layout_layer *ivilayer,
-					 const struct ivi_layout_layer_properties *prop,
-					 enum ivi_layout_notification_mask mask,
-					 void *userdata)
+test_layer_bad_properties_changed_notification_callback(struct ivi_layout_layer *ivilayer,
+							const struct ivi_layout_layer_properties *prop,
+							enum ivi_layout_notification_mask mask,
+							void *userdata)
 {
 }
 
 static void
-test_layer_bad_add_notification(struct test_context *ctx)
+test_layer_bad_properties_changed_notification(struct test_context *ctx)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
 	struct ivi_layout_layer *ivilayer;
@@ -1059,7 +1059,7 @@ test_layer_bad_add_notification(struct test_context *ctx)
 	ivilayer = ctl->layer_create_with_dimension(IVI_TEST_LAYER_ID(0), 200, 300);
 
 	iassert(ctl->layer_add_notification(
-		    NULL, test_layer_bad_add_notification_callback, NULL) == IVI_FAILED);
+		    NULL, test_layer_bad_properties_changed_notification_callback, NULL) == IVI_FAILED);
 	iassert(ctl->layer_add_notification(ivilayer, NULL, NULL) == IVI_FAILED);
 
 	ctl->layer_remove(ivilayer);
@@ -1157,7 +1157,7 @@ run_internal_tests(void *data)
 	test_layer_properties_changed_notification(ctx);
 	test_layer_create_notification(ctx);
 	test_layer_remove_notification(ctx);
-	test_layer_bad_add_notification(ctx);
+	test_layer_bad_properties_changed_notification(ctx);
 	test_surface_bad_configure_notification(ctx);
 	test_layer_bad_create_notification(ctx);
 	test_surface_bad_create_notification(ctx);
