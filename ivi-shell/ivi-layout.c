@@ -624,6 +624,7 @@ update_prop(struct ivi_layout_layer *ivilayer,
 	    struct ivi_layout_surface *ivisurf)
 {
 	struct weston_view *tmpview;
+	bool can_calc = true;
 
 	if (!ivilayer->event_mask && !ivisurf->event_mask) {
 		return;
@@ -631,13 +632,37 @@ update_prop(struct ivi_layout_layer *ivilayer,
 
 	update_opacity(ivilayer, ivisurf);
 
-	ivisurf->update_count++;
-
 	wl_list_for_each(tmpview, &ivisurf->surface->views, surface_link) {
 		if (tmpview != NULL) {
 			break;
 		}
 	}
+
+	if (ivisurf->prop.source_width == 0 || ivisurf->prop.source_height == 0) {
+		weston_log("ivi-shell: source rectangle is not yet set by ivi_layout_surface_set_source_rectangle\n");
+		can_calc = false;
+	}
+
+	if (ivisurf->prop.dest_width == 0 || ivisurf->prop.dest_height == 0) {
+		weston_log("ivi-shell: destination rectangle is not yet set by ivi_layout_surface_set_destination_rectangle\n");
+		can_calc = false;
+	}
+
+	if (can_calc) {
+		wl_list_remove(&ivisurf->transform.link);
+		weston_matrix_init(&ivisurf->transform.matrix);
+
+		calc_matrix_for_westonsurface_on_screen(ivilayer, ivisurf, &ivisurf->transform.matrix);
+
+		if (tmpview != NULL) {
+			wl_list_insert(&tmpview->geometry.transformation_list, &ivisurf->transform.link);
+
+			weston_view_set_transform_parent(tmpview, NULL);
+			weston_view_update_transform(tmpview);
+		}
+	}
+
+	ivisurf->update_count++;
 
 	if (tmpview != NULL) {
 		weston_view_geometry_dirty(tmpview);
