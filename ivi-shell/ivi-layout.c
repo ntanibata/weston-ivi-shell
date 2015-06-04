@@ -111,6 +111,14 @@ struct ivi_layout_notification_callback {
 	void *data;
 };
 
+struct ivi_rectangle
+{
+	int32_t x;
+	int32_t y;
+	int32_t width;
+	int32_t height;
+};
+
 static void
 remove_notification(struct wl_list *listener_list, void *callback, void *userdata);
 
@@ -484,6 +492,167 @@ update_opacity(struct ivi_layout_layer *ivilayer,
 			tmpview->alpha = layer_alpha * surf_alpha;
 		}
 	}
+}
+
+/*
+ * orientation値から回転するsin値,cos値を求めます。
+ *
+ * この関数で設定されるsin値とcos値を使用して行列を回転させます。
+ */
+static void
+get_rotate_values(enum wl_output_transform orientation,
+		  float *v_sin,
+		  float *v_cos)
+{
+	switch (orientation) {
+	case WL_OUTPUT_TRANSFORM_90:
+		*v_sin = 1.0f;
+		*v_cos = 0.0f;
+		break;
+	case WL_OUTPUT_TRANSFORM_180:
+		*v_sin = 0.0f;
+		*v_cos = -1.0f;
+		break;
+	case WL_OUTPUT_TRANSFORM_270:
+		*v_sin = -1.0f;
+		*v_cos = 0.0f;
+		break;
+	case WL_OUTPUT_TRANSFORM_NORMAL:
+	default:
+		*v_sin = 0.0f;
+		*v_cos = 1.0f;
+		break;
+	}
+}
+
+/*
+ * source rectangleの値からdestination rectangleの値へのscale値を求めます。
+ * 回転量によって計算対象がかわるため、orientation値を使用します。
+ *
+ * この関数で設定されるscale_x,scale_yを使用して行列を拡縮させます。
+ */
+static void
+get_scale(enum wl_output_transform orientation,
+	  float dest_width,
+	  float dest_height,
+	  float source_width,
+	  float source_height,
+	  float *scale_x,
+	  float *scale_y)
+{
+	switch (orientation) {
+	case WL_OUTPUT_TRANSFORM_90:
+		*scale_x = dest_width / source_height;
+		*scale_y = dest_height / source_width;
+		break;
+	case WL_OUTPUT_TRANSFORM_180:
+		*scale_x = dest_width / source_width;
+		*scale_y = dest_height / source_height;
+		break;
+	case WL_OUTPUT_TRANSFORM_270:
+		*scale_x = dest_width / source_height;
+		*scale_y = dest_height / source_width;
+		break;
+	case WL_OUTPUT_TRANSFORM_NORMAL:
+	default:
+		*scale_x = dest_width / source_width;
+		*scale_y = dest_height / source_height;
+		break;
+	}
+}
+
+/*
+ * この関数では、source rectangle, destination rectangle, orientationの情報から、
+ * source rectangleの値をdestination rectangleの座標系に変換するための行列を作成します。
+ *
+ * この行列には、source rectangleをtransform(rotation, scaling, translation)する要素が含まれます。
+ *
+ * 以下の手順でsource rectangleのtransform処理用の行列を作成します。
+ *
+ * 1. source rectangleの中心点を原点(0,0)へ移動する。
+ * 2. orientationで指定された分回転する。
+ * 3. source_width/heightからdest_width/heightへのscalingを行う。
+ *    この際に2.のrotationでsourceが回転していることを考慮する。
+ * 4. 1.にて中心点を原点に移動しているため、原点を左上に戻すように移動する。
+ * 5. dest_x/dest_yの位置へ移動する。
+ */
+static void
+calc_transformation_matrix(struct ivi_rectangle *source_rect,
+			   struct ivi_rectangle *dest_rect,
+			   enum wl_output_transform orientation,
+			   struct weston_matrix *m)
+{
+	float source_center_x;
+	float source_center_y;
+	float vsin;
+	float vcos;
+	float scale_x;
+	float scale_y;
+	float translate_x;
+	float translate_y;
+
+	// 1. 中心点を原点に移動するための移動量を計算します。
+	source_center_x = source_rect->x + source_rect->width * 0.5f;
+	source_center_y = source_rect->y + source_rect->height * 0.5f;
+
+	// 2. 回転量を計算します。
+	get_rotate_values(orientation, &vsin, &vcos);
+
+	// 3. 拡縮の倍率を計算します。
+	get_scale(orientation,
+		  dest_rect->width,
+		  dest_rect->height,
+		  source_rect->width,
+		  source_rect->height,
+		  &scale_x,
+		  &scale_y);
+
+	// 4. 5. 回転・拡縮したsurfaceの左上を原点に戻すための移動量と、dest_x/yへの移動量の合計値を計算します。
+	translate_x = dest_rect->width * 0.5f + dest_rect->x;
+	translate_y = dest_rect->height * 0.5f + dest_rect->y;
+
+	// 上記で算出した値を使用して、transform処理を行います。
+	weston_matrix_translate(m, -source_center_x, -source_center_y, 0.0f);
+	weston_matrix_rotate_xy(m, vcos, vsin);
+	weston_matrix_scale(m, scale_x, scale_y, 1.0f);
+	weston_matrix_translate(m, translate_x, translate_y, 0.0f);
+}
+
+/*
+ * ivi_layout_surface,ivi_layout_layerのプロパティを参照し、
+ * weston_surfaceをscreen座標系に変換するための行列を作成します。
+ */
+static void
+calc_matrix_for_westonsurface_on_screen(struct ivi_layout_layer *ivilayer,
+					struct ivi_layout_surface *ivisurf,
+					struct weston_matrix *m)
+{
+	const struct ivi_layout_surface_properties *sp = &ivisurf->prop;
+	const struct ivi_layout_layer_properties *lp = &ivilayer->prop;
+	struct ivi_rectangle surface_source_rect = { sp->source_x,
+						     sp->source_y,
+						     sp->source_width,
+						     sp->source_height };
+	struct ivi_rectangle surface_dest_rect =   { sp->dest_x,
+						     sp->dest_y,
+						     sp->dest_width,
+						     sp->dest_height };
+	struct ivi_rectangle layer_source_rect =   { lp->source_x,
+						     lp->source_y,
+						     lp->source_width,
+						     lp->source_height };
+	struct ivi_rectangle layer_dest_rect =     { lp->dest_x,
+						     lp->dest_y,
+						     lp->dest_width,
+						     lp->dest_height };
+
+	calc_transformation_matrix(&surface_source_rect,
+				   &surface_dest_rect,
+				   sp->orientation, m);
+
+	calc_transformation_matrix(&layer_source_rect,
+				   &layer_dest_rect,
+				   lp->orientation, m);
 }
 
 static void
