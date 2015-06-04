@@ -192,7 +192,7 @@ const char * const basic_test_names[] = {
 	"surface_destination_rectangle",
 	"surface_source_rectangle",
 	"surface_bad_opacity",
-	"surface_add_notification",
+	"surface_properties_changed_notification",
 };
 
 const char * const surface_property_commit_changes_test_names[] = {

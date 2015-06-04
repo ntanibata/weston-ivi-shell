@@ -885,10 +885,10 @@ RUNNER_TEST(cleanup_layer)
 }
 
 static void
-test_surface_add_notification_callback(struct ivi_layout_surface *ivisurf,
-				       const struct ivi_layout_surface_properties *prop,
-				       enum ivi_layout_notification_mask mask,
-				       void *userdata)
+test_surface_properties_changed_notification_callback(struct ivi_layout_surface *ivisurf,
+						      const struct ivi_layout_surface_properties *prop,
+						      enum ivi_layout_notification_mask mask,
+						      void *userdata)
 {
 	struct test_context *ctx = userdata;
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
@@ -898,7 +898,7 @@ test_surface_add_notification_callback(struct ivi_layout_surface *ivisurf,
 	ctx->user_flags = 1;
 }
 
-RUNNER_TEST(surface_add_notification)
+RUNNER_TEST(surface_properties_changed_notification)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
 	const uint32_t id_surface = IVI_TEST_SURFACE_ID(0);
@@ -910,7 +910,7 @@ RUNNER_TEST(surface_add_notification)
 	runner_assert(ivisurf != NULL);
 
 	runner_assert(ctl->surface_add_notification(
-		      ivisurf, test_surface_add_notification_callback, ctx) == IVI_SUCCEEDED);
+		      ivisurf, test_surface_properties_changed_notification_callback, ctx) == IVI_SUCCEEDED);
 
 	ctl->commit_changes();
 
