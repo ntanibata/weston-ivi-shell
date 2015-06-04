@@ -904,10 +904,10 @@ test_commit_changes_after_render_order_set_layer_destroy(
 }
 
 static void
-test_layer_add_notification_callback(struct ivi_layout_layer *ivilayer,
-				     const struct ivi_layout_layer_properties *prop,
-				     enum ivi_layout_notification_mask mask,
-				     void *userdata)
+test_layer_properties_changed_notification_callback(struct ivi_layout_layer *ivilayer,
+						    const struct ivi_layout_layer_properties *prop,
+						    enum ivi_layout_notification_mask mask,
+						    void *userdata)
 {
 	struct test_context *ctx = userdata;
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
@@ -924,7 +924,7 @@ test_layer_add_notification_callback(struct ivi_layout_layer *ivilayer,
 }
 
 static void
-test_layer_add_notification(struct test_context *ctx)
+test_layer_properties_changed_notification(struct test_context *ctx)
 {
 	const struct ivi_controller_interface *ctl = ctx->controller_interface;
 	struct ivi_layout_layer *ivilayer;
@@ -933,7 +933,7 @@ test_layer_add_notification(struct test_context *ctx)
 
 	ivilayer = ctl->layer_create_with_dimension(IVI_TEST_LAYER_ID(0), 200, 300);
 
-	iassert(ctl->layer_add_notification(ivilayer, test_layer_add_notification_callback, ctx) == IVI_SUCCEEDED);
+	iassert(ctl->layer_add_notification(ivilayer, test_layer_properties_changed_notification_callback, ctx) == IVI_SUCCEEDED);
 
 	ctl->commit_changes();
 
@@ -1091,7 +1091,7 @@ run_internal_tests(void *data)
 	test_screen_bad_render_order(ctx);
 	test_commit_changes_after_render_order_set_layer_destroy(ctx);
 
-	test_layer_add_notification(ctx);
+	test_layer_properties_changed_notification(ctx);
 	test_layer_create_notification(ctx);
 	test_layer_remove_notification(ctx);
 
