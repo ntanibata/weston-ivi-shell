@@ -745,7 +745,7 @@ RUNNER_TEST(test_layer_render_order_destroy_one_surface_p1)
 	struct ivi_layout_surface *ivisurfs[IVI_TEST_SURFACE_COUNT] = {};
 	struct ivi_layout_surface **array;
 	int32_t length = 0;
-	uint32_t i;
+	int32_t i;
 
 	ivilayer = ctl->layer_create_with_dimension(IVI_TEST_LAYER_ID(0), 200, 300);
 
@@ -761,7 +761,7 @@ RUNNER_TEST(test_layer_render_order_destroy_one_surface_p1)
 	runner_assert(ctl->get_surfaces_on_layer(
 		      ivilayer, &length, &array) == IVI_SUCCEEDED);
 	runner_assert(IVI_TEST_SURFACE_COUNT == length);
-	for (i = 0; i < IVI_TEST_SURFACE_COUNT; i++) {
+	for (i = 0; i < length; i++) {
 		runner_assert(array[i] == ivisurfs[i]);
 	}
 
@@ -777,7 +777,7 @@ RUNNER_TEST(test_layer_render_order_destroy_one_surface_p2)
 	struct ivi_layout_surface *ivisurfs[2] = {};
 	struct ivi_layout_surface **array;
 	int32_t length = 0;
-	uint32_t i;
+	int32_t i;
 
 	ivilayer = ctl->get_layer_from_id(IVI_TEST_LAYER_ID(0));
 	ivisurfs[0] = ctl->get_surface_from_id(IVI_TEST_SURFACE_ID(0));
@@ -786,7 +786,7 @@ RUNNER_TEST(test_layer_render_order_destroy_one_surface_p2)
 	runner_assert(ctl->get_surfaces_on_layer(
 		      ivilayer, &length, &array) == IVI_SUCCEEDED);
 	runner_assert(2 == length);
-	for (i = 0; i < 2; i++) {
+	for (i = 0; i < length; i++) {
 		runner_assert(array[i] == ivisurfs[i]);
 	}
 
