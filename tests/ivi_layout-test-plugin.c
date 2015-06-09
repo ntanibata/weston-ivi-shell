@@ -914,7 +914,22 @@ RUNNER_TEST(surface_properties_changed_notification)
 
 	ctl->commit_changes();
 
+	runner_assert(ctx->user_flags == 0);
+
+	runner_assert(ctl->surface_set_destination_rectangle(
+		      ivisurf, 20, 30, 200, 300) == IVI_SUCCEEDED);
+
+	ctl->commit_changes();
+
 	runner_assert(ctx->user_flags == 1);
+
+	ctx->user_flags = 0;
+	runner_assert(ctl->surface_set_destination_rectangle(
+		      ivisurf, 20, 30, 200, 300) == IVI_SUCCEEDED);
+
+	ctl->commit_changes();
+
+	runner_assert(ctx->user_flags == 0);
 
 	ctl->surface_remove_notification(ivisurf);
 	ctl->commit_changes();
