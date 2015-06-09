@@ -937,7 +937,22 @@ test_layer_properties_changed_notification(struct test_context *ctx)
 
 	ctl->commit_changes();
 
+	iassert(ctx->user_flags == 0);
+
+	iassert(ctl->layer_set_destination_rectangle(
+		ivilayer, 20, 30, 200, 300) == IVI_SUCCEEDED);
+
+	ctl->commit_changes();
+
 	iassert(ctx->user_flags == 1);
+
+	ctx->user_flags = 0;
+	iassert(ctl->layer_set_destination_rectangle(
+		ivilayer, 20, 30, 200, 300) == IVI_SUCCEEDED);
+
+	ctl->commit_changes();
+
+	iassert(ctx->user_flags == 0);
 
 	ctl->layer_remove_notification(ivilayer);
 
