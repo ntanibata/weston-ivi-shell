@@ -932,7 +932,13 @@ RUNNER_TEST(surface_properties_changed_notification)
 	runner_assert(ctx->user_flags == 0);
 
 	ctl->surface_remove_notification(ivisurf);
+	ctx->user_flags = 0;
+	runner_assert(ctl->surface_set_destination_rectangle(
+		      ivisurf, 40, 50, 400, 500) == IVI_SUCCEEDED);
+
 	ctl->commit_changes();
+
+	runner_assert(ctx->user_flags == 0);
 }
 
 static void
@@ -964,7 +970,15 @@ RUNNER_TEST(surface_configure_notification_p2)
 	runner_assert(ctx->user_flags == 1);
 
 	ctl->remove_notification_configure_surface(test_surface_configure_notification_callback, ctx);
+	ctx->user_flags = 0;
+}
+
+RUNNER_TEST(surface_configure_notification_p3)
+{
+	const struct ivi_controller_interface *ctl = ctx->controller_interface;
+
 	ctl->commit_changes();
+	runner_assert(ctx->user_flags == 0);
 }
 
 static void
@@ -997,6 +1011,12 @@ RUNNER_TEST(surface_create_notification_p2)
 
 	ctl->remove_notification_create_surface(
 		test_surface_create_notification_callback, ctx);
+	ctx->user_flags = 0;
+}
+
+RUNNER_TEST(surface_create_notification_p3)
+{
+	runner_assert(ctx->user_flags == 0);
 }
 
 static void
@@ -1028,5 +1048,10 @@ RUNNER_TEST(surface_remove_notification_p2)
 	runner_assert(ctx->user_flags == 1);
 
 	ctl->remove_notification_remove_surface(test_surface_remove_notification_callback, ctx);
+	ctx->user_flags = 0;
 }
 
+RUNNER_TEST(surface_remove_notification_p3)
+{
+	runner_assert(ctx->user_flags == 0);
+}
