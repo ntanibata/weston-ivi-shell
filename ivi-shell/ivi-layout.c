@@ -701,10 +701,15 @@ calc_inverse_matrix_transform(struct weston_matrix *matrix,
 static void
 calc_matrix_for_westonsurface_on_screen(struct ivi_layout_layer *ivilayer,
 					struct ivi_layout_surface *ivisurf,
-					struct weston_matrix *m)
+					struct weston_matrix *m,
+					struct ivi_rectangle *result)
 {
 	const struct ivi_layout_surface_properties *sp = &ivisurf->prop;
 	const struct ivi_layout_layer_properties *lp = &ivilayer->prop;
+	struct ivi_rectangle weston_surface_rect = { 0,
+						     0,
+						     ivisurf->surface->width,
+						     ivisurf->surface->height };
 	struct ivi_rectangle surface_source_rect = { sp->source_x,
 						     sp->source_y,
 						     sp->source_width,
@@ -721,14 +726,28 @@ calc_matrix_for_westonsurface_on_screen(struct ivi_layout_layer *ivilayer,
 						     lp->dest_y,
 						     lp->dest_width,
 						     lp->dest_height };
+	struct ivi_rectangle surface_result;
+	struct ivi_rectangle layer_result;
 
 	calc_transformation_matrix(&surface_source_rect,
 				   &surface_dest_rect,
 				   sp->orientation, m);
 
+	calc_inverse_matrix_transform(&ivisurf->transform.matrix,
+				      &surface_dest_rect,
+				      &weston_surface_rect,
+				      &surface_result);
+
 	calc_transformation_matrix(&layer_source_rect,
 				   &layer_dest_rect,
 				   lp->orientation, m);
+
+	calc_inverse_matrix_transform(&ivisurf->transform.matrix,
+				      &layer_dest_rect,
+				      &weston_surface_rect,
+				      &layer_result);
+
+	intersect_ivi_rectangle(&surface_result, &layer_result, result);
 }
 
 static void
@@ -736,6 +755,7 @@ update_prop(struct ivi_layout_layer *ivilayer,
 	    struct ivi_layout_surface *ivisurf)
 {
 	struct weston_view *tmpview;
+	struct ivi_rectangle r;
 	bool can_calc = true;
 
 	if (!ivilayer->event_mask && !ivisurf->event_mask) {
@@ -764,9 +784,10 @@ update_prop(struct ivi_layout_layer *ivilayer,
 		wl_list_remove(&ivisurf->transform.link);
 		weston_matrix_init(&ivisurf->transform.matrix);
 
-		calc_matrix_for_westonsurface_on_screen(ivilayer, ivisurf, &ivisurf->transform.matrix);
+		calc_matrix_for_westonsurface_on_screen(ivilayer, ivisurf, &ivisurf->transform.matrix, &r);
 
 		if (tmpview != NULL) {
+			weston_view_set_mask(tmpview, r.x, r.y, r.width, r.height);
 			wl_list_insert(&tmpview->geometry.transformation_list, &ivisurf->transform.link);
 
 			weston_view_set_transform_parent(tmpview, NULL);
