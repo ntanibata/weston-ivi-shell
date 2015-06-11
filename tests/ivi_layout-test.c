@@ -407,6 +407,12 @@ TEST(ivi_layout_surface_configure_notification)
 
 	runner_run(runner, "surface_configure_notification_p2");
 
+	wl_surface_attach(wind->wl_surface, buffer, 0, 0);
+	wl_surface_damage(wind->wl_surface, 0, 0, 40, 50);
+	wl_surface_commit(wind->wl_surface);
+
+	runner_run(runner, "surface_configure_notification_p3");
+
 	wl_buffer_destroy(buffer);
 	ivi_window_destroy(wind);
 	runner_destroy(runner);
@@ -426,6 +432,10 @@ TEST(ivi_layout_surface_create_notification)
 	wind = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(0));
 
 	runner_run(runner, "surface_create_notification_p2");
+
+	ivi_surface_destroy(wind->ivi_surface);
+	wind = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(0));
+	runner_run(runner, "surface_create_notification_p3");
 
 	ivi_window_destroy(wind);
 	runner_destroy(runner);
@@ -447,6 +457,10 @@ TEST(ivi_layout_surface_remove_notification)
 	wind = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(1));
 	runner_run(runner, "surface_remove_notification_p2");
 	ivi_window_destroy(wind);
+
+	wind = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(0));
+	ivi_window_destroy(wind);
+	runner_run(runner, "surface_remove_notification_p3");
 
 	runner_destroy(runner);
 }
