@@ -619,6 +619,82 @@ calc_transformation_matrix(struct ivi_rectangle *source_rect,
 }
 
 /*
+ * rect1, rect2 の2つの矩形の重なる部分を抽出します。
+ */
+static void
+intersect_ivi_rectangle(struct ivi_rectangle *rect1,
+			struct ivi_rectangle *rect2,
+			struct ivi_rectangle *dest)
+{
+	int32_t rect1_right = rect1->x + rect1->width;
+	int32_t rect1_bottom = rect1->y + rect1->height;
+	int32_t rect2_right = rect2->x + rect2->width;
+	int32_t rect2_bottom = rect2->y + rect2->height;
+
+	dest->x = rect1->x < rect2->x ? rect2->x : rect1->x;
+	dest->y = rect1->y < rect2->y ? rect2->y : rect1->y;
+	dest->width = rect1_right < rect2_right ? rect1_right - dest->x : rect2_right - dest->x;
+	dest->height = rect1_bottom < rect2_bottom ? rect1_bottom - dest->y : rect2_bottom - dest->y;
+}
+
+/*
+ * 引数rectに引数matrixの逆行列をかけた値を求めます。
+ * この時に、引数boundingboxの範囲におさまるように補正します。
+ */
+static void
+calc_inverse_matrix_transform(struct weston_matrix *matrix,
+			      struct ivi_rectangle *rect,
+			      struct ivi_rectangle *boundingbox,
+			      struct ivi_rectangle *result)
+{
+	struct weston_matrix m;
+	struct weston_vector top_left;
+	struct weston_vector bottom_right;
+
+	weston_matrix_init(&m);
+
+	weston_matrix_invert(&m, matrix);
+
+	// rectの左上と右下のvectorを逆行列にかけます。
+	top_left.f[0] = rect->x;
+	top_left.f[1] = rect->y;
+	top_left.f[2] = 0.0f;
+	top_left.f[3] = 1.0f;
+
+	bottom_right.f[0] = rect->x + rect->width;
+	bottom_right.f[1] = rect->y + rect->height;
+	bottom_right.f[2] = 0.0f;
+	bottom_right.f[3] = 1.0f;
+
+	weston_matrix_transform(&m, &top_left);
+	weston_matrix_transform(&m, &bottom_right);
+
+	// matrixに回転行列が含まれていることを考慮し、X軸の値で小さい値を原点とする。
+	if (top_left.f[0] < bottom_right.f[0]) {
+		result->x = top_left.f[0];
+		result->width = bottom_right.f[0] - result->x;
+	}
+	else {
+		result->x = bottom_right.f[0];
+		result->width = top_left.f[0] - result->x;
+	}
+
+	// matrixに回転行列が含まれていることを考慮し、Y軸の値で小さい値を原点とする。
+	if (top_left.f[1] < bottom_right.f[1]) {
+		result->y = top_left.f[1];
+		result->height = bottom_right.f[1] - result->y;
+	}
+	else {
+		result->y = bottom_right.f[1];
+		result->height= top_left.f[1] - result->y;
+	}
+
+	// 行列の内容によっては逆行列をかけるとboundingboxを超えてしまう場合があるため、
+	// 収まるように補正します。
+	intersect_ivi_rectangle(result, boundingbox, result);
+}
+
+/*
  * ivi_layout_surface,ivi_layout_layerのプロパティを参照し、
  * weston_surfaceをscreen座標系に変換するための行列を作成します。
  */
