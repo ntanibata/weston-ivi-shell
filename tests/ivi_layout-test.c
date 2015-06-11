@@ -454,9 +454,7 @@ TEST(ivi_layout_surface_remove_notification)
 	runner_run(runner, "surface_remove_notification_p1");
 	ivi_window_destroy(wind);
 
-	wind = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(1));
 	runner_run(runner, "surface_remove_notification_p2");
-	ivi_window_destroy(wind);
 
 	wind = client_create_ivi_window(client, IVI_TEST_SURFACE_ID(0));
 	ivi_window_destroy(wind);
