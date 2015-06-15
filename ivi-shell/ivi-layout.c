@@ -1950,7 +1950,11 @@ ivi_layout_layer_set_visibility(struct ivi_layout_layer *ivilayer,
 	prop = &ivilayer->pending.prop;
 	prop->visibility = newVisibility;
 
-	ivilayer->event_mask |= IVI_NOTIFICATION_VISIBILITY;
+	if (ivilayer->prop.visibility != newVisibility) {
+		ivilayer->event_mask |= IVI_NOTIFICATION_VISIBILITY;
+	} else {
+		ivilayer->event_mask &= ~IVI_NOTIFICATION_VISIBILITY;
+	}
 
 	return IVI_SUCCEEDED;
 }
@@ -1982,7 +1986,11 @@ ivi_layout_layer_set_opacity(struct ivi_layout_layer *ivilayer,
 	prop = &ivilayer->pending.prop;
 	prop->opacity = opacity;
 
-	ivilayer->event_mask |= IVI_NOTIFICATION_OPACITY;
+	if (ivilayer->prop.opacity != opacity) {
+		ivilayer->event_mask |= IVI_NOTIFICATION_OPACITY;
+	} else {
+		ivilayer->event_mask &= ~IVI_NOTIFICATION_OPACITY;
+	}
 
 	return IVI_SUCCEEDED;
 }
@@ -2016,7 +2024,14 @@ ivi_layout_layer_set_source_rectangle(struct ivi_layout_layer *ivilayer,
 	prop->source_width = width;
 	prop->source_height = height;
 
-	ivilayer->event_mask |= IVI_NOTIFICATION_SOURCE_RECT;
+	if (ivilayer->prop.source_x != x ||
+	    ivilayer->prop.source_y != y ||
+	    ivilayer->prop.source_width != width ||
+	    ivilayer->prop.source_height != height) {
+		ivilayer->event_mask |= IVI_NOTIFICATION_SOURCE_RECT;
+	} else {
+		ivilayer->event_mask &= ~IVI_NOTIFICATION_SOURCE_RECT;
+	}
 
 	return IVI_SUCCEEDED;
 }
@@ -2039,7 +2054,14 @@ ivi_layout_layer_set_destination_rectangle(struct ivi_layout_layer *ivilayer,
 	prop->dest_width = width;
 	prop->dest_height = height;
 
-	ivilayer->event_mask |= IVI_NOTIFICATION_DEST_RECT;
+	if (ivilayer->prop.dest_x != x ||
+	    ivilayer->prop.dest_y != y ||
+	    ivilayer->prop.dest_width != width ||
+	    ivilayer->prop.dest_height != height) {
+		ivilayer->event_mask |= IVI_NOTIFICATION_DEST_RECT;
+	} else {
+		ivilayer->event_mask &= ~IVI_NOTIFICATION_DEST_RECT;
+	}
 
 	return IVI_SUCCEEDED;
 }
@@ -2075,7 +2097,12 @@ ivi_layout_layer_set_dimension(struct ivi_layout_layer *ivilayer,
 	prop->dest_width  = dest_width;
 	prop->dest_height = dest_height;
 
-	ivilayer->event_mask |= IVI_NOTIFICATION_DIMENSION;
+	if (ivilayer->prop.dest_width != dest_width ||
+	    ivilayer->prop.dest_height != dest_height) {
+		ivilayer->event_mask |= IVI_NOTIFICATION_DIMENSION;
+	} else {
+		ivilayer->event_mask &= ~IVI_NOTIFICATION_DIMENSION;
+	}
 
 	return IVI_SUCCEEDED;
 }
@@ -2110,7 +2137,12 @@ ivi_layout_layer_set_position(struct ivi_layout_layer *ivilayer,
 	prop->dest_x = dest_x;
 	prop->dest_y = dest_y;
 
-	ivilayer->event_mask |= IVI_NOTIFICATION_POSITION;
+	if (ivilayer->prop.dest_x != dest_x ||
+	    ivilayer->prop.dest_y != dest_y) {
+		ivilayer->event_mask |= IVI_NOTIFICATION_POSITION;
+	} else {
+		ivilayer->event_mask &= ~IVI_NOTIFICATION_POSITION;
+	}
 
 	return IVI_SUCCEEDED;
 }
@@ -2129,7 +2161,11 @@ ivi_layout_layer_set_orientation(struct ivi_layout_layer *ivilayer,
 	prop = &ivilayer->pending.prop;
 	prop->orientation = orientation;
 
-	ivilayer->event_mask |= IVI_NOTIFICATION_ORIENTATION;
+	if (ivilayer->prop.orientation != orientation) {
+		ivilayer->event_mask |= IVI_NOTIFICATION_ORIENTATION;
+	} else {
+		ivilayer->event_mask &= ~IVI_NOTIFICATION_ORIENTATION;
+	}
 
 	return IVI_SUCCEEDED;
 }
@@ -2210,7 +2246,11 @@ ivi_layout_surface_set_visibility(struct ivi_layout_surface *ivisurf,
 	prop = &ivisurf->pending.prop;
 	prop->visibility = newVisibility;
 
-	ivisurf->event_mask |= IVI_NOTIFICATION_VISIBILITY;
+	if (ivisurf->prop.visibility != newVisibility) {
+		ivisurf->event_mask |= IVI_NOTIFICATION_VISIBILITY;
+	} else {
+		ivisurf->event_mask &= ~IVI_NOTIFICATION_VISIBILITY;
+	}
 
 	return IVI_SUCCEEDED;
 }
@@ -2242,7 +2282,11 @@ ivi_layout_surface_set_opacity(struct ivi_layout_surface *ivisurf,
 	prop = &ivisurf->pending.prop;
 	prop->opacity = opacity;
 
-	ivisurf->event_mask |= IVI_NOTIFICATION_OPACITY;
+	if (ivisurf->prop.opacity != opacity) {
+		ivisurf->event_mask |= IVI_NOTIFICATION_OPACITY;
+	} else {
+		ivisurf->event_mask &= ~IVI_NOTIFICATION_OPACITY;
+	}
 
 	return IVI_SUCCEEDED;
 }
@@ -2280,7 +2324,14 @@ ivi_layout_surface_set_destination_rectangle(struct ivi_layout_surface *ivisurf,
 	prop->dest_width = width;
 	prop->dest_height = height;
 
-	ivisurf->event_mask |= IVI_NOTIFICATION_DEST_RECT;
+	if (ivisurf->prop.dest_x != x ||
+	    ivisurf->prop.dest_y != y ||
+	    ivisurf->prop.dest_width != width ||
+	    ivisurf->prop.dest_height != height) {
+		ivisurf->event_mask |= IVI_NOTIFICATION_DEST_RECT;
+	} else {
+		ivisurf->event_mask &= ~IVI_NOTIFICATION_DEST_RECT;
+	}
 
 	return IVI_SUCCEEDED;
 }
@@ -2300,7 +2351,12 @@ ivi_layout_surface_set_dimension(struct ivi_layout_surface *ivisurf,
 	prop->dest_width  = dest_width;
 	prop->dest_height = dest_height;
 
-	ivisurf->event_mask |= IVI_NOTIFICATION_DIMENSION;
+	if (ivisurf->prop.dest_width != dest_width ||
+	    ivisurf->prop.dest_height != dest_height) {
+		ivisurf->event_mask |= IVI_NOTIFICATION_DIMENSION;
+	} else {
+		ivisurf->event_mask &= ~IVI_NOTIFICATION_DIMENSION;
+	}
 
 	return IVI_SUCCEEDED;
 }
@@ -2335,7 +2391,12 @@ ivi_layout_surface_set_position(struct ivi_layout_surface *ivisurf,
 	prop->dest_x = dest_x;
 	prop->dest_y = dest_y;
 
-	ivisurf->event_mask |= IVI_NOTIFICATION_POSITION;
+	if (ivisurf->prop.dest_x != dest_x ||
+	    ivisurf->prop.dest_y != dest_y) {
+		ivisurf->event_mask |= IVI_NOTIFICATION_POSITION;
+	} else {
+		ivisurf->event_mask &= ~IVI_NOTIFICATION_POSITION;
+	}
 
 	return IVI_SUCCEEDED;
 }
@@ -2369,7 +2430,11 @@ ivi_layout_surface_set_orientation(struct ivi_layout_surface *ivisurf,
 	prop = &ivisurf->pending.prop;
 	prop->orientation = orientation;
 
-	ivisurf->event_mask |= IVI_NOTIFICATION_ORIENTATION;
+	if (ivisurf->prop.orientation != orientation) {
+		ivisurf->event_mask |= IVI_NOTIFICATION_ORIENTATION;
+	} else {
+		ivisurf->event_mask &= ~IVI_NOTIFICATION_ORIENTATION;
+	}
 
 	return IVI_SUCCEEDED;
 }
@@ -2643,7 +2708,14 @@ ivi_layout_surface_set_source_rectangle(struct ivi_layout_surface *ivisurf,
 	prop->source_width = width;
 	prop->source_height = height;
 
-	ivisurf->event_mask |= IVI_NOTIFICATION_SOURCE_RECT;
+	if (ivisurf->prop.source_x != x ||
+	    ivisurf->prop.source_y != y ||
+	    ivisurf->prop.source_width != width ||
+	    ivisurf->prop.source_height != height) {
+		ivisurf->event_mask |= IVI_NOTIFICATION_SOURCE_RECT;
+	} else {
+		ivisurf->event_mask &= ~IVI_NOTIFICATION_SOURCE_RECT;
+	}
 
 	return IVI_SUCCEEDED;
 }
