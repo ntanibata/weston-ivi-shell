@@ -702,6 +702,7 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 {
 	const struct ivi_layout_surface_properties *sp = &ivisurf->prop;
 	const struct ivi_layout_layer_properties *lp = &ivilayer->prop;
+	struct weston_output *output = ivisurf->surface->output;
 	struct ivi_rectangle weston_surface_rect = { 0,
 						     0,
 						     ivisurf->surface->width,
@@ -722,7 +723,16 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 						     lp->dest_y,
 						     lp->dest_width,
 						     lp->dest_height };
+	struct ivi_rectangle screen_source_rect =  { 0,
+						     0,
+						     output->width,
+						     output->height };
+	struct ivi_rectangle screen_dest_rect =    { output->x,
+						     output->y,
+						     output->width,
+						     output->height };
 	struct ivi_rectangle surface_result;
+	struct ivi_rectangle layer_result;
 
 	/* calc Matrix A */
 	calc_transformation_matrix(&surface_source_rect,
@@ -741,11 +751,25 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 	if (calc_inverse_matrix_transform(m,
 					  &layer_dest_rect,
 					  &surface_result,
+					  &layer_result) < 0) {
+		layer_result.x = surface_result.x;
+		layer_result.y = surface_result.y;
+		layer_result.width = surface_result.width;
+		layer_result.height = surface_result.height;
+	}
+
+	calc_transformation_matrix(&screen_source_rect,
+				   &screen_dest_rect,
+				   0, m);
+
+	if (calc_inverse_matrix_transform(m,
+					  &screen_dest_rect,
+					  &layer_result,
 					  result) < 0) {
-		result->x = surface_result.x;
-		result->y = surface_result.y;
-		result->width = surface_result.width;
-		result->height = surface_result.height;
+		result->x = layer_result.x;
+		result->y = layer_result.y;
+		result->width = layer_result.width;
+		result->height = layer_result.height;
 	}
 
 	if (result->width < 0 || result->height < 0) {
@@ -762,9 +786,8 @@ update_prop(struct ivi_layout_layer *ivilayer,
 	struct ivi_rectangle r;
 	bool can_calc = true;
 
-	if (!ivilayer->event_mask && !ivisurf->event_mask) {
+	if ((!ivilayer->event_mask && !ivisurf->event_mask) || ivisurf->surface->output == NULL)
 		return;
-	}
 
 	update_opacity(ivilayer, ivisurf);
 
