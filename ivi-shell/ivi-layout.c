@@ -2242,7 +2242,7 @@ ivi_layout_layer_set_render_order(struct ivi_layout_layer *ivilayer,
 		return IVI_FAILED;
 	}
 
-	if (pSurface == NULL) {
+	if (pSurface == NULL || number == 0) {
 		wl_list_for_each_safe(ivisurf, next, &ivilayer->pending.surface_list, pending.link) {
 			if (!wl_list_empty(&ivisurf->pending.link)) {
 				wl_list_remove(&ivisurf->pending.link);
