@@ -348,6 +348,7 @@ ivi_layout_surface_destroy(struct ivi_layout_surface *ivisurf)
 		return;
 	}
 
+	wl_list_remove(&ivisurf->transform.link);
 	wl_list_remove(&ivisurf->pending.link);
 	wl_list_remove(&ivisurf->order.link);
 	wl_list_remove(&ivisurf->link);
@@ -2626,6 +2627,8 @@ ivi_layout_surface_create(struct weston_surface *wl_surface,
 	ivisurf->surface->width_from_buffer  = 0;
 	ivisurf->surface->height_from_buffer = 0;
 
+	weston_matrix_init(&ivisurf->transform.matrix);
+	wl_list_init(&ivisurf->transform.link);
 
 	init_surface_properties(&ivisurf->prop);
 	ivisurf->event_mask = 0;
