@@ -732,7 +732,7 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 				   sp->orientation, m);
 
 	/* calc masking area of weston_surface from Matrix A */
-	ret_invert = calc_inverse_matrix_transform(&ivisurf->transform.matrix,
+	ret_invert = calc_inverse_matrix_transform(m,
 						   &surface_dest_rect,
 						   &weston_surface_rect,
 						   &surface_result);
@@ -744,7 +744,7 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 
 	if (ret_invert >= 0)
 		/* calc masking area of weston_surface from Matrix B */
-		ret_invert = calc_inverse_matrix_transform(&ivisurf->transform.matrix,
+		ret_invert = calc_inverse_matrix_transform(m,
 							   &layer_dest_rect,
 							   &weston_surface_rect,
 							   &layer_result);
