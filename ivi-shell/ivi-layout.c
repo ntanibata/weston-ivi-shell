@@ -737,24 +737,24 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 	struct ivi_rectangle layer_result;
 	int32_t ret_invert = 0;
 
-	//calc Matrix A
+	/* calc Matrix A */
 	calc_transformation_matrix(&surface_source_rect,
 				   &surface_dest_rect,
 				   sp->orientation, m);
 
-	//calc masking area of weston_surface from Matrix A
+	/* calc masking area of weston_surface from Matrix A */
 	ret_invert = calc_inverse_matrix_transform(&ivisurf->transform.matrix,
 						   &surface_dest_rect,
 						   &weston_surface_rect,
 						   &surface_result);
 
-	//calc Matrix B, global matrix
+	/* calc Matrix B, global matrix */
 	calc_transformation_matrix(&layer_source_rect,
 				   &layer_dest_rect,
 				   lp->orientation, m);
 
 	if (ret_invert >= 0)
-		//calc masking area of weston_surface from Matrix B
+		/* calc masking area of weston_surface from Matrix B */
 		ret_invert = calc_inverse_matrix_transform(&ivisurf->transform.matrix,
 							   &layer_dest_rect,
 							   &weston_surface_rect,
@@ -766,7 +766,7 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 		result->width = surface_result.width;
 		result->height = surface_result.height;
 	} else
-		//this intersected ivi_rectangle would be used for masking weston_surface
+		/* this intersected ivi_rectangle would be used for masking weston_surface */
 		ivi_rectangle_intersect(&surface_result, &layer_result, result);
 }
 
