@@ -621,7 +621,7 @@ ivi_rectangle_intersect(const struct ivi_rectangle *rect1,
  * - no skew
  * - only multiples of 90-degree rotations supported
  */
-static void
+static int32_t
 calc_inverse_matrix_transform(const struct weston_matrix *matrix,
 			      const struct ivi_rectangle *rect_input,
 			      const struct ivi_rectangle *boundingbox,
@@ -633,7 +633,8 @@ calc_inverse_matrix_transform(const struct weston_matrix *matrix,
 
 	assert(boundingbox != rect_output);
 
-	weston_matrix_invert(&m, matrix);
+	if (weston_matrix_invert(&m, matrix) < 0)
+		return -1;
 
 	top_left.f[0] = rect_input->x;
 	top_left.f[1] = rect_input->y;
@@ -665,6 +666,8 @@ calc_inverse_matrix_transform(const struct weston_matrix *matrix,
 	}
 
 	ivi_rectangle_intersect(rect_output, boundingbox, rect_output);
+
+	return 0;
 }
 
 /**
@@ -720,6 +723,7 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 						     lp->dest_height };
 	struct ivi_rectangle surface_result;
 	struct ivi_rectangle layer_result;
+	int32_t ret_invert = 0;
 
 	//calc Matrix A
 	calc_transformation_matrix(&surface_source_rect,
@@ -727,24 +731,31 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 				   sp->orientation, m);
 
 	//calc masking area of weston_surface from Matrix A
-	calc_inverse_matrix_transform(&ivisurf->transform.matrix,
-				      &surface_dest_rect,
-				      &weston_surface_rect,
-				      &surface_result);
+	ret_invert = calc_inverse_matrix_transform(&ivisurf->transform.matrix,
+						   &surface_dest_rect,
+						   &weston_surface_rect,
+						   &surface_result);
 
 	//calc Matrix B, global matrix
 	calc_transformation_matrix(&layer_source_rect,
 				   &layer_dest_rect,
 				   lp->orientation, m);
 
-	//calc masking area of weston_surface from Matrix B
-	calc_inverse_matrix_transform(&ivisurf->transform.matrix,
-				      &layer_dest_rect,
-				      &weston_surface_rect,
-				      &layer_result);
+	if (ret_invert >= 0)
+		//calc masking area of weston_surface from Matrix B
+		ret_invert = calc_inverse_matrix_transform(&ivisurf->transform.matrix,
+							   &layer_dest_rect,
+							   &weston_surface_rect,
+							   &layer_result);
 
-	//this intersected ivi_rectangle would be used for masking weston_surface
-	ivi_rectangle_intersect(&surface_result, &layer_result, result);
+	if (ret_invert < 0) {
+		result->x = surface_result.x;
+		result->y = surface_result.y;
+		result->width = surface_result.width;
+		result->height = surface_result.height;
+	} else
+		//this intersected ivi_rectangle would be used for masking weston_surface
+		ivi_rectangle_intersect(&surface_result, &layer_result, result);
 
 	if (result->width < 0 || result->height < 0) {
 		result->width = 0;
