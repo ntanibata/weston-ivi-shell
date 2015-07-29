@@ -612,8 +612,13 @@ ivi_rectangle_intersect(const struct ivi_rectangle *rect1,
 }
 
 /*
- * This computes rect_output from rect_input with inverted matrix,
- * eliminating outside of boundingbox.
+ * Transform rect_input by the inverse of matrix, intersect with boundingbox,
+ * and store the result in rect_output.
+ * The boundingbox must be given surface-local coordinate space.
+ * Additionally, there are the following restrictions on the matrix:
+ * - no projective transformations
+ * - no skew
+ * - only multiples of 90-degree rotations supported
  */
 static void
 calc_inverse_matrix_transform(struct weston_matrix *matrix,
