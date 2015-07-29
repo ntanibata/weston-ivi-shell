@@ -587,12 +587,12 @@ calc_transformation_matrix(struct ivi_rectangle *source_rect,
 }
 
 /*
- * This computes overlapped rect_output from two ivi_rectangles
+ * This computes intersected rect_output from two ivi_rectangles
  */
 static void
-calc_overlap_ivi_rectangle(struct ivi_rectangle *rect1,
-			   struct ivi_rectangle *rect2,
-			   struct ivi_rectangle *rect_output)
+ivi_rectangle_intersect(struct ivi_rectangle *rect1,
+		        struct ivi_rectangle *rect2,
+		        struct ivi_rectangle *rect_output)
 {
 	int32_t rect1_right = rect1->x + rect1->width;
 	int32_t rect1_bottom = rect1->y + rect1->height;
@@ -656,7 +656,7 @@ calc_inverse_matrix_transform(struct weston_matrix *matrix,
 		rect_output->height= top_left.f[1] - rect_output->y;
 	}
 
-	calc_overlap_ivi_rectangle(rect_output, boundingbox, rect_output);
+	ivi_rectangle_intersect(rect_output, boundingbox, rect_output);
 }
 
 /**
@@ -669,7 +669,7 @@ calc_inverse_matrix_transform(struct weston_matrix *matrix,
  * - Matrix A: surface-local coordinates to layer-local coordinates
  * - Matrix B: Matrix A x (layer-local coordinates to global coordinates)
  *             , which is equal to the whole transformation matrix
- * The mask is computed by overlapped rectangle of two rectangles,
+ * The mask is computed by intersected rectangle of two rectangles,
  * - Destination rectangle of surface is inverted to surface local coordinates
  *   by (Matrix A)^(-1). This is because clipping area, source rectangle of
  *   surface, is fit to Destination rectangle by Matrix A, taking account
@@ -678,7 +678,7 @@ calc_inverse_matrix_transform(struct weston_matrix *matrix,
  *   surface local coordinates by (Matrix B)^(-1). Transformed surface shall
  *   be again clipped and fit to the destination rectangle of layer. So
  *   the result of ivi_rectangle inverted from destination rectangle of layer to
- *   surface-local coordinates shall be considered to be masked as overlapped
+ *   surface-local coordinates shall be considered to be masked as intersected
  *   area.
  */
 static void
@@ -735,8 +735,8 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 				      &weston_surface_rect,
 				      &layer_result);
 
-	//this overlapped ivi_rectangle would be used for masking weston_surface
-	calc_overlap_ivi_rectangle(&surface_result, &layer_result, result);
+	//this intersected ivi_rectangle would be used for masking weston_surface
+	ivi_rectangle_intersect(&surface_result, &layer_result, result);
 }
 
 static void
