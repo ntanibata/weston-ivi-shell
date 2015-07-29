@@ -646,6 +646,8 @@ calc_inverse_matrix_transform(const struct weston_matrix *matrix,
 		rect_output->height = 0;
 		return -1;
 	}
+
+	/* The vectors and matrices involved will always produce f[3] == 1.0. */
 	top_left.f[0] = rect_input->x;
 	top_left.f[1] = rect_input->y;
 	top_left.f[2] = 0.0f;
