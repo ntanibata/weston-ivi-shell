@@ -590,8 +590,8 @@ calc_transformation_matrix(struct ivi_rectangle *source_rect,
  * This computes intersected rect_output from two ivi_rectangles
  */
 static void
-ivi_rectangle_intersect(struct ivi_rectangle *rect1,
-		        struct ivi_rectangle *rect2,
+ivi_rectangle_intersect(const struct ivi_rectangle *rect1,
+		        const struct ivi_rectangle *rect2,
 		        struct ivi_rectangle *rect_output)
 {
 	int32_t rect1_right = rect1->x + rect1->width;
