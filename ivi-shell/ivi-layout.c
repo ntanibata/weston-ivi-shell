@@ -731,23 +731,19 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 				   &surface_dest_rect,
 				   sp->orientation, m);
 
-	/* calc masking area of weston_surface from Matrix A */
-	ret_invert = calc_inverse_matrix_transform(m,
-						   &surface_dest_rect,
-						   &weston_surface_rect,
-						   &surface_result);
-
 	/* calc Matrix B, global matrix */
 	calc_transformation_matrix(&layer_source_rect,
 				   &layer_dest_rect,
 				   lp->orientation, m);
 
-	if (ret_invert >= 0)
-		/* calc masking area of weston_surface from Matrix B */
-		ret_invert = calc_inverse_matrix_transform(m,
-							   &layer_dest_rect,
-							   &weston_surface_rect,
-							   &layer_result);
+	/* this intersected ivi_rectangle would be used for masking weston_surface */
+	ivi_rectangle_intersect(&surface_source_rect, &weston_surface_rect, &surface_result);
+
+	/* calc masking area of weston_surface from Matrix B */
+	ret_invert = calc_inverse_matrix_transform(m,
+						   &layer_dest_rect,
+						   &weston_surface_rect,
+						   &layer_result);
 
 	if (ret_invert < 0) {
 		result->x = surface_result.x;
