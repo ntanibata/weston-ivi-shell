@@ -66,6 +66,8 @@
 #include "shared/helpers.h"
 #include "shared/os-compatibility.h"
 
+#define max(a, b) ((a) > (b) ? (a) : (b))
+
 struct link_layer {
 	struct ivi_layout_layer *ivilayer;
 	struct wl_list link;
@@ -599,8 +601,8 @@ ivi_rectangle_intersect(const struct ivi_rectangle *rect1,
 	int32_t rect2_right = rect2->x + rect2->width;
 	int32_t rect2_bottom = rect2->y + rect2->height;
 
-	rect_output->x = rect1->x < rect2->x ? rect2->x : rect1->x;
-	rect_output->y = rect1->y < rect2->y ? rect2->y : rect1->y;
+	rect_output->x = max(rect1->x, rect2->x);
+	rect_output->y = max(rect1->y, rect2->y);
 	rect_output->width = rect1_right < rect2_right ?
 			     rect1_right - rect_output->x : 
 			     rect2_right - rect_output->x;
