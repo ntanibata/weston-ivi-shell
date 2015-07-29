@@ -625,8 +625,11 @@ ivi_rectangle_intersect(const struct ivi_rectangle *rect1,
  * - no projective transformations
  * - no skew
  * - only multiples of 90-degree rotations supported
+ *
+ * In failure case of weston_matrix_invert, rect_output is set to boundingbox
+ * as a fail-safe with log.
  */
-static int32_t
+static void
 calc_inverse_matrix_transform(const struct weston_matrix *matrix,
 			      const struct ivi_rectangle *rect_input,
 			      const struct ivi_rectangle *boundingbox,
@@ -639,12 +642,12 @@ calc_inverse_matrix_transform(const struct weston_matrix *matrix,
 	assert(boundingbox != rect_output);
 
 	if (weston_matrix_invert(&m, matrix) < 0) {
-		weston_log("ivi-shell: fails to invert a matrix.\n");
-		rect_output->x = 0;
-		rect_output->y = 0;
-		rect_output->width = 0;
-		rect_output->height = 0;
-		return -1;
+		weston_log("ivi-shell: calc_inverse_matrix_transform fails to invert a matrix.\n");
+		weston_log("ivi-shell: boundingbox is set to the rect_output.\n");
+		rect_output->x = boundingbox->x;
+		rect_output->y = boundingbox->y;
+		rect_output->width = boundingbox->width;
+		rect_output->height = boundingbox->height;
 	}
 
 	/* The vectors and matrices involved will always produce f[3] == 1.0. */
@@ -678,31 +681,21 @@ calc_inverse_matrix_transform(const struct weston_matrix *matrix,
 	}
 
 	ivi_rectangle_intersect(rect_output, boundingbox, rect_output);
-
-	return 0;
 }
 
 /**
- * This computes the whole transformation matrix from surface-local
+ * This computes the whole transformation matrix:m from surface-local
  * coordinates to global coordinates. It is assumed that
  * weston_view::geometry.{x,y} are zero.
  *
- * Additionally, this computes the mask on surface-local coordinates.
- * To computes the mask, it uses two matrixs,
- * - Matrix A: surface-local coordinates to layer-local coordinates
- * - Matrix B: Matrix A x (layer-local coordinates to global coordinates)
- *             , which is equal to the whole transformation matrix
- * The mask is computed by intersected rectangle of two rectangles,
- * - Destination rectangle of surface is inverted to surface local coordinates
- *   by (Matrix A)^(-1). This is because clipping area, source rectangle of
- *   surface, is fit to Destination rectangle by Matrix A, taking account
- *   into scale, rotation, and position.
- * - Destination rectangle of layer in global coordinates is inverted to
- *   surface local coordinates by (Matrix B)^(-1). Transformed surface shall
- *   be again clipped and fit to the destination rectangle of layer. So
- *   the result of ivi_rectangle inverted from destination rectangle of layer to
- *   surface-local coordinates shall be considered to be masked as intersected
- *   area.
+ * Additionally, this computes the mask on surface-local coordinates as a
+ * ivi_rectangle. This can be set to weston_view_set_mask.
+ * 
+ * The mask is computed by following steps
+ * - destination rectangle of layer is inversed to surface-local cooodinates
+ *   by inversed matrix:m.
+ * - the area is intersected by intersected area between weston_surface and
+ *   source rectangle of ivi_surface.
  */
 static void
 calc_surface_to_global_matrix_and_mask_to_weston_surface(
@@ -734,40 +727,33 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 						     lp->dest_width,
 						     lp->dest_height };
 	struct ivi_rectangle surface_result;
-	struct ivi_rectangle layer_result;
-	int32_t ret_invert = 0;
 
-	/* calc Matrix A */
+	/*
+	 * the whole transformation matrix:m from surface-local
+	 * coordinates to global coordinates, which is computed by
+	 * two steps,
+	 * - surface-local coordinates to layer-local coordinates
+	 * - layer-local coordinates to global coordinates
+	 */
 	calc_transformation_matrix(&surface_source_rect,
 				   &surface_dest_rect,
 				   sp->orientation, m);
 
-	/* calc masking area of weston_surface from Matrix A */
-	ret_invert = calc_inverse_matrix_transform(m,
-						   &surface_dest_rect,
-						   &weston_surface_rect,
-						   &surface_result);
-
-	/* calc Matrix B, global matrix */
 	calc_transformation_matrix(&layer_source_rect,
 				   &layer_dest_rect,
 				   lp->orientation, m);
 
-	if (ret_invert >= 0)
-		/* calc masking area of weston_surface from Matrix B */
-		ret_invert = calc_inverse_matrix_transform(m,
-							   &layer_dest_rect,
-							   &weston_surface_rect,
-							   &layer_result);
+	/* this intersected ivi_rectangle would be used for masking
+	 * weston_surface
+	 */
+	ivi_rectangle_intersect(&surface_source_rect, &weston_surface_rect,
+				&surface_result);
 
-	if (ret_invert < 0) {
-		result->x = surface_result.x;
-		result->y = surface_result.y;
-		result->width = surface_result.width;
-		result->height = surface_result.height;
-	} else
-		/* this intersected ivi_rectangle would be used for masking weston_surface */
-		ivi_rectangle_intersect(&surface_result, &layer_result, result);
+	/* calc masking area of weston_surface from m */
+	calc_inverse_matrix_transform(m,
+				      &layer_dest_rect,
+				      &surface_result,
+				      result);
 }
 
 static void
