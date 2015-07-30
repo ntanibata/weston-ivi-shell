@@ -2870,6 +2870,8 @@ static struct ivi_controller_interface ivi_controller_interface = {
 	 */
 	.commit_changes = ivi_layout_commit_changes,
 
+	.surface_create = ivi_layout_surface_create,
+	.surface_configure = ivi_layout_surface_configure,
 	/**
 	 * surface controller interfaces
 	 */
