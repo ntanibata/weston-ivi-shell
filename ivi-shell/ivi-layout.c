@@ -739,6 +739,11 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 
 	//this intersected ivi_rectangle would be used for masking weston_surface
 	ivi_rectangle_intersect(&surface_result, &layer_result, result);
+
+	if (result->width < 0 || result->height < 0) {
+		result->width = 0;
+		result->height = 0;
+	}
 }
 
 static void
