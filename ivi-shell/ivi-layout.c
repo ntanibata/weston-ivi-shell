@@ -638,8 +638,6 @@ calc_inverse_matrix_transform(const struct weston_matrix *matrix,
 
 	assert(boundingbox != rect_output);
 
-	weston_matrix_init(&m);
-
 	weston_matrix_invert(&m, matrix);
 
 	top_left.f[0] = rect_input->x;
