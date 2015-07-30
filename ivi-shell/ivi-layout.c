@@ -58,6 +58,7 @@
 #include "config.h"
 
 #include <string.h>
+#include <assert.h>
 
 #include "compositor.h"
 #include "ivi-layout-export.h"
@@ -629,6 +630,8 @@ calc_inverse_matrix_transform(struct weston_matrix *matrix,
 	struct weston_matrix m;
 	struct weston_vector top_left;
 	struct weston_vector bottom_right;
+
+	assert(boundingbox != rect_output);
 
 	weston_matrix_init(&m);
 
