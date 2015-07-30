@@ -185,6 +185,15 @@ struct ivi_controller_interface {
 	int32_t (*commit_changes)(void);
 
 	/**
+	 * \brief Creates an ivi_layout_surface.
+	 *
+	 * \return IVI_SUCCEEDED if the method call was successful
+	 * \return IVI_FAILED if the method call was failed
+	 */
+	struct ivi_layout_surface* (*surface_create)(
+				struct weston_surface *wl_surface,
+				uint32_t id_surface);
+	/**
 	 * surface controller interface
 	 */
 
