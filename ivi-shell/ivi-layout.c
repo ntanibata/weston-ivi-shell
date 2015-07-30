@@ -609,6 +609,11 @@ ivi_rectangle_intersect(const struct ivi_rectangle *rect1,
 	rect_output->height = rect1_bottom < rect2_bottom ?
 			      rect1_bottom - rect_output->y : 
 			      rect2_bottom - rect_output->y;
+
+	if (rect_output->width < 0 || rect_output->height < 0) {
+		rect_output->width = 0;
+		rect_output->height = 0;
+	}
 }
 
 /*
