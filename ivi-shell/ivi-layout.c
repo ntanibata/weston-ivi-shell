@@ -627,9 +627,9 @@ ivi_rectangle_intersect(const struct ivi_rectangle *rect1,
  * - only multiples of 90-degree rotations supported
  */
 static void
-calc_inverse_matrix_transform(struct weston_matrix *matrix,
-			      struct ivi_rectangle *rect_input,
-			      struct ivi_rectangle *boundingbox,
+calc_inverse_matrix_transform(const struct weston_matrix *matrix,
+			      const struct ivi_rectangle *rect_input,
+			      const struct ivi_rectangle *boundingbox,
 			      struct ivi_rectangle *rect_output)
 {
 	struct weston_matrix m;
