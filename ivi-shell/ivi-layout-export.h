@@ -193,6 +193,16 @@ struct ivi_controller_interface {
 	struct ivi_layout_surface* (*surface_create)(
 				struct weston_surface *wl_surface,
 				uint32_t id_surface);
+
+	/**
+	 * \brief Configure an ivi_layout_surface
+	 *
+	 * \return IVI_SUCCEEDED if the method call was successful
+	 * \return IVI_FAILED if the method call was failed
+	 */
+	void (*surface_configure)(struct ivi_layout_surface *ivisurf,
+				  int32_t width, int32_t height);
+
 	/**
 	 * surface controller interface
 	 */
