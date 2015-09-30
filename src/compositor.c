@@ -2503,6 +2503,54 @@ weston_surface_get_main_surface(struct weston_surface *surface)
 	return surface;
 }
 
+/** Get the size of surface contents */
+WL_EXPORT void
+weston_surface_get_content_size(struct weston_surface *surface,
+				int *width, int *height)
+{
+	struct weston_renderer *rer = surface->compositor->renderer;
+
+	if (!rer->surface_get_content_size) {
+		*width = 0;
+		*height = 0;
+		return;
+	}
+
+	rer->surface_get_content_size(surface, width, height);
+}
+
+/** Copy surface contents to system memory */
+WL_EXPORT int
+weston_surface_copy_content(struct weston_surface *surface,
+			     void *target, size_t size,
+			     int src_x, int src_y,
+			     int width, int height)
+{
+	struct weston_renderer *rer = surface->compositor->renderer;
+	int cw, ch;
+	const size_t bytespp = 4; /* PIXMAN_a8b8g8r8 */
+
+	if (!rer->surface_copy_content)
+		return -1;
+
+	weston_surface_get_content_size(surface, &cw, &ch);
+
+	if (src_x < 0 || src_y < 0)
+		return -1;
+
+	if (width <= 0 || height <= 0)
+		return -1;
+
+	if (src_x + width > cw || src_y + height > ch)
+		return -1;
+
+	if (width * bytespp * height > size)
+		return -1;
+
+	return rer->surface_copy_content(surface, target, size,
+					 src_x, src_y, width, height);
+}
+
 static void
 subsurface_set_position(struct wl_client *client,
 			struct wl_resource *resource, int32_t x, int32_t y)
