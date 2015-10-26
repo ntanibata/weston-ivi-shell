@@ -88,9 +88,18 @@
       <arg name="home" type="uint"/>
     </request>
 
+    <request name="get_screen_num">
+      <description summary="request screen num" />
+    </request>
+
     <event name="workspace_end_control">
       <description summary="notify controlling workspace end"/>
       <arg name="is_controlled" type="int"/>
+    </event>
+
+    <event name="screen_num">
+      <description summary="returns the screen number on get_screen_num request"/>
+      <arg name="num" type="int"/>
     </event>
 
   </interface>
