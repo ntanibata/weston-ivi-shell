@@ -831,7 +831,7 @@ ivi_hmi_controller_set_background(struct hmi_controller *hmi_ctrl,
 				  uint32_t id_surface)
 {
 	struct ivi_layout_surface *ivisurf = NULL;
-	struct link_hmi_controller_layer *base_layer = NULL;
+	struct hmi_controller_layer *base_layer = NULL;
 	struct ivi_layout_layer   *ivilayer = NULL;
 	const int32_t dstx = hmi_ctrl->application_layer.x;
 	const int32_t dsty = hmi_ctrl->application_layer.y;
@@ -845,7 +845,7 @@ ivi_hmi_controller_set_background(struct hmi_controller *hmi_ctrl,
 							sizeof(*add_surface_id));
 		*add_surface_id = id_surface + (i * hmi_ctrl->ui_setting.surface_id_offset);
 
-		ivilayer = base_layer->ctrl_layer.ivilayer;
+		ivilayer = base_layer->ivilayer;
 
 		ivisurf = ivi_layout_interface->get_surface_from_id(*add_surface_id);
 		assert(ivisurf != NULL);
@@ -880,8 +880,8 @@ ivi_hmi_controller_set_panel(struct hmi_controller *hmi_ctrl,
 					wl_container_of(hmi_ctrl->base_layer_list.prev,
 							base_layer,
 							link);
-	struct ivi_layout_layer   *ivilayer = NULL; 
-	const int32_t width  = base_layer->ctrl_layer.width;
+	struct ivi_layout_layer   *ivilayer = NULL;
+	const int32_t width  = base_layer->width;
 	int32_t ret = 0;
 	int32_t panel_height = hmi_ctrl->hmi_setting->panel_height;
 	const int32_t dstx = 0;
@@ -893,14 +893,14 @@ ivi_hmi_controller_set_panel(struct hmi_controller *hmi_ctrl,
 							sizeof(*add_surface_id));
 		*add_surface_id = id_surface + (i * hmi_ctrl->ui_setting.surface_id_offset);
 
-		ivilayer = base_layer->ctrl_layer.ivilayer;
+		ivilayer = base_layer->ivilayer;
 		ivisurf = ivi_layout_interface->get_surface_from_id(*add_surface_id);
 		assert(ivisurf != NULL);
 
 		ret = ivi_layout_interface->layer_add_surface(ivilayer, ivisurf);
 		assert(!ret);
 
-		dsty = base_layer->ctrl_layer.height - panel_height;
+		dsty = base_layer->height - panel_height;
 
 		ret = ivi_layout_interface->surface_set_destination_rectangle(
 			ivisurf, dstx, dsty, width, panel_height);
