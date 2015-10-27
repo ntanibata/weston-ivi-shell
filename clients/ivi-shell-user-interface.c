@@ -156,6 +156,8 @@ hmi_homescreen_setting {
 	char		*cursor_theme;
 	int32_t		cursor_size;
 	uint32_t	transition_duration;
+	uint32_t	surface_id_offset;
+	int32_t		screen_num;
 };
 
 static void *
@@ -1159,6 +1161,9 @@ hmi_homescreen_setting_create(void)
 		shellSection, "workspace-background-id",
 		&setting->workspace_background.id, 2001);
 
+	weston_config_section_get_uint(
+		shellSection, "surface-id-offset", &setting->surface_id_offset, 10);
+
 	icon_surface_id = workspace_layer_id + 1;
 
 	while (weston_config_next_section(config, &section, &name)) {
@@ -1199,8 +1204,8 @@ hmi_homescreen_setting_create(void)
 int main(int argc, char **argv)
 {
 	struct wlContextCommon wlCtxCommon;
-	struct wlContextStruct wlCtx_BackGround;
-	struct wlContextStruct wlCtx_Panel;
+	struct wlContextStruct *wlCtx_BackGround;
+	struct wlContextStruct *wlCtx_Panel;
 	struct wlContextStruct wlCtx_Button_1;
 	struct wlContextStruct wlCtx_Button_2;
 	struct wlContextStruct wlCtx_Button_3;
@@ -1211,12 +1216,11 @@ int main(int argc, char **argv)
 	int ret = 0;
 	struct hmi_homescreen_setting *hmi_setting;
 	struct wlContextStruct *pWlCtxSt = NULL;
+	int i = 0;
 
 	hmi_setting = hmi_homescreen_setting_create();
 
 	memset(&wlCtxCommon, 0x00, sizeof(wlCtxCommon));
-	memset(&wlCtx_BackGround, 0x00, sizeof(wlCtx_BackGround));
-	memset(&wlCtx_Panel,	  0x00, sizeof(wlCtx_Panel));
 	memset(&wlCtx_Button_1,   0x00, sizeof(wlCtx_Button_1));
 	memset(&wlCtx_Button_2,   0x00, sizeof(wlCtx_Button_2));
 	memset(&wlCtx_Button_3,   0x00, sizeof(wlCtx_Button_3));
@@ -1254,6 +1258,12 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	ivi_hmi_controller_get_screen_num(wlCtxCommon.hmiCtrl);
+	wl_display_dispatch(wlCtxCommon.wlDisplay);
+
+	wlCtx_BackGround = MEM_ALLOC(hmi_setting->screen_num * sizeof(struct wlContextStruct));
+	wlCtx_Panel= MEM_ALLOC(hmi_setting->screen_num * sizeof(struct wlContextStruct));
+
 	if (wlCtxCommon.hmi_setting->cursor_theme) {
 		create_cursors(&wlCtxCommon);
 
@@ -1263,8 +1273,6 @@ int main(int argc, char **argv)
 		wlCtxCommon.current_cursor = CURSOR_LEFT_PTR;
 	}
 
-	wlCtx_BackGround.cmm = &wlCtxCommon;
-	wlCtx_Panel.cmm      = &wlCtxCommon;
 	wlCtx_Button_1.cmm   = &wlCtxCommon;
 	wlCtx_Button_2.cmm   = &wlCtxCommon;
 	wlCtx_Button_3.cmm   = &wlCtxCommon;
@@ -1273,11 +1281,18 @@ int main(int argc, char **argv)
 	wlCtx_WorkSpaceBackGround.cmm = &wlCtxCommon;
 
 	/* create desktop widgets */
-	create_background(&wlCtx_BackGround, hmi_setting->background.id,
-			  hmi_setting->background.filePath);
+	for (i = 0; i < hmi_setting->screen_num; i++) {
+		wlCtx_BackGround[i].cmm = &wlCtxCommon;
+		create_background(&wlCtx_BackGround[i],
+				  hmi_setting->background.id +
+					(i * hmi_setting->surface_id_offset),
+				  hmi_setting->background.filePath);
 
-	create_panel(&wlCtx_Panel, hmi_setting->panel.id,
-		     hmi_setting->panel.filePath);
+		wlCtx_Panel[i].cmm = &wlCtxCommon;
+		create_panel(&wlCtx_Panel[i],
+			     hmi_setting->panel.id + (i * hmi_setting->surface_id_offset),
+			     hmi_setting->panel.filePath);
+	}
 
 	create_button(&wlCtx_Button_1, hmi_setting->tiling.id,
 		      hmi_setting->tiling.filePath, 0);
@@ -1307,6 +1322,9 @@ int main(int argc, char **argv)
 	wl_list_for_each(pWlCtxSt, &wlCtxCommon.list_wlContextStruct, link) {
 		destroyWLContextStruct(pWlCtxSt);
 	}
+
+	free(wlCtx_BackGround);
+	free(wlCtx_Panel);
 
 	destroyWLContextCommon(&wlCtxCommon);
 
