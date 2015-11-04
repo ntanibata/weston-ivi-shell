@@ -79,6 +79,11 @@ struct link_layer {
 	struct wl_list link;
 };
 
+struct link_hmi_controller_layer {
+	struct hmi_controller_layer ctrl_layer;
+	struct wl_list link;
+};
+
 struct hmi_controller_fade {
 	uint32_t is_fade_in;
 	struct wl_list layer_list;
@@ -89,6 +94,7 @@ struct hmi_server_setting {
 	uint32_t    application_layer_id;
 	uint32_t    workspace_background_layer_id;
 	uint32_t    workspace_layer_id;
+	uint32_t    base_layer_id_offset;
 	int32_t     panel_height;
 	uint32_t    transition_duration;
 	char       *ivi_homescreen;
@@ -107,7 +113,7 @@ struct ui_setting {
 
 struct hmi_controller {
 	struct hmi_server_setting          *hmi_setting;
-	struct hmi_controller_layer         base_layer;
+	struct wl_list                      base_layer_list;
 	struct hmi_controller_layer         application_layer;
 	struct hmi_controller_layer         workspace_background_layer;
 	struct hmi_controller_layer         workspace_layer;
@@ -654,6 +660,9 @@ hmi_server_setting_create(struct weston_compositor *ec)
 	weston_config_section_get_uint(shell_section, "application-layer-id",
 				       &setting->application_layer_id, 4000);
 
+	weston_config_section_get_uint(shell_section, "base-layer-id-offset",
+				       &setting->base_layer_id_offset, 10000);
+
 	weston_config_section_get_uint(shell_section, "transition-duration",
 				       &setting->transition_duration, 300);
 
@@ -671,6 +680,8 @@ hmi_controller_destroy(struct wl_listener *listener, void *data)
 {
 	struct link_layer *link = NULL;
 	struct link_layer *next = NULL;
+	struct link_hmi_controller_layer *ctrl_layer_link = NULL;
+	struct link_hmi_controller_layer *ctrl_layer_next = NULL;
 	struct hmi_controller *hmi_ctrl =
 		container_of(listener, struct hmi_controller, destroy_listener);
 
@@ -678,6 +689,12 @@ hmi_controller_destroy(struct wl_listener *listener, void *data)
 			      &hmi_ctrl->workspace_fade.layer_list, link) {
 		wl_list_remove(&link->link);
 		free(link);
+	}
+
+	wl_list_for_each_safe(ctrl_layer_link, ctrl_layer_next,
+			      &hmi_ctrl->base_layer_list, link) {
+		wl_list_remove(&ctrl_layer_link->link);
+		free(ctrl_layer_link);
 	}
 
 	wl_array_release(&hmi_ctrl->ui_widgets);
@@ -710,6 +727,10 @@ hmi_controller_create(struct weston_compositor *ec)
 	struct link_layer *tmp_link_layer = NULL;
 	int32_t panel_height = 0;
 	struct hmi_controller *hmi_ctrl = MEM_ALLOC(sizeof(*hmi_ctrl));
+	struct link_hmi_controller_layer *base_layer = NULL;
+
+	int32_t i = 0;
+	int32_t idx = 0;
 
 	wl_array_init(&hmi_ctrl->ui_widgets);
 	hmi_ctrl->layout_mode = IVI_HMI_CONTROLLER_LAYOUT_MODE_TILING;
@@ -724,18 +745,30 @@ hmi_controller_create(struct weston_compositor *ec)
 	}
 
 	iviscrn = get_screen(0, hmi_ctrl);
-	ivi_layout_interface->get_screen_resolution(iviscrn, &screen_width,
-					 &screen_height);
 
 	/* init base ivi_layer*/
-	hmi_ctrl->base_layer.x = 0;
-	hmi_ctrl->base_layer.y = 0;
-	hmi_ctrl->base_layer.width = screen_width;
-	hmi_ctrl->base_layer.height = screen_height;
-	hmi_ctrl->base_layer.id_layer = hmi_ctrl->hmi_setting->base_layer_id;
+	wl_list_init(&hmi_ctrl->base_layer_list);
+	idx = hmi_ctrl->screen_num - 1;
+	for (i = 0; i < hmi_ctrl->screen_num; i++) {
+		ivi_layout_interface->get_screen_resolution(hmi_ctrl->pp_screen[idx], &screen_width,
+						 &screen_height);
 
-	create_layer(iviscrn, &hmi_ctrl->base_layer);
+		base_layer = MEM_ALLOC(1 * sizeof(struct link_hmi_controller_layer));
+		base_layer->ctrl_layer.x = 0;
+		base_layer->ctrl_layer.y = 0;
+		base_layer->ctrl_layer.width = screen_width;
+		base_layer->ctrl_layer.height = screen_height;
+		base_layer->ctrl_layer.id_layer =
+			hmi_ctrl->hmi_setting->base_layer_id +
+						(i * hmi_ctrl->hmi_setting->base_layer_id_offset);
+		wl_list_insert(&hmi_ctrl->base_layer_list, &base_layer->link);
 
+		create_layer(hmi_ctrl->pp_screen[idx], &base_layer->ctrl_layer);
+		idx--;
+	}
+
+	ivi_layout_interface->get_screen_resolution(iviscrn, &screen_width,
+					 &screen_height);
 	panel_height = hmi_ctrl->hmi_setting->panel_height;
 
 	/* init application ivi_layer */
@@ -802,7 +835,11 @@ ivi_hmi_controller_set_background(struct hmi_controller *hmi_ctrl,
 				  uint32_t id_surface)
 {
 	struct ivi_layout_surface *ivisurf = NULL;
-	struct ivi_layout_layer   *ivilayer = hmi_ctrl->base_layer.ivilayer;
+	struct link_hmi_controller_layer *base_layer =
+					wl_container_of(hmi_ctrl->base_layer_list.prev,
+							base_layer,
+							link);
+	struct ivi_layout_layer   *ivilayer = base_layer->ctrl_layer.ivilayer;
 	const int32_t dstx = hmi_ctrl->application_layer.x;
 	const int32_t dsty = hmi_ctrl->application_layer.y;
 	const int32_t width  = hmi_ctrl->application_layer.width;
@@ -839,8 +876,12 @@ ivi_hmi_controller_set_panel(struct hmi_controller *hmi_ctrl,
 			     uint32_t id_surface)
 {
 	struct ivi_layout_surface *ivisurf  = NULL;
-	struct ivi_layout_layer   *ivilayer = hmi_ctrl->base_layer.ivilayer;
-	const int32_t width  = hmi_ctrl->base_layer.width;
+	struct link_hmi_controller_layer *base_layer =
+					wl_container_of(hmi_ctrl->base_layer_list.prev,
+							base_layer,
+							link);
+	struct ivi_layout_layer   *ivilayer = base_layer->ctrl_layer.ivilayer;
+	const int32_t width  = base_layer->ctrl_layer.width;
 	int32_t ret = 0;
 	int32_t panel_height = 0;
 	const int32_t dstx = 0;
@@ -858,7 +899,7 @@ ivi_hmi_controller_set_panel(struct hmi_controller *hmi_ctrl,
 
 	panel_height = hmi_ctrl->hmi_setting->panel_height;
 
-	dsty = hmi_ctrl->base_layer.height - panel_height;
+	dsty = base_layer->ctrl_layer.height - panel_height;
 
 	ret = ivi_layout_interface->surface_set_destination_rectangle(
 		ivisurf, dstx, dsty, width, panel_height);
@@ -882,7 +923,11 @@ ivi_hmi_controller_set_button(struct hmi_controller *hmi_ctrl,
 			      uint32_t id_surface, int32_t number)
 {
 	struct ivi_layout_surface *ivisurf  = NULL;
-	struct ivi_layout_layer   *ivilayer = hmi_ctrl->base_layer.ivilayer;
+	struct link_hmi_controller_layer *base_layer =
+					wl_container_of(hmi_ctrl->base_layer_list.prev,
+							base_layer,
+							link);
+	struct ivi_layout_layer   *ivilayer = base_layer->ctrl_layer.ivilayer;
 	const int32_t width  = 48;
 	const int32_t height = 48;
 	int32_t ret = 0;
@@ -902,7 +947,7 @@ ivi_hmi_controller_set_button(struct hmi_controller *hmi_ctrl,
 	panel_height = hmi_ctrl->hmi_setting->panel_height;
 
 	dstx = (60 * number) + 15;
-	dsty = (hmi_ctrl->base_layer.height - panel_height) + 5;
+	dsty = (base_layer->ctrl_layer.height - panel_height) + 5;
 
 	ret = ivi_layout_interface->surface_set_destination_rectangle(
 		ivisurf,dstx, dsty, width, height);
@@ -924,12 +969,16 @@ ivi_hmi_controller_set_home_button(struct hmi_controller *hmi_ctrl,
 				   uint32_t id_surface)
 {
 	struct ivi_layout_surface *ivisurf  = NULL;
-	struct ivi_layout_layer   *ivilayer = hmi_ctrl->base_layer.ivilayer;
+	struct link_hmi_controller_layer *base_layer =
+					wl_container_of(hmi_ctrl->base_layer_list.prev,
+							base_layer,
+							link);
+	struct ivi_layout_layer   *ivilayer = base_layer->ctrl_layer.ivilayer;
 	int32_t ret = 0;
 	int32_t size = 48;
 	int32_t panel_height = hmi_ctrl->hmi_setting->panel_height;
-	const int32_t dstx = (hmi_ctrl->base_layer.width - size) / 2;
-	const int32_t dsty = (hmi_ctrl->base_layer.height - panel_height) + 5;
+	const int32_t dstx = (base_layer->ctrl_layer.width - size) / 2;
+	const int32_t dsty = (base_layer->ctrl_layer.height - panel_height) + 5;
 
 	uint32_t *add_surface_id = wl_array_add(&hmi_ctrl->ui_widgets,
 						sizeof(*add_surface_id));
