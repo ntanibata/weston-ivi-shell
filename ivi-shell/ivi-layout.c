@@ -525,8 +525,8 @@ calc_inverse_matrix_transform(const struct weston_matrix *matrix,
  * ivi_rectangle. This can be set to weston_view_set_mask.
  *
  * The mask is computed by following steps
- * - destination rectangle of layer is inversed to surface-local cooodinates
- *   by inversed matrix:m.
+ * - destination rectangle of layer in global coordinates and interfaced within
+ *   a screen is inversed to surface-local cooodinates by inversed matrix:m.
  * - the area is intersected by intersected area between weston_surface and
  *   source rectangle of ivi_surface.
  */
@@ -539,6 +539,7 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 {
 	const struct ivi_layout_surface_properties *sp = &ivisurf->prop;
 	const struct ivi_layout_layer_properties *lp = &ivilayer->prop;
+	struct weston_output *output = ivisurf->surface->output;
 	struct ivi_rectangle weston_surface_rect = { 0,
 						     0,
 						     ivisurf->surface->width,
@@ -559,14 +560,30 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 						     lp->dest_y,
 						     lp->dest_width,
 						     lp->dest_height };
+	struct ivi_rectangle screen_source_rect =  { 0,
+						     0,
+						     output->width,
+						     output->height };
+	struct ivi_rectangle screen_dest_rect =    { output->x,
+						     output->y,
+						     output->width,
+						     output->height };
+	struct ivi_rectangle layer_dest_rect_in_screen =
+						   { lp->dest_x + output->x,
+						     lp->dest_y + output->y,
+						     lp->dest_width,
+						     lp->dest_height };
+
 	struct ivi_rectangle surface_result;
+	struct ivi_rectangle layer_dest_rect_in_screen_intersected;
 
 	/*
 	 * the whole transformation matrix:m from surface-local
 	 * coordinates to global coordinates, which is computed by
 	 * two steps,
 	 * - surface-local coordinates to layer-local coordinates
-	 * - layer-local coordinates to global coordinates
+	 * - layer-local coordinates to screen-local coordinates
+	 * - screen-local coordinates to global coordinates
 	 */
 	calc_transformation_matrix(&surface_source_rect,
 				   &surface_dest_rect,
@@ -576,15 +593,23 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 				   &layer_dest_rect,
 				   lp->orientation, m);
 
+	calc_transformation_matrix(&screen_source_rect,
+				   &screen_dest_rect,
+				   0, m);
+
 	/* this intersected ivi_rectangle would be used for masking
 	 * weston_surface
 	 */
 	ivi_rectangle_intersect(&surface_source_rect, &weston_surface_rect,
 				&surface_result);
 
+	/* outside of screen shall not be displayed */
+	ivi_rectangle_intersect(&layer_dest_rect_in_screen, &screen_dest_rect,
+				&layer_dest_rect_in_screen_intersected);
+
 	/* calc masking area of weston_surface from m */
 	calc_inverse_matrix_transform(m,
-				      &layer_dest_rect,
+				      &layer_dest_rect_in_screen_intersected,
 				      &surface_result,
 				      result);
 }
@@ -597,9 +622,8 @@ update_prop(struct ivi_layout_layer *ivilayer,
 	struct ivi_rectangle r;
 	bool can_calc = true;
 
-	if (!ivilayer->event_mask && !ivisurf->event_mask) {
+	if ((!ivilayer->event_mask && !ivisurf->event_mask) || ivisurf->surface->output == NULL)
 		return;
-	}
 
 	update_opacity(ivilayer, ivisurf);
 
