@@ -621,6 +621,8 @@ registry_handle_global(void *data, struct wl_registry *registry, uint32_t name,
 
 		ivi_hmi_controller_add_listener(p_wlCtx->hmiCtrl,
 				&hmi_controller_listener, p_wlCtx);
+	} else if (!strcmp(interface, "wl_output")) {
+		p_wlCtx->hmi_setting->screen_num++;
 	}
 }
 
@@ -1257,9 +1259,6 @@ int main(int argc, char **argv)
 		fprintf(stderr, "WL_SHM_FORMAT_XRGB32 not available\n");
 		exit(1);
 	}
-
-	ivi_hmi_controller_get_screen_num(wlCtxCommon.hmiCtrl);
-	wl_display_dispatch(wlCtxCommon.wlDisplay);
 
 	wlCtx_BackGround = MEM_ALLOC(hmi_setting->screen_num * sizeof(struct wlContextStruct));
 	wlCtx_Panel= MEM_ALLOC(hmi_setting->screen_num * sizeof(struct wlContextStruct));
