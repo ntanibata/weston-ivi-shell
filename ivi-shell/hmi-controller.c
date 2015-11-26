@@ -343,26 +343,17 @@ mode_divided_into_sidebyside(struct hmi_controller *hmi_ctrl,
 			ivisurf = surfaces[idx];
 			new_order[i] = ivisurf;
 
-			ivi_layout_interface->layer_set_render_order(ivilayer, new_order, i + 1);
 			ivi_layout_interface->surface_set_transition(ivisurf,
 					IVI_LAYOUT_TRANSITION_VIEW_DEFAULT,
 					duration);
 			ivi_layout_interface->surface_set_visibility(ivisurf, true);
 
-			if (i == 0) {
-				ivi_layout_interface->surface_set_destination_rectangle(ivisurf,
-								0, 0,
+			ivi_layout_interface->surface_set_destination_rectangle(ivisurf,
+								i * surface_width, 0,
 								surface_width,
 								surface_height);
-
-			} else {
-				ivi_layout_interface->surface_set_destination_rectangle(ivisurf,
-								surface_width, 0,
-								surface_width,
-								surface_height);
-
-			}
 		}
+		ivi_layout_interface->layer_set_render_order(ivilayer, new_order, i);
 	}
 
 	for (i = idx; i < surf_num; i++) {
