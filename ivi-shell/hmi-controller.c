@@ -1711,24 +1711,13 @@ ivi_hmi_controller_home(struct wl_client *client,
 }
 
 /**
- * Returns the screen number.
- */
-static void
-ivi_hmi_controller_get_screen_num(struct wl_client *client, struct wl_resource *resource)
-{
-	struct hmi_controller *hmi_ctrl = wl_resource_get_user_data(resource);
-	ivi_hmi_controller_send_screen_num(resource, hmi_ctrl->screen_num);
-}
-
-/**
  * binding ivi-hmi-controller implementation
  */
 static const struct ivi_hmi_controller_interface ivi_hmi_controller_implementation = {
 	ivi_hmi_controller_UI_ready,
 	ivi_hmi_controller_workspace_control,
 	ivi_hmi_controller_switch_mode,
-	ivi_hmi_controller_home,
-	ivi_hmi_controller_get_screen_num
+	ivi_hmi_controller_home
 };
 
 static void
