@@ -113,6 +113,7 @@ struct ui_setting {
 
 struct hmi_controller {
 	struct hmi_server_setting          *hmi_setting;
+	/* List of struct hmi_controller_layer */
 	struct wl_list                      base_layer_list;
 	struct hmi_controller_layer         application_layer;
 	struct hmi_controller_layer         workspace_background_layer;
@@ -730,7 +731,6 @@ hmi_controller_create(struct weston_compositor *ec)
 	struct link_hmi_controller_layer *base_layer = NULL;
 
 	int32_t i = 0;
-	int32_t idx = 0;
 
 	wl_array_init(&hmi_ctrl->ui_widgets);
 	hmi_ctrl->layout_mode = IVI_HMI_CONTROLLER_LAYOUT_MODE_TILING;
@@ -748,9 +748,9 @@ hmi_controller_create(struct weston_compositor *ec)
 
 	/* init base ivi_layer*/
 	wl_list_init(&hmi_ctrl->base_layer_list);
-	idx = hmi_ctrl->screen_num - 1;
 	for (i = 0; i < hmi_ctrl->screen_num; i++) {
-		ivi_layout_interface->get_screen_resolution(hmi_ctrl->pp_screen[idx], &screen_width,
+		ivi_layout_interface->get_screen_resolution(get_screen(i, hmi_ctrl),
+						 &screen_width,
 						 &screen_height);
 
 		base_layer = MEM_ALLOC(1 * sizeof(struct link_hmi_controller_layer));
@@ -763,8 +763,7 @@ hmi_controller_create(struct weston_compositor *ec)
 						(i * hmi_ctrl->hmi_setting->base_layer_id_offset);
 		wl_list_insert(&hmi_ctrl->base_layer_list, &base_layer->link);
 
-		create_layer(hmi_ctrl->pp_screen[idx], &base_layer->ctrl_layer);
-		idx--;
+		create_layer(get_screen(i, hmi_ctrl), &base_layer->ctrl_layer);
 	}
 
 	ivi_layout_interface->get_screen_resolution(iviscrn, &screen_width,
