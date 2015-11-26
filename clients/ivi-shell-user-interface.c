@@ -156,7 +156,6 @@ hmi_homescreen_setting {
 	char		*cursor_theme;
 	int32_t		cursor_size;
 	uint32_t	transition_duration;
-	int32_t		screen_num;
 };
 
 static void *
@@ -584,18 +583,8 @@ ivi_hmi_controller_workspace_end_control(void *data,
 	}
 }
 
-static void
-ivi_hmi_controller_screen_num(void *data,
-			      struct ivi_hmi_controller *hmi_ctrl,
-			      int32_t num)
-{
-	struct wlContextCommon *pCtx = data;
-	pCtx->hmi_setting->screen_num = num;
-}
-
 static const struct ivi_hmi_controller_listener hmi_controller_listener = {
-	ivi_hmi_controller_workspace_end_control,
-	ivi_hmi_controller_screen_num
+	ivi_hmi_controller_workspace_end_control
 };
 
 /**
