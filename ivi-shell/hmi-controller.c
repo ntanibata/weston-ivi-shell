@@ -271,9 +271,6 @@ mode_divided_into_tiling(struct hmi_controller *hmi_ctrl,
 				surface_y = (int32_t)surface_height;
 			}
 
-			ivi_layout_interface->layer_set_render_order(ivilayer,
-					new_order,
-					i + 1);
 			ivi_layout_interface->surface_set_transition(ivisurf,
 					IVI_LAYOUT_TRANSITION_VIEW_DEFAULT,
 					duration);
@@ -284,11 +281,11 @@ mode_divided_into_tiling(struct hmi_controller *hmi_ctrl,
 					(int32_t)surface_height);
 
 		}
-		if (i >= 0) {
-			ivi_layout_interface->layer_set_transition(ivilayer,
+		ivi_layout_interface->layer_set_render_order(ivilayer, new_order, i);
+
+		ivi_layout_interface->layer_set_transition(ivilayer,
 					IVI_LAYOUT_TRANSITION_LAYER_VIEW_ORDER,
 					duration);
-		}
 	}
 	for (i = idx; i < surf_num; i++)
 		ivi_layout_interface->surface_set_visibility(surfaces[i], false);
