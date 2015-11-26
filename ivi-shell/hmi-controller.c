@@ -618,8 +618,7 @@ set_notification_configure_surface(struct ivi_layout_surface *ivisurf,
 	struct weston_surface *surface;
 	struct ivi_layout_surface **ivisurfs;
 	int32_t length = 0;
-	int32_t i = 0;
-	int32_t j;
+	int32_t i;
 
 	/* return if the surface is not application content */
 	if (is_surf_in_ui_widget(hmi_ctrl, ivisurf)) {
@@ -645,8 +644,8 @@ set_notification_configure_surface(struct ivi_layout_surface *ivisurf,
 		application_layer = layer_link->ctrl_layer.ivilayer;
 		ivi_layout_interface->get_surfaces_on_layer(application_layer,
 							&length, &ivisurfs);
-		for (j = 0; j < length; j++) {
-			if (ivisurf == ivisurfs[j]) {
+		for (i = 0; i < length; i++) {
+			if (ivisurf == ivisurfs[i]) {
 				/*
 				 * if it is non new invoked application, just call
 				 * commit_changes to apply source_rectangle.
@@ -655,7 +654,6 @@ set_notification_configure_surface(struct ivi_layout_surface *ivisurf,
 				return;
 			}
 		}
-		i++;
 	}
 
 	switch_mode(hmi_ctrl, hmi_ctrl->layout_mode);
@@ -721,12 +719,14 @@ hmi_controller_destroy(struct wl_listener *listener, void *data)
 		free(link);
 	}
 
+	/* clear base_layer_list */
 	wl_list_for_each_safe(ctrl_layer_link, ctrl_layer_next,
 			      &hmi_ctrl->base_layer_list, link) {
 		wl_list_remove(&ctrl_layer_link->link);
 		free(ctrl_layer_link);
 	}
 
+	/* clear application_layer_list */
 	wl_list_for_each_safe(ctrl_layer_link, ctrl_layer_next,
 			      &hmi_ctrl->application_layer_list, link) {
 		wl_list_remove(&ctrl_layer_link->link);
@@ -806,9 +806,9 @@ hmi_controller_create(struct weston_compositor *ec)
 
 	/* init application ivi_layer */
 	wl_list_init(&hmi_ctrl->application_layer_list);
-	idx = hmi_ctrl->screen_num - 1;
 	for (i = 0; i < hmi_ctrl->screen_num; i++) {
-		ivi_layout_interface->get_screen_resolution(hmi_ctrl->pp_screen[idx], &screen_width,
+		ivi_layout_interface->get_screen_resolution(get_screen(i, hmi_ctrl),
+						 &screen_width,
 						 &screen_height);
 
 		application_layer = MEM_ALLOC(1 * sizeof(struct link_hmi_controller_layer));
@@ -821,8 +821,7 @@ hmi_controller_create(struct weston_compositor *ec)
 						(i * hmi_ctrl->hmi_setting->base_layer_id_offset);
 		wl_list_insert(&hmi_ctrl->application_layer_list, &application_layer->link);
 
-		create_layer(hmi_ctrl->pp_screen[idx], &application_layer->ctrl_layer);
-		idx--;
+		create_layer(get_screen(i, hmi_ctrl), &application_layer->ctrl_layer);
 	}
 
 	ivi_layout_interface->get_screen_resolution(iviscrn, &screen_width,
