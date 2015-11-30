@@ -532,6 +532,7 @@ calc_inverse_matrix_transform(const struct weston_matrix *matrix,
  */
 static void
 calc_surface_to_global_matrix_and_mask_to_weston_surface(
+	struct ivi_layout_screen  *iviscrn,
 	struct ivi_layout_layer *ivilayer,
 	struct ivi_layout_surface *ivisurf,
 	struct weston_matrix *m,
@@ -539,6 +540,7 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 {
 	const struct ivi_layout_surface_properties *sp = &ivisurf->prop;
 	const struct ivi_layout_layer_properties *lp = &ivilayer->prop;
+	struct weston_output *output = iviscrn->output;
 	struct ivi_rectangle weston_surface_rect = { 0,
 						     0,
 						     ivisurf->surface->width,
@@ -559,6 +561,14 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 						     lp->dest_y,
 						     lp->dest_width,
 						     lp->dest_height };
+	struct ivi_rectangle screen_source_rect =  { 0,
+						     0,
+						     output->width,
+						     output->height };
+	struct ivi_rectangle screen_dest_rect =    { output->x,
+						     output->y,
+						     output->width,
+						     output->height };
 	struct ivi_rectangle surface_result;
 
 	/*
@@ -566,7 +576,9 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 	 * coordinates to global coordinates, which is computed by
 	 * two steps,
 	 * - surface-local coordinates to layer-local coordinates
-	 * - layer-local coordinates to global coordinates
+	 * - layer-local coordinates to a single screen-local coordinates
+	 * - a single screen-local coordinates to multi screen coordinates,
+         *   which is global coordinates.
 	 */
 	calc_transformation_matrix(&surface_source_rect,
 				   &surface_dest_rect,
@@ -575,6 +587,10 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 	calc_transformation_matrix(&layer_source_rect,
 				   &layer_dest_rect,
 				   lp->orientation, m);
+
+	calc_transformation_matrix(&screen_source_rect,
+				   &screen_dest_rect,
+				   0, m);
 
 	/* this intersected ivi_rectangle would be used for masking
 	 * weston_surface
