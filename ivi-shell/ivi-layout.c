@@ -518,15 +518,24 @@ calc_inverse_matrix_transform(const struct weston_matrix *matrix,
 
 /**
  * This computes the whole transformation matrix:m from surface-local
- * coordinates to global coordinates. It is assumed that
- * weston_view::geometry.{x,y} are zero.
+ * coordinates to multi screens coordinate, which is global coordinates.
+ * It is assumed that weston_view::geometry.{x,y} are zero.
  *
  * Additionally, this computes the mask on surface-local coordinates as a
  * ivi_rectangle. This can be set to weston_view_set_mask.
  *
  * The mask is computed by following steps
- * - destination rectangle of layer is inversed to surface-local cooodinates
- *   by inversed matrix:m.
+ * - destination rectangle of layer is tansformed to multi screen coordinate,
+ *   global coordinates. This is done by adding weston_output.{x,y} in simple
+ *   because there is no scaled and rotated transformation.
+ * - destination rectangle of layer in multi screens coordinate needs to be
+ *   intersected inside of a screen the layer is assigned to. This is because
+ *   overlapped region of weston surface in another screen shall not be
+ *   displayed according to ivi use case.
+ * - destination rectangle of layer
+ *   - in multi screen coordinates,
+ *   - and intersected inside of an assigned screen,
+ *   is inversed to surface-local cooodinates by inversed matrix:m.
  * - the area is intersected by intersected area between weston_surface and
  *   source rectangle of ivi_surface.
  */
@@ -561,6 +570,7 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 						     lp->dest_y,
 						     lp->dest_width,
 						     lp->dest_height };
+	/* For transforming a layer-local coordinate to multi screen coordinates */
 	struct ivi_rectangle screen_source_rect =  { 0,
 						     0,
 						     output->width,
@@ -569,7 +579,15 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 						     output->y,
 						     output->width,
 						     output->height };
+	/* Destination rectangle of a layer in multi screen coordinates */
+	struct ivi_rectangle layer_dest_rect_in_screen =
+						   { lp->dest_x + output->x,
+						     lp->dest_y + output->y,
+						     lp->dest_width,
+						     lp->dest_height };
+
 	struct ivi_rectangle surface_result;
+	struct ivi_rectangle layer_dest_rect_in_screen_intersected;
 
 	/*
 	 * the whole transformation matrix:m from surface-local
@@ -598,9 +616,16 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 	ivi_rectangle_intersect(&surface_source_rect, &weston_surface_rect,
 				&surface_result);
 
+	/*
+	 * destination rectangle of layer in multi screens coordinate
+	 * is intersected to avoid displaying outside of an assigned screen.
+	 */
+	ivi_rectangle_intersect(&layer_dest_rect_in_screen, &screen_dest_rect,
+				&layer_dest_rect_in_screen_intersected);
+
 	/* calc masking area of weston_surface from m */
 	calc_inverse_matrix_transform(m,
-				      &layer_dest_rect,
+				      &layer_dest_rect_in_screen_intersected,
 				      &surface_result,
 				      result);
 }
@@ -638,7 +663,7 @@ update_prop(struct ivi_layout_screen  *iviscrn,
 		weston_matrix_init(&ivisurf->transform.matrix);
 
 		calc_surface_to_global_matrix_and_mask_to_weston_surface(
-			ivilayer, ivisurf, &ivisurf->transform.matrix, &r);
+			iviscrn, ivilayer, ivisurf, &ivisurf->transform.matrix, &r);
 
 		weston_view_set_mask(tmpview, r.x, r.y, r.width, r.height);
 		wl_list_insert(&tmpview->geometry.transformation_list,
