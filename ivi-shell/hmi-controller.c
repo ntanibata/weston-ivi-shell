@@ -619,6 +619,7 @@ hmi_controller_fade_run(struct hmi_controller *hmi_ctrl, uint32_t is_fade_in,
  * Internal method to create ivi_layer with hmi_controller_layer and
  * add to a ivi_screen
  */
+#define MARGIN_LAYER 100
 static void
 create_layer(struct ivi_layout_screen *iviscrn,
 	     struct hmi_controller_layer *layer)
@@ -627,13 +628,17 @@ create_layer(struct ivi_layout_screen *iviscrn,
 
 	layer->ivilayer =
 		ivi_layout_interface->layer_create_with_dimension(layer->id_layer,
-						       layer->width,
-						       layer->height);
+						       layer->width + MARGIN_LAYER,
+						       layer->height + MARGIN_LAYER);
 	assert(layer->ivilayer != NULL);
 
 	ret = ivi_layout_interface->screen_add_layer(iviscrn, layer->ivilayer);
 	assert(!ret);
 
+	ret = ivi_layout_interface->layer_set_source_rectangle(layer->ivilayer,
+							 layer->x, layer->y,
+							 layer->width,
+							 layer->height);
 	ret = ivi_layout_interface->layer_set_destination_rectangle(layer->ivilayer,
 							 layer->x, layer->y,
 							 layer->width,
@@ -1492,6 +1497,11 @@ move_workspace_grab_end(struct move_grab *move, struct wl_resource* resource,
 	ivi_layout_interface->layer_set_transition(layer,
 					IVI_LAYOUT_TRANSITION_LAYER_MOVE,
 					duration);
+
+	ivi_layout_interface->layer_set_source_rectangle(layer,
+				0, 0,
+				hmi_ctrl->workspace_layer.width,
+				hmi_ctrl->workspace_layer.height);
 	ivi_layout_interface->layer_set_destination_rectangle(layer,
 				end_pos, pos_y,
 				hmi_ctrl->workspace_layer.width,
