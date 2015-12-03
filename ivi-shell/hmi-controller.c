@@ -409,7 +409,7 @@ mode_random_replace(struct hmi_controller *hmi_ctrl,
 		    int32_t surface_length,
 		    struct wl_list *layer_list)
 {
-	struct link_hmi_controller_layer *application_layer = NULL;
+	struct hmi_controller_layer *application_layer = NULL;
 	struct hmi_controller_layer **layers = NULL;
 	int32_t surface_width  = 0;
 	int32_t surface_height = 0;
@@ -423,7 +423,7 @@ mode_random_replace(struct hmi_controller *hmi_ctrl,
 	layers = MEM_ALLOC(sizeof(*layers) * hmi_ctrl->screen_num);
 
 	wl_list_for_each(application_layer, layer_list, link) {
-		layers[layer_idx] = &application_layer->ctrl_layer;
+		layers[layer_idx] = application_layer;
 		ivi_layout_interface->layer_set_render_order(layers[layer_idx]->ivilayer,
 							NULL, 0);
 		layer_idx++;
