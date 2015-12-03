@@ -381,18 +381,14 @@ mode_fullscreen_someone(struct hmi_controller *hmi_ctrl,
 
 		surfaces[surf_num++] = ivisurf;
 	}
-	ivi_layout_interface->layer_set_render_order(application_layer->ctrl_layer.ivilayer,
-							 surfaces, surf_num);
+	ivi_layout_interface->layer_set_render_order(layer->ivilayer, surfaces, surf_num);
 
 	for (i = 0; i < surf_num; i++) {
 		ivisurf = surfaces[i];
 
 		if ((i > 0) && (i < hmi_ctrl->screen_num)) {
-			application_layer = wl_container_of(application_layer->link.prev,
-							    application_layer, link);
-			ivi_layout_interface->layer_set_render_order(
-							application_layer->ctrl_layer.ivilayer,
-							&ivisurf, 1);
+			layer = wl_container_of(layer->link.prev, layer, link);
+			ivi_layout_interface->layer_set_render_order(layer->ivilayer, &ivisurf, 1);
 		}
 
 		ivi_layout_interface->surface_set_transition(ivisurf,
