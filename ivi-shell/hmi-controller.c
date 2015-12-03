@@ -318,11 +318,11 @@ mode_divided_into_sidebyside(struct hmi_controller *hmi_ctrl,
 		surfaces[surf_num++] = ivisurf;
 	}
 
-	wl_list_for_each_reverse(application_layer, layer_list, link) {
+	wl_list_for_each_reverse(layer, layer_list, link) {
 		if (idx >= surf_num)
 			break;
 
-		ivilayer = application_layer->ctrl_layer.ivilayer;
+		ivilayer = layer->ivilayer;
 
 		for (i = 0; i < 2; i++, idx++) {
 			if (idx >= surf_num)
